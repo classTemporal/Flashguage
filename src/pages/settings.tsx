@@ -38,6 +38,7 @@ interface SettingsData {
   theme?: string;
   dailyGoal?: number;
   reviewLimit?: number;
+  sessionBreakMinutes?: number;
   notifications?: boolean;
   dailyReminder?: boolean;
   weeklyEmail?: boolean;
@@ -96,6 +97,7 @@ export default function SettingsPage() {
   // Study Settings state
   const [dailyGoal, setDailyGoal] = useState<number>(20);
   const [reviewLimit, setReviewLimit] = useState<number>(20);
+  const [sessionBreakMinutes, setSessionBreakMinutes] = useState<number>(5);
   const [savingStudy, setSavingStudy] = useState(false);
 
   // Notification Settings state
@@ -148,6 +150,9 @@ export default function SettingsPage() {
       }
       if (typeof apiSettings.reviewLimit === "number") {
         setReviewLimit(apiSettings.reviewLimit);
+      }
+      if (typeof apiSettings.sessionBreakMinutes === "number") {
+        setSessionBreakMinutes(apiSettings.sessionBreakMinutes);
       }
       if (typeof apiSettings.dailyReminder === "boolean") {
         setDailyReminder(apiSettings.dailyReminder);
@@ -416,6 +421,7 @@ export default function SettingsPage() {
       const payload = {
         dailyGoal: Number(dailyGoal) || 20,
         reviewLimit: Number(reviewLimit) || 20,
+        sessionBreakMinutes: Number(sessionBreakMinutes) || 5,
       };
 
       const res = await fetch("/api/settings", {
@@ -925,6 +931,10 @@ export default function SettingsPage() {
             </p>
 
             <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground leading-relaxed">
+                💡 <strong>How study limits work:</strong> <strong>Daily Goal</strong> is your cumulative target for the entire day. <strong>Review Limit</strong> sets the size of each individual study batch. Editing your Daily Goal does not alter your Review Limit.
+              </div>
+
               <div>
                 <label htmlFor="daily-goal" className="block text-sm font-medium text-foreground mb-1">
                   Daily Study Goal (cards)
@@ -939,13 +949,13 @@ export default function SettingsPage() {
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Target number of new cards to study each day.
+                  Overall target number of cards you aim to study across the entire day.
                 </p>
               </div>
 
               <div>
                 <label htmlFor="review-limit" className="block text-sm font-medium text-foreground mb-1">
-                  Review Limit (cards)
+                  Review Limit per Session (cards)
                 </label>
                 <input
                   id="review-limit"
@@ -957,7 +967,25 @@ export default function SettingsPage() {
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Maximum number of reviews per session.
+                  Maximum cards served in a single study session batch to prevent mental fatigue.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="break-minutes" className="block text-sm font-medium text-foreground mb-1">
+                  Session Break Duration (minutes)
+                </label>
+                <input
+                  id="break-minutes"
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={sessionBreakMinutes}
+                  onChange={(e) => setSessionBreakMinutes(Number(e.target.value))}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Recommended rest time after finishing a session batch before starting the next one.
                 </p>
               </div>
 

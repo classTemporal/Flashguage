@@ -167,6 +167,43 @@ function GoalProgress({
   const [isEditing, setIsEditing] = useState(false);
   const [customGoal, setCustomGoal] = useState(goal);
   const [isSaving, setIsSaving] = useState(false);
+  const [cooldownSecs, setCooldownSecs] = useState<number>(0);
+
+  useEffect(() => {
+    const updateCooldown = () => {
+      try {
+        const raw = localStorage.getItem(`flashguage_cooldown_${activeLanguage}`);
+        if (raw) {
+          const diff = Math.max(0, Math.ceil((parseInt(raw, 10) - Date.now()) / 1000));
+          setCooldownSecs(diff);
+          return;
+        }
+      } catch {}
+      setCooldownSecs(0);
+    };
+
+    updateCooldown();
+    const interval = setInterval(updateCooldown, 1000);
+    window.addEventListener("storage", updateCooldown);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", updateCooldown);
+    };
+  }, [activeLanguage]);
+
+  const handleSkipBreak = () => {
+    try {
+      localStorage.removeItem(`flashguage_cooldown_${activeLanguage}`);
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+    setCooldownSecs(0);
+  };
+
+  const formatTimer = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
 
   const goalPresets = [5, 10, 15, 20, 30, 50];
 
@@ -200,14 +237,21 @@ function GoalProgress({
               Target: {goal} cards today
             </p>
           </div>
-          <span className="text-sm font-bold text-foreground">
-            {current} / {goal}
-          </span>
+          <div className="text-right">
+            <span className="text-sm font-bold text-foreground">
+              {current} / {goal}
+            </span>
+            <p className="text-[10px] text-muted-foreground">Daily Target</p>
+          </div>
         </div>
 
-        {/* Inline Goal Editor */}
+        {/* Inline Goal Editor with Clear Explanation of Review Limit */}
         {isEditing && (
-          <div className="mt-3 p-3 rounded-xl border border-border bg-muted/30 space-y-2.5 animate-in fade-in">
+          <div className="mt-3 p-3.5 rounded-xl border border-border bg-muted/30 space-y-3 animate-in fade-in">
+            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs text-muted-foreground leading-relaxed">
+              💡 <strong>Note:</strong> Daily Goal sets your overall daily target. Editing this goal does <strong>not</strong> change your per-session <strong>Review Limit</strong> (batch size). Review Limit and session break cooldown can be adjusted in <Link href="/settings" className="text-primary font-semibold underline">Settings</Link>.
+            </div>
+
             <p className="text-xs text-muted-foreground font-medium">Select or enter your daily card target:</p>
             <div className="flex flex-wrap gap-1.5">
               {goalPresets.map((val) => (
@@ -247,12 +291,45 @@ function GoalProgress({
           </div>
         )}
 
+        {/* Live Session Break Cooldown Countdown Timer */}
+        {cooldownSecs > 0 && (
+          <div className="mt-3.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">☕</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    Brain Break Active
+                  </span>
+                  <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded text-xs">
+                    ⏳ {formatTimer(cooldownSecs)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Resting memory pathways between review batches. Next batch unlocks shortly.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSkipBreak}
+              className="self-end sm:self-center px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs transition-colors shrink-0"
+            >
+              ⚡ Skip Break
+            </button>
+          </div>
+        )}
+
         <div className="mt-5 h-3.5 w-full rounded-full bg-muted/80 overflow-hidden p-0.5 border border-border/50">
           <div
             className="h-full rounded-full bg-gradient-to-r from-primary to-indigo-500 transition-all duration-500 ease-out"
             style={{ width: `${clampedPct}%` }}
           />
         </div>
+
+        <p className="text-[11px] text-muted-foreground mt-2">
+          ℹ️ Editing Daily Goal does not modify your Review Limit per batch (configured in Settings).
+        </p>
       </div>
 
       <div className="mt-5 flex items-center justify-between text-xs font-medium">
@@ -274,6 +351,20 @@ function GoalProgress({
                 + Create Deck
               </Button>
             )}
+          </div>
+        ) : cooldownSecs > 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600 dark:text-amber-400 font-mono font-bold text-xs">
+              ⏳ Break ({formatTimer(cooldownSecs)})
+            </span>
+            <Button
+              href={`/study?lang=${encodeURIComponent(activeLanguage)}`}
+              as="link"
+              size="sm"
+              className="h-6 text-[11px] px-2.5 py-0 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
+            >
+              Study Now →
+            </Button>
           </div>
         ) : dueCount === 0 ? (
           <div className="flex items-center gap-2">

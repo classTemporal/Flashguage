@@ -290,6 +290,8 @@ function CompletionScreen({
   totalReviewed,
   streak,
   againCount,
+  reviewLimit = 20,
+  sessionBreakMinutes = 5,
   onAdvanceDay,
   isAdvancing,
   isCramMode,
@@ -300,6 +302,8 @@ function CompletionScreen({
   totalReviewed: number;
   streak: number;
   againCount: number;
+  reviewLimit?: number;
+  sessionBreakMinutes?: number;
   onAdvanceDay: () => void;
   isAdvancing: boolean;
   isCramMode: boolean;
@@ -309,6 +313,41 @@ function CompletionScreen({
   const backUrl = deckId === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deckId}`;
   const backLabel = deckId === "all" ? `Back to ${currentLang.name} Dashboard` : "Back to Deck";
 
+  const [remainingSecs, setRemainingSecs] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(`flashguage_cooldown_${activeLanguage}`);
+      if (raw) return Math.max(0, Math.ceil((parseInt(raw, 10) - Date.now()) / 1000));
+    } catch {}
+    return sessionBreakMinutes * 60;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        const raw = localStorage.getItem(`flashguage_cooldown_${activeLanguage}`);
+        if (raw) {
+          const diff = Math.max(0, Math.ceil((parseInt(raw, 10) - Date.now()) / 1000));
+          setRemainingSecs(diff);
+        }
+      } catch {}
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeLanguage]);
+
+  const formatTimer = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const handleSkipBreak = () => {
+    try {
+      localStorage.removeItem(`flashguage_cooldown_${activeLanguage}`);
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+    window.location.reload();
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
       <div className="relative mb-6">
@@ -316,19 +355,44 @@ function CompletionScreen({
       </div>
 
       <span className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-        {isCramMode ? "Free Practice Complete" : "SM-2 Review Completed"}
+        {isCramMode ? "Free Practice Complete" : "Session Batch Completed 🎉"}
       </span>
 
       <h1 className="text-3xl sm:text-4xl font-black text-foreground mb-2 tracking-tight">
         Great study session!
       </h1>
-      <p className="text-muted-foreground mb-8 max-w-md text-sm">
-        You reviewed cards from <strong className="text-foreground">{deckName}</strong>.
-        Active recall strengthens long-term memory pathways.
+      <p className="text-muted-foreground mb-6 max-w-md text-sm">
+        You reviewed <strong className="text-foreground">{totalReviewed}</strong> cards from <strong className="text-foreground">{deckName}</strong>.
       </p>
 
+      {/* Brain Break Cooldown Card */}
+      {!isCramMode && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 max-w-sm w-full mb-6 text-center space-y-2.5 shadow-sm">
+          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+            <span>☕</span>
+            <span>Brain Break Active (Cooldown)</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            You completed your study batch of <strong>{totalReviewed}</strong> card{totalReviewed === 1 ? "" : "s"} (session limit: {reviewLimit}). Take a short <strong>{sessionBreakMinutes}-minute</strong> cognitive break to prevent mental fatigue and consolidate memory before your next batch.
+          </p>
+
+          {remainingSecs > 0 ? (
+            <div className="pt-2">
+              <span className="text-3xl font-black text-amber-600 dark:text-amber-400 tracking-wider font-mono block">
+                ⏳ {formatTimer(remainingSecs)}
+              </span>
+              <p className="text-[10px] text-muted-foreground mt-1">until your next study batch</p>
+            </div>
+          ) : (
+            <div className="pt-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+              🎉 Break complete! You are ready for your next study batch.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stats summary */}
-      <div className="grid grid-cols-3 gap-3 w-full max-w-sm mb-8">
+      <div className="grid grid-cols-3 gap-3 w-full max-w-sm mb-6">
         <div className="rounded-2xl bg-card border border-border p-3.5 flex flex-col items-center">
           <span className="text-xs text-muted-foreground font-semibold">Reviewed</span>
           <span className="text-2xl font-black text-foreground mt-1">{totalReviewed}</span>
@@ -346,14 +410,6 @@ function CompletionScreen({
         </div>
       </div>
 
-      {/* Next review info */}
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 max-w-sm w-full mb-8 text-xs text-muted-foreground leading-relaxed text-left">
-        <p className="font-bold text-foreground mb-1 flex items-center gap-1.5">
-          <span>📈</span> Spaced Repetition Schedule
-        </p>
-        Mastered cards have their review intervals increased so you don&apos;t waste time over-practicing. Cards that need reinforcement will return sooner.
-      </div>
-
       {/* Action buttons */}
       <div className="flex flex-col gap-2.5 w-full max-w-sm">
         <Link
@@ -362,6 +418,16 @@ function CompletionScreen({
         >
           {backLabel}
         </Link>
+
+        {remainingSecs > 0 && !isCramMode && (
+          <button
+            type="button"
+            onClick={handleSkipBreak}
+            className="w-full rounded-2xl border border-amber-500/40 bg-amber-500/10 py-3 text-amber-600 dark:text-amber-400 font-semibold hover:bg-amber-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            <span>⚡</span> Skip Break & Start Next Batch Now
+          </button>
+        )}
 
         <button
           onClick={onAdvanceDay}
@@ -467,12 +533,33 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     ? lang.trim()
     : (cookieLang || "en");
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { settings: true },
+  });
+
+  let reviewLimit = 20;
+  let sessionBreakMinutes = 5;
+  if (user?.settings) {
+    try {
+      const parsed = JSON.parse(user.settings as string);
+      if (typeof parsed.reviewLimit === "number" && parsed.reviewLimit > 0) {
+        reviewLimit = parsed.reviewLimit;
+      }
+      if (typeof parsed.sessionBreakMinutes === "number" && parsed.sessionBreakMinutes > 0) {
+        sessionBreakMinutes = parsed.sessionBreakMinutes;
+      }
+    } catch {}
+  }
+
   if (deckId === "all") {
     return {
       props: {
         session,
         deck: { id: "all", name: "All Decks (Daily Review)", targetLanguage: effectiveLang },
         lang: effectiveLang,
+        reviewLimit,
+        sessionBreakMinutes,
       },
     };
   }
@@ -488,6 +575,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       session,
       deck: { id: deck.id, name: deck.name, targetLanguage: deck.targetLanguage || effectiveLang },
       lang: deck.targetLanguage || effectiveLang,
+      reviewLimit,
+      sessionBreakMinutes,
     },
   };
 };
@@ -497,9 +586,13 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 export default function StudySessionPage({
   deck,
   lang: initialLang,
+  reviewLimit = 20,
+  sessionBreakMinutes = 5,
 }: {
   deck: { id: string; name: string; targetLanguage?: string };
   lang?: string;
+  reviewLimit?: number;
+  sessionBreakMinutes?: number;
 }) {
   const router = useRouter();
   const { deckId, mode, lang: queryLang } = router.query;
@@ -542,7 +635,7 @@ export default function StudySessionPage({
 
   const effectiveDeckId = deck?.id || (typeof deckId === "string" ? deckId : "");
   const swrUrl = effectiveDeckId
-    ? `/api/reviews/due?deckId=${effectiveDeckId}${isCramMode ? "&mode=all" : ""}${
+    ? `/api/reviews/due?deckId=${effectiveDeckId}${isCramMode ? "&mode=all" : `&limit=${reviewLimit}`}${
         effectiveDeckId === "all" ? `&lang=${encodeURIComponent(activeLanguage)}` : ""
       }`
     : null;
@@ -563,6 +656,22 @@ export default function StudySessionPage({
       setCompleted(true);
     }
   }, [currentIndex, queue, queueInitialized]);
+
+  // Batch completion cooldown effect
+  useEffect(() => {
+    if (completed && !isCramMode && queue.length > 0) {
+      const cooldownKey = `flashguage_cooldown_${activeLanguage}`;
+      try {
+        const existing = localStorage.getItem(cooldownKey);
+        if (!existing || parseInt(existing, 10) <= Date.now()) {
+          const cooldownMs = (sessionBreakMinutes || 5) * 60 * 1000;
+          const cooldownEnd = Date.now() + cooldownMs;
+          localStorage.setItem(cooldownKey, String(cooldownEnd));
+          window.dispatchEvent(new Event("storage"));
+        }
+      } catch {}
+    }
+  }, [completed, isCramMode, queue.length, sessionBreakMinutes, activeLanguage]);
 
   useEffect(() => {
     if (error) showToast("Error loading cards for study", "error");
@@ -827,6 +936,8 @@ export default function StudySessionPage({
         totalReviewed={totalReviewed}
         streak={bestStreak}
         againCount={againCount}
+        reviewLimit={reviewLimit}
+        sessionBreakMinutes={sessionBreakMinutes}
         onAdvanceDay={handleAdvanceDay}
         isAdvancing={isAdvancing}
         isCramMode={isCramMode}

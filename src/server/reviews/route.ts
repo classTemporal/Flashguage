@@ -146,6 +146,13 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
     // New cards come first, then due reviews ordered by due date
     const combined = [...newCardReviews, ...dueReviews];
 
+    if (req.query.limit) {
+      const limitNum = Number(req.query.limit);
+      if (limitNum > 0) {
+        return res.status(200).json(combined.slice(0, limitNum));
+      }
+    }
+
     return res.status(200).json(combined);
   } catch (error) {
     console.error("Get due reviews error:", error);
