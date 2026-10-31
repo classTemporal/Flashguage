@@ -9,6 +9,7 @@ interface ImagePickerProps {
   wordContext?: string;
   searchQuery?: string;
   definitionContext?: string;
+  exampleContext?: string;
   initialCandidates?: string[];
 }
 
@@ -18,6 +19,7 @@ export function ImagePicker({
   wordContext,
   searchQuery,
   definitionContext,
+  exampleContext,
   initialCandidates = [],
 }: ImagePickerProps) {
   const { showToast } = useToast();
@@ -118,6 +120,7 @@ export function ImagePicker({
         body: JSON.stringify({
           query,
           definition: overrideQuery ? undefined : definitionContext?.trim() || undefined,
+          example: overrideQuery ? undefined : exampleContext?.trim() || undefined,
           page: targetPage,
         }),
       });

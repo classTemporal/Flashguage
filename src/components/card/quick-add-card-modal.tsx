@@ -168,6 +168,7 @@ export function QuickAddCardModal({
         body: JSON.stringify({
           query: term,
           definition: def.definition,
+          example: def.example,
         }),
       });
 
@@ -538,6 +539,7 @@ export function QuickAddCardModal({
                     onChange={setSelectedImageUrl}
                     wordContext={wordHeader || aiPrompt}
                     definitionContext={selectedDefinition.definition}
+                    exampleContext={customExample || selectedDefinition.example}
                     initialCandidates={imageCandidates}
                   />
                 </div>

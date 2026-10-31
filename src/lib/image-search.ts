@@ -7,8 +7,15 @@ const STOP_WORDS = new Set([
   "someone", "something", "make", "made", "such", "term", "referring", "refers", "defined",
   "meaning", "means", "particular", "equal", "certain", "typically", "often", "especially",
   "usually", "noun", "verb", "adjective", "adverb", "pronoun", "example", "definition",
-  "expressing", "expresses", "state", "manner", "quality", "act", "action", "feeling",
-  "formal", "informal", "slang", "phrase", "idiom", "interjection", "person", "people"
+  "expressing", "expresses", "state", "manner", "quality", "act", "action", "activity", "feeling",
+  "formal", "informal", "slang", "phrase", "idiom", "interjection", "person", "people",
+  "stay", "stays", "stayed", "staying", "position", "positions", "remain", "remains",
+  "keep", "keeps", "hold", "holds", "point", "points", "place", "places", "part", "parts",
+  "type", "types", "kind", "kinds", "way", "ways", "process", "processes", "cause", "causes",
+  "give", "gives", "take", "takes", "condition", "conditions", "device", "devices",
+  "having", "showing", "instance", "instances", "degree", "form", "forms", "time", "times",
+  "things", "anything", "anyone", "characterized", "pertaining", "situated", "located",
+  "licensed", "receive", "desire", "command"
 ]);
 
 export function extractKeywords(text?: string): string[] {
@@ -339,28 +346,31 @@ async function searchWikimediaCommons(
 
 /**
  * Universal Multi-Source Semantic Image Resolver
- * Evaluates the word, definition, and visual queries to retrieve
- * high-quality photography, memes, and illustrations from web search, Wikipedia, and Wikimedia without duplicates.
+ * Evaluates the word, chosen definition, and visual queries to retrieve
+ * high-quality photography, memes, and illustrations that faithfully match
+ * the specific meaning selected by the user.
  */
 export async function resolveSemanticImage(
   word: string,
   definition?: string,
   visualQuery?: string,
-  page: number = 0
+  page: number = 0,
+  example?: string
 ): Promise<ResolveImageResult> {
   const cleanWord = word.trim();
-  if (!cleanWord && !definition && !visualQuery) {
+  if (!cleanWord && !definition && !visualQuery && !example) {
     return { candidates: [], source: "None" };
   }
 
   const defTokens = new Set(extractKeywords(definition));
+  const exTokens = new Set(extractKeywords(example));
   const visTokens = new Set(extractKeywords(visualQuery));
-  const allTargetTokens = new Set([...defTokens, ...visTokens]);
-  const kwList = Array.from(allTargetTokens);
+  const allTargetTokens = new Set([...defTokens, ...exTokens, ...visTokens]);
+  const defKw = Array.from(defTokens);
+  const exKw = Array.from(exTokens);
 
-  // Pagination indexing
-  const bingFirst = Math.floor((page * 3) / 20) * 20 + 1;
-  const sliceStart = (page * 3) % 20;
+  // Pagination indexing directly into Bing search results
+  const bingFirst = page * 3 + 1;
 
   const candidatesMap = new Map<string, SemanticImageMatch>();
 
@@ -379,60 +389,61 @@ export async function resolveSemanticImage(
   // Build prioritized query variations
   const searchQueries: string[] = [];
 
-  // Priority 1: Visual query if specified
+  // Priority 1: Visual query if specified by user in Custom Search
   if (visualQuery && visualQuery.trim()) {
     searchQueries.push(visualQuery.trim());
   }
 
-  // Priority 2: Word combined with key definition concept (e.g. "begone go away")
-  if (cleanWord && kwList.length > 0) {
-    const actionWords = kwList.filter((k) => !["desire", "command"].includes(k));
-    const conceptWords = actionWords.length > 0 ? actionWords.slice(-2) : kwList.slice(0, 2);
-    searchQueries.push(`${cleanWord} ${conceptWords.join(" ")}`);
+  // Priority 2: Word strictly combined with chosen definition concepts
+  // (Crucial: prevents collapsing to the default/most common sense of polysemous words)
+  if (cleanWord && defKw.length > 0) {
+    searchQueries.push(`${cleanWord} ${defKw.slice(0, 3).join(" ")}`);
+    searchQueries.push(`${cleanWord} ${defKw.slice(0, 2).join(" ")} photography`);
   }
 
-  // Priority 3: The exact word/expression
-  if (cleanWord) {
+  // Priority 3: Word combined with example context if available
+  if (cleanWord && exKw.length > 0) {
+    searchQueries.push(`${cleanWord} ${exKw.slice(0, 2).join(" ")}`);
+  }
+
+  // Priority 4: If no definition keywords were found, or as secondary option
+  if (cleanWord && searchQueries.length === 0) {
     searchQueries.push(cleanWord);
   }
 
-  // Priority 4: Definition keywords alone
-  if (kwList.length > 0) {
-    searchQueries.push(kwList.slice(0, 3).join(" "));
-  }
-
-  // Step 1: Web Photography & Visual Search via Bing (High quality, rich variety)
+  // Step 1: Web Photography & Visual Search via Bing (High quality, definition-specific)
   for (const q of searchQueries) {
-    if (candidatesMap.size >= 24) break;
+    if (candidatesMap.size >= 12) break;
     const webMatches = await searchBingImages(q, allTargetTokens, bingFirst);
     for (const match of webMatches) {
       addCandidate(match);
     }
   }
 
-  // Step 2: Direct Wikipedia Lead photo (on page 0)
-  if (page === 0 && cleanWord && candidatesMap.size < 4) {
+  // Fallback to exact word only if definition-specific search yielded no candidates
+  if (candidatesMap.size === 0 && cleanWord && !searchQueries.includes(cleanWord)) {
+    const fallbackMatches = await searchBingImages(cleanWord, allTargetTokens, bingFirst);
+    for (const match of fallbackMatches) {
+      addCandidate(match);
+    }
+  }
+
+  // Step 2: Direct Wikipedia Lead photo (on page 0, if relevant)
+  if (page === 0 && cleanWord && candidatesMap.size < 3) {
     const summaryMatch = await fetchWikipediaSummary(cleanWord, allTargetTokens);
     if (summaryMatch) {
       addCandidate(summaryMatch);
     }
   }
 
-  // Step 3: Wikipedia & Wikimedia Commons search
-  if (candidatesMap.size < 4 && searchQueries.length > 0) {
+  // Step 3: Wikipedia & Wikimedia Commons search if needed
+  if (candidatesMap.size < 3 && searchQueries.length > 0) {
     const wikiOffset = page * 3;
     for (const q of searchQueries) {
       if (candidatesMap.size >= 6) break;
       const wikiResults = await searchWikipediaPages(q, cleanWord, allTargetTokens, wikiOffset);
       for (const match of wikiResults) {
         addCandidate(match);
-      }
-
-      if (candidatesMap.size < 4) {
-        const commonsResults = await searchWikimediaCommons(q, cleanWord, allTargetTokens, wikiOffset);
-        for (const match of commonsResults) {
-          addCandidate(match);
-        }
       }
     }
   }
@@ -441,8 +452,7 @@ export async function resolveSemanticImage(
   const allMatches = Array.from(candidatesMap.values()).sort((a, b) => b.score - a.score);
 
   if (allMatches.length > 0) {
-    const pageSlice = allMatches.slice(sliceStart, sliceStart + 3);
-    const selectedMatches = pageSlice.length > 0 ? pageSlice : allMatches.slice(0, 3);
+    const selectedMatches = allMatches.slice(0, 3);
     const selectedCandidates = selectedMatches.map((m) => m.imageUrl);
 
     return {

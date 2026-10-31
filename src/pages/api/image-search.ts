@@ -9,6 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const query = (req.method === "POST" ? req.body.query : req.query.query) as string | undefined;
   const definition = (req.method === "POST" ? req.body.definition : req.query.definition) as string | undefined;
+  const example = (req.method === "POST" ? req.body.example : req.query.example) as string | undefined;
   const visualQuery = (req.method === "POST" ? req.body.visualQuery : req.query.visualQuery) as string | undefined;
   const page = Number(req.method === "POST" ? req.body.page : req.query.page) || 0;
 
@@ -17,7 +18,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const result = await resolveSemanticImage(query.trim(), definition?.trim(), visualQuery?.trim(), page);
+    const result = await resolveSemanticImage(
+      query.trim(),
+      definition?.trim(),
+      visualQuery?.trim(),
+      page,
+      example?.trim()
+    );
 
     return res.status(200).json({
       imageUrl: result.imageUrl,
