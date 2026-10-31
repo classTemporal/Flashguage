@@ -27,14 +27,14 @@ export const DASHBOARD_SECTIONS: Record<DashboardSectionId, DashboardSectionConf
     label: "Daily Goal & Target",
     description: "Daily review target, progress bar, session cooldown timer, and quick study action",
     icon: "🎯",
-    defaultSpan: "col-span-1 lg:col-span-6",
+    defaultSpan: "col-span-1 lg:col-span-12",
   },
   reviews_queue: {
     id: "reviews_queue",
     label: "Reviews Due Queue",
-    description: "Spaced repetition cards due today grouped by deck, or all caught up status",
+    description: "Spaced repetition cards due today grouped by deck (auto-hidden when caught up)",
     icon: "⏰",
-    defaultSpan: "col-span-1 lg:col-span-6",
+    defaultSpan: "col-span-1 lg:col-span-12",
   },
   performance: {
     id: "performance",

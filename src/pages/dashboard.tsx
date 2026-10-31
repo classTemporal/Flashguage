@@ -631,72 +631,54 @@ export default function Dashboard() {
         );
 
       case "reviews_queue":
+        if (pendingByDeck.length === 0) return null;
         return (
           <div key="reviews_queue" className={DASHBOARD_SECTIONS.reviews_queue.defaultSpan}>
-            {pendingByDeck.length > 0 ? (
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">⏰</span>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Reviews Due Today
-                    </h3>
-                  </div>
-                  <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                    {dueReviews?.length} due
-                  </span>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⏰</span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Reviews Due Today
+                  </h3>
                 </div>
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {pendingByDeck.map((d) => (
-                    <div
-                      key={d.deckId}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border/50 text-xs hover:border-primary/40 transition-colors"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <p className="font-bold text-foreground truncate">{d.deckName}</p>
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                          ⚡ {d.count} cards waiting
-                        </span>
-                      </div>
-                      <Button
-                        href={`/study/${d.deckId}`}
-                        as="link"
-                        size="sm"
-                        variant="secondary"
-                        className="h-6 text-[10px] px-2 py-0 font-bold shrink-0"
-                      >
-                        Study →
-                      </Button>
+                <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  {dueReviews?.length} due
+                </span>
+              </div>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {pendingByDeck.map((d) => (
+                  <div
+                    key={d.deckId}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border/50 text-xs hover:border-primary/40 transition-colors"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold text-foreground truncate">{d.deckName}</p>
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                        ⚡ {d.count} cards waiting
+                      </span>
                     </div>
-                  ))}
-                </div>
-                <Button
-                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}`}
-                  as="link"
-                  size="sm"
-                  className="w-full text-xs font-bold mt-2"
-                >
-                  Study All Due ({dueReviews?.length}) →
-                </Button>
+                    <Button
+                      href={`/study/${d.deckId}`}
+                      as="link"
+                      size="sm"
+                      variant="secondary"
+                      className="h-6 text-[10px] px-2 py-0 font-bold shrink-0"
+                    >
+                      Study →
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <div className="rounded-2xl border border-border/80 bg-card/60 p-5 shadow-xs text-center space-y-2">
-                <div className="text-2xl">🎉</div>
-                <p className="text-sm font-bold text-foreground">All caught up!</p>
-                <p className="text-xs text-muted-foreground">
-                  No spaced reviews due today for {currentLang.name}. Practice any deck anytime.
-                </p>
-                <Button
-                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
-                  as="link"
-                  variant="secondary"
-                  size="sm"
-                  className="text-xs mt-1"
-                >
-                  Free Practice Mode →
-                </Button>
-              </div>
-            )}
+              <Button
+                href={`/study/all?lang=${encodeURIComponent(activeLanguage)}`}
+                as="link"
+                size="sm"
+                className="w-full text-xs font-bold mt-2"
+              >
+                Study All Due ({dueReviews?.length}) →
+              </Button>
+            </div>
           </div>
         );
 
