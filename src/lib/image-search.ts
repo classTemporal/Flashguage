@@ -50,7 +50,7 @@ export function isJunkImage(title: string, url: string): boolean {
   }
   full = full.replace(/_/g, " ");
 
-  // Reject SVG (including rasterized svg.png), PDF, DJVU, WEBM, OGG
+  // Reject SVG, PDF, DJVU, WEBM, OGG, TIFF
   if (/\.svg($|\.|\/|\?)/i.test(url) || /\.pdf($|\.|\/|\?)/i.test(url) || /\.djvu($|\.|\/|\?)/i.test(url)) {
     return true;
   }
@@ -58,7 +58,7 @@ export function isJunkImage(title: string, url: string): boolean {
     return true;
   }
 
-  // Reject document scans, book covers, coats of arms, road signs
+  // Reject document scans, book covers, coats of arms, road signs, flags
   if (
     /scan of|book cover|cover of|title page|frontispiece|dust jacket|spine of|geograph\.org\.uk|fortepan|advertisement|newspaper|magazine cover|coat of arms|wappen|blason|flag of/i.test(
       full
@@ -85,14 +85,98 @@ export interface ResolveImageResult {
 }
 
 const API_HEADERS = {
-  "User-Agent": "EnglishFlashcardsApp/1.0 (educational tool; contact@englishflashcards.app)",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
 };
+
+const CURATED_FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80", // Digital communication
+  "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=600&q=80", // Workspace / Focus
+  "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80", // Notebook / Learning
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80", // Journey / Exploration
+  "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=600&q=80", // Action / Emotion
+  "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=600&q=80", // Books / Study
+];
+
+/**
+ * High-Speed Web Image Search using DuckDuckGo Images
+ * Retrieves vibrant, realistic photographs and illustrations for any word, idiom, or phrase.
+ */
+async function searchWebImages(
+  query: string,
+  targetTokens: Set<string>,
+  offset: number = 0
+): Promise<SemanticImageMatch[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const tokenRes = await fetch(
+      `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`,
+      {
+        headers: API_HEADERS,
+        signal: controller.signal,
+      }
+    );
+    const html = await tokenRes.text();
+    clearTimeout(timeout);
+
+    const vqdMatch = html.match(/vqd=["']([0-9-]+)["']/i) || html.match(/vqd=([0-9-]+)/i);
+    if (!vqdMatch) return [];
+    const vqd = vqdMatch[1];
+
+    const imgController = new AbortController();
+    const imgTimeout = setTimeout(() => imgController.abort(), 4000);
+
+    const searchUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(
+      query
+    )}&vqd=${vqd}&f=,,,type:photo,,&p=1`;
+
+    const imgRes = await fetch(searchUrl, {
+      headers: API_HEADERS,
+      signal: imgController.signal,
+    });
+    clearTimeout(imgTimeout);
+
+    if (!imgRes.ok) return [];
+    const data = await imgRes.json();
+    const results = (data.results || []) as Array<{ image: string; title: string }>;
+
+    const matches: SemanticImageMatch[] = [];
+    const slice = results.slice(offset, offset + 12);
+
+    for (let i = 0; i < slice.length; i++) {
+      const item = slice[i];
+      const url = item.image;
+      if (!url || typeof url !== "string") continue;
+      if (!/^https?:\/\//i.test(url)) continue;
+      if (/\.gif($|\?)/i.test(url)) continue;
+      if (isJunkImage(item.title || "", url)) continue;
+
+      const titleTokens = new Set(extractKeywords(item.title || ""));
+      let overlap = 0;
+      for (const t of targetTokens) {
+        if (titleTokens.has(t)) overlap++;
+      }
+
+      // Base score decrements slightly by search rank position
+      const score = 80 - i * 3 + overlap * 25;
+
+      matches.push({
+        imageUrl: url,
+        title: item.title,
+        source: "Web Photography",
+        score,
+      });
+    }
+
+    return matches;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Direct Wikipedia Summary check
- * ONLY returns lead photo if:
- * 1) No definition was provided, OR
- * 2) There is verified semantic overlap with the definition keywords
  */
 async function fetchWikipediaSummary(
   word: string,
@@ -119,14 +203,8 @@ async function fetchWikipediaSummary(
       if (descTokens.has(t)) overlap++;
     }
 
-    // CRITICAL: If definition was specified, REJECT if overlap is 0!
-    // (Prevents e.g. boat = "a full house" from picking motorboat)
-    if (targetTokens.size > 0 && overlap === 0) {
-      return null;
-    }
-
     const isExactWord = title.toLowerCase() === word.trim().toLowerCase();
-    const score = (isExactWord ? 60 : 30) + overlap * 35;
+    const score = (isExactWord ? 65 : 35) + overlap * 25;
 
     return {
       imageUrl: thumb,
@@ -185,12 +263,7 @@ async function searchWikipediaPages(
         if (allTokens.has(t)) overlap++;
       }
 
-      // If definition exists and zero overlap, skip this candidate
-      if (targetTokens.size > 0 && overlap === 0) {
-        continue;
-      }
-
-      let score = overlap * 35;
+      let score = 40 + overlap * 25;
       if (mainWord && lowerTitle.includes(mainWord.toLowerCase())) {
         score += 20;
       }
@@ -210,7 +283,7 @@ async function searchWikipediaPages(
 }
 
 /**
- * Wikimedia Commons Search with strict filtering and offset support
+ * Wikimedia Commons Search with bitmap filter
  */
 async function searchWikimediaCommons(
   query: string,
@@ -221,7 +294,7 @@ async function searchWikimediaCommons(
   try {
     const offsetParam = offset > 0 ? `&gsroffset=${offset}` : "";
     const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
-      query
+      `filetype:bitmap ${query}`
     )}&gsrlimit=8${offsetParam}&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json`;
 
     const res = await fetch(url, { headers: API_HEADERS });
@@ -249,12 +322,7 @@ async function searchWikimediaCommons(
         if (titleTokens.has(t)) overlap++;
       }
 
-      // If definition exists and zero overlap in commons title, skip
-      if (targetTokens.size > 0 && overlap === 0) {
-        continue;
-      }
-
-      let score = overlap * 30 + 10;
+      let score = 35 + overlap * 25;
       if (mainWord && title.toLowerCase().includes(mainWord.toLowerCase())) {
         score += 15;
       }
@@ -274,9 +342,9 @@ async function searchWikimediaCommons(
 }
 
 /**
- * Universal Semantic Image Resolver with Pagination
- * Evaluates the word, definition, and optional visual query context to retrieve
- * the most accurate, vetted, and visually matching educational images without duplicates.
+ * Universal Multi-Source Semantic Image Resolver
+ * Evaluates the word, definition, and visual queries to retrieve
+ * high-quality photography from web search, Wikipedia, and Wikimedia without duplicates.
  */
 export async function resolveSemanticImage(
   word: string,
@@ -295,8 +363,6 @@ export async function resolveSemanticImage(
   const kwList = Array.from(allTargetTokens);
 
   const offset = Math.max(0, page) * 4;
-
-  // Map by canonical filename to ensure no duplicate images with different thumbnail widths
   const candidatesMap = new Map<string, SemanticImageMatch>();
 
   function addCandidate(match: SemanticImageMatch) {
@@ -311,60 +377,60 @@ export async function resolveSemanticImage(
     }
   }
 
-  // Step 1: Direct Wikipedia Summary (Only on page 0 and if overlap >= 1 or no definition provided)
-  if (page === 0 && cleanWord) {
+  // Build prioritized query variations
+  const searchQueries: string[] = [];
+
+  // Priority 1: Visual query if specified
+  if (visualQuery && visualQuery.trim()) {
+    searchQueries.push(visualQuery.trim());
+  }
+
+  // Priority 2: Word combined with key definition concept
+  if (cleanWord && kwList.length > 0) {
+    searchQueries.push(`${cleanWord} ${kwList.slice(0, 2).join(" ")}`);
+  }
+
+  // Priority 3: The exact word/expression
+  if (cleanWord) {
+    searchQueries.push(cleanWord);
+  }
+
+  // Priority 4: Definition keywords alone
+  if (kwList.length > 0) {
+    searchQueries.push(kwList.slice(0, 3).join(" "));
+  }
+
+  // Step 1: Web Photography Search (High quality, rich variety)
+  for (const q of searchQueries) {
+    if (candidatesMap.size >= 6) break;
+    const webMatches = await searchWebImages(q, allTargetTokens, offset);
+    for (const match of webMatches) {
+      addCandidate(match);
+    }
+  }
+
+  // Step 2: Direct Wikipedia Lead photo (on page 0)
+  if (page === 0 && cleanWord && candidatesMap.size < 4) {
     const summaryMatch = await fetchWikipediaSummary(cleanWord, allTargetTokens);
     if (summaryMatch) {
       addCandidate(summaryMatch);
     }
   }
 
-  // Step 2: Formulate prioritized search queries
-  const searchQueries: string[] = [];
-
-  // If explicit visual query provided by user or AI
-  if (visualQuery && visualQuery.trim()) {
-    searchQueries.push(visualQuery.trim());
-    if (cleanWord) searchQueries.push(`${cleanWord} ${visualQuery.trim()}`);
-  }
-
-  // If definition exists, query the definition concept first!
-  if (kwList.length > 0) {
-    // Specialized idioms/slang checks (e.g. "full house" -> poker/cards)
-    if (defTokens.has("house") && defTokens.has("full")) {
-      searchQueries.push("full house poker");
-      searchQueries.push("full house playing cards");
-    }
-
-    // Top definition keywords
-    searchQueries.push(kwList.slice(0, 3).join(" "));
-
-    if (cleanWord) {
-      searchQueries.push(`${cleanWord} ${kwList.slice(0, 2).join(" ")}`);
-    }
-  }
-
-  // Fallback to bare word if definition yielded no candidates
-  if (cleanWord) {
-    searchQueries.push(cleanWord);
-  }
-
-  // Search Wikipedia with offset
-  for (const q of searchQueries) {
-    if (candidatesMap.size >= 4) break;
-    const wikiResults = await searchWikipediaPages(q, cleanWord, allTargetTokens, offset);
-    for (const match of wikiResults) {
-      addCandidate(match);
-    }
-  }
-
-  // Search Wikimedia Commons with offset if more candidates needed
-  if (candidatesMap.size < 3 && searchQueries.length > 0) {
+  // Step 3: Wikipedia & Wikimedia Commons search
+  if (candidatesMap.size < 4 && searchQueries.length > 0) {
     for (const q of searchQueries) {
-      if (candidatesMap.size >= 3) break;
-      const commonsResults = await searchWikimediaCommons(q, cleanWord, allTargetTokens, offset);
-      for (const match of commonsResults) {
+      if (candidatesMap.size >= 5) break;
+      const wikiResults = await searchWikipediaPages(q, cleanWord, allTargetTokens, offset);
+      for (const match of wikiResults) {
         addCandidate(match);
+      }
+
+      if (candidatesMap.size < 4) {
+        const commonsResults = await searchWikimediaCommons(q, cleanWord, allTargetTokens, offset);
+        for (const match of commonsResults) {
+          addCandidate(match);
+        }
       }
     }
   }
@@ -373,21 +439,26 @@ export async function resolveSemanticImage(
   const sortedMatches = Array.from(candidatesMap.values()).sort((a, b) => b.score - a.score);
 
   if (sortedMatches.length > 0) {
+    const selectedCandidates = sortedMatches.map((m) => m.imageUrl).slice(0, 3);
     return {
-      imageUrl: sortedMatches[0].imageUrl,
-      candidates: sortedMatches.map((m) => m.imageUrl).slice(0, 3),
-      source: sortedMatches[0].source || "Wikipedia Curated",
+      imageUrl: selectedCandidates[0],
+      candidates: selectedCandidates,
+      source: sortedMatches[0].source || "Visual Library",
       title: sortedMatches[0].title,
     };
   }
 
-  // Fallback image
-  const fallbackUrl =
-    "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=600&q=80";
+  // Varied fallbacks from curated library
+  const fallbackOffset = (page * 3) % CURATED_FALLBACK_IMAGES.length;
+  const fallbacks = [
+    CURATED_FALLBACK_IMAGES[fallbackOffset],
+    CURATED_FALLBACK_IMAGES[(fallbackOffset + 1) % CURATED_FALLBACK_IMAGES.length],
+    CURATED_FALLBACK_IMAGES[(fallbackOffset + 2) % CURATED_FALLBACK_IMAGES.length],
+  ];
 
   return {
-    imageUrl: fallbackUrl,
-    candidates: [fallbackUrl],
+    imageUrl: fallbacks[0],
+    candidates: fallbacks,
     source: "Educational Library",
   };
 }

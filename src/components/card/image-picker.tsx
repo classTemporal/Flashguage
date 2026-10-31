@@ -27,6 +27,8 @@ export function ImagePicker({
   const [imgSizeKb, setImgSizeKb] = useState<number | null>(null);
   const [candidates, setCandidates] = useState<string[]>(initialCandidates);
   const [customSearchText, setCustomSearchText] = useState("");
+  const [directUrlInput, setDirectUrlInput] = useState("");
+  const [customMode, setCustomMode] = useState<"search" | "url">("search");
   const [showSearchBox, setShowSearchBox] = useState(false);
   const [searchPage, setSearchPage] = useState(0);
 
@@ -160,8 +162,38 @@ export function ImagePicker({
   };
 
   const handleCustomSearchSubmit = () => {
+    const q = customSearchText.trim();
+    if (!q) return;
+
+    // Detect if user pasted a direct image URL into the search field
+    if (/^https?:\/\//i.test(q) || /^data:image\//i.test(q)) {
+      onChange(q);
+      setCandidates((prev) => [q, ...prev.filter((c) => c !== q)].slice(0, 3));
+      setImgSizeKb(null);
+      showToast("Direct image URL applied!", "success");
+      setShowSearchBox(false);
+      setCustomSearchText("");
+      return;
+    }
+
     setSearchPage(0);
-    executeSearch(customSearchText, 0);
+    executeSearch(q, 0);
+  };
+
+  const handleApplyDirectUrl = () => {
+    const url = directUrlInput.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url) && !/^data:image\//i.test(url)) {
+      showToast("Please enter a valid image URL (e.g. https://...)", "error");
+      return;
+    }
+
+    onChange(url);
+    setCandidates((prev) => [url, ...prev.filter((c) => c !== url)].slice(0, 3));
+    setImgSizeKb(null);
+    showToast("Custom image URL applied successfully!", "success");
+    setShowSearchBox(false);
+    setDirectUrlInput("");
   };
 
   return (
@@ -179,39 +211,105 @@ export function ImagePicker({
           <button
             type="button"
             onClick={() => setShowSearchBox((s) => !s)}
-            className="text-[11px] font-bold text-primary hover:underline flex items-center gap-0.5"
+            className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg transition-colors"
           >
-            <span>🔍</span>
-            <span>{showSearchBox ? "Cancel" : "Custom Search"}</span>
+            <span>{showSearchBox ? "✕ Close" : "🔍 Custom Search / URL"}</span>
           </button>
         </div>
       </div>
 
-      {/* Custom Search Query Input Bar */}
+      {/* Custom Search Query & Direct URL Panel */}
       {showSearchBox && (
-        <div className="flex gap-1.5 animate-in fade-in duration-150">
-          <input
-            type="text"
-            autoFocus
-            value={customSearchText}
-            onChange={(e) => setCustomSearchText(e.target.value)}
-            placeholder={`Search visual e.g. "poker cards", "${activeWord || "subject"}"...`}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleCustomSearchSubmit();
-              }
-            }}
-            className="flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
-          />
-          <button
-            type="button"
-            onClick={handleCustomSearchSubmit}
-            disabled={isSearching || !customSearchText.trim()}
-            className="rounded-xl bg-primary text-primary-foreground px-3 py-1.5 text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {isSearching ? "Searching..." : "Search"}
-          </button>
+        <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3 animate-in fade-in duration-150 shadow-xs">
+          {/* Tabs: Search Keywords vs Direct URL */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/60 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setCustomMode("search")}
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1.5 ${
+                customMode === "search"
+                  ? "bg-card text-foreground shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>🔍</span>
+              <span>Search Web Images</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomMode("url")}
+              className={`flex-1 py-1.5 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1.5 ${
+                customMode === "url"
+                  ? "bg-card text-foreground shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>🔗</span>
+              <span>Paste Image URL</span>
+            </button>
+          </div>
+
+          {customMode === "search" ? (
+            <div className="space-y-1.5">
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  autoFocus
+                  value={customSearchText}
+                  onChange={(e) => setCustomSearchText(e.target.value)}
+                  placeholder={`Search visual e.g. "go away", "${activeWord || "subject"}"...`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCustomSearchSubmit();
+                    }
+                  }}
+                  className="flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={handleCustomSearchSubmit}
+                  disabled={isSearching || !customSearchText.trim()}
+                  className="rounded-xl bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                >
+                  {isSearching ? "Searching..." : "Search"}
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Tip: You can search terms, or paste a direct image URL right here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex gap-1.5">
+                <input
+                  type="url"
+                  autoFocus
+                  value={directUrlInput}
+                  onChange={(e) => setDirectUrlInput(e.target.value)}
+                  placeholder="https://example.com/image.jpg..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleApplyDirectUrl();
+                    }
+                  }}
+                  className="flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyDirectUrl}
+                  disabled={!directUrlInput.trim()}
+                  className="rounded-xl bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0"
+                >
+                  Apply URL
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Enter any direct image link (.jpg, .png, .webp) to use as this card&apos;s illustration.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
