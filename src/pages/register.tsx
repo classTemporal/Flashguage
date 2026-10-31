@@ -16,6 +16,7 @@ export default function Register() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,10 +30,16 @@ export default function Register() {
     setSuccessMessage("");
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanConfirmEmail = confirmEmail.trim().toLowerCase();
     const cleanName = name.trim();
 
     if (!cleanEmail.includes("@") || cleanEmail.length < 5) {
       setError("Please provide a valid email address");
+      return;
+    }
+
+    if (cleanEmail !== cleanConfirmEmail) {
+      setError("Email addresses do not match");
       return;
     }
 
@@ -152,6 +159,21 @@ export default function Register() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
+                  disabled={loading}
+                />
+
+                <Input
+                  label="Confirm email address"
+                  type="email"
+                  name="confirmEmail"
+                  required
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  placeholder="Repeat your email address"
                   disabled={loading}
                 />
 
