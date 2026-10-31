@@ -154,6 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             description: `${dictionary.description} [Shared by ${dictionary.author}]`,
             userId: session.user.id,
             isPublic: false,
+            targetLanguage: dictionary.language || "en",
           },
         });
 
@@ -220,6 +221,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : `Shared by ${authorName} from the Community`,
           userId: session.user.id,
           isPublic: false,
+          targetLanguage: (sourceDeck as any).targetLanguage || "en",
         },
       });
 

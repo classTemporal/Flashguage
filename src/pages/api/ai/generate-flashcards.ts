@@ -79,7 +79,7 @@ async function lookupDictionaryWord(word: string): Promise<GeneratedFlashcard | 
       try {
         const wikiRes = await fetch(
           `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(word)}`,
-          { headers: { "User-Agent": "EnglishFlashcardsApp/1.0" } }
+          { headers: { "User-Agent": "FlashguageApp/1.0" } }
         );
         if (wikiRes.ok) {
           const wikiData = await wikiRes.json();
@@ -172,16 +172,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 2. If AI provider is available, use LLM to generate rich flashcards
   if (hasApiKey) {
     try {
-      const systemPrompt = `You are an expert English language teacher. Generate ${numCards} complete, high-quality flashcard(s) for the topic or word: "${cleanPrompt}".
+      const targetLang = req.body.targetLanguage || req.body.language || "English";
+      const systemPrompt = `You are an expert ${targetLang} language teacher. Generate ${numCards} complete, high-quality flashcard(s) for the topic or vocabulary: "${cleanPrompt}".
 Format your response ONLY as a JSON array of objects with the exact schema:
 [
   {
-    "front": "Word or idiom in English",
-    "back": "Clear definition and explanation",
-    "phonetic": "/phonetic transcription/",
+    "front": "Word or idiom in ${targetLang}",
+    "back": "Clear definition and explanation (explained for language learners)",
+    "phonetic": "/phonetic transcription or reading/",
     "partOfSpeech": "noun | verb | adjective | idiom | phrasal verb",
-    "example": "A realistic example sentence illustrating how the word is used in context.",
-    "imageSearchQuery": "A concrete 2-4 word visual query describing what this meaning looks like (e.g. for crane bird: 'crane bird nature', for large musical note: 'musical note notation', for concur: 'handshake agreement')",
+    "example": "A realistic example sentence in ${targetLang} illustrating how the word is used in context.",
+    "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this meaning looks like (e.g. for cat: 'cat animal', for agree: 'handshake agreement')",
     "tags": ["category"]
   }
 ]

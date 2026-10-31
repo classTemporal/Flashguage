@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { QuickAddCardModal } from "@/components/card/quick-add-card-modal";
 import { EditCardModal } from "@/components/card/edit-card-modal";
 import { invalidateAppCache } from "@/lib/cache";
+import { getLanguage } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -44,6 +45,7 @@ interface Deck {
   name: string;
   description: string | null;
   isPublic: boolean;
+  targetLanguage?: string;
 }
 
 interface DueReview {
@@ -312,6 +314,11 @@ export default function DeckDetail() {
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                 {deckData.name}
               </h1>
+              {deckData.targetLanguage && (
+                <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-xs font-semibold text-blue-500">
+                  {getLanguage(deckData.targetLanguage).flag} {getLanguage(deckData.targetLanguage).name}
+                </span>
+              )}
               <span className="rounded-full bg-primary/10 border border-primary/20 px-3 py-0.5 text-xs font-bold text-primary">
                 {cardCount} {cardCount === 1 ? "card" : "cards"}
               </span>
@@ -971,6 +978,7 @@ export default function DeckDetail() {
         isOpen={isAddCardOpen}
         onClose={() => setIsAddCardOpen(false)}
         deckId={deckId}
+        targetLanguage={deckData?.targetLanguage || "en"}
         onCardAdded={async () => {
           await invalidateAppCache();
           mutateCards(undefined, { revalidate: true });
@@ -983,6 +991,7 @@ export default function DeckDetail() {
         isOpen={Boolean(editingCard)}
         onClose={() => setEditingCard(null)}
         card={editingCard}
+        targetLanguage={deckData?.targetLanguage || "en"}
         onCardUpdated={async () => {
           await invalidateAppCache();
           mutateCards(undefined, { revalidate: true });

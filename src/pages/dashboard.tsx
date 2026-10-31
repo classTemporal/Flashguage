@@ -355,7 +355,7 @@ export default function Dashboard() {
                 {session?.user?.name || session?.user?.email?.split("@")[0]}
               </h1>
               <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
-                Ready to level up your English vocabulary? Review your daily flashcards and maintain your streak.
+                Ready to level up your language vocabulary? Review your daily flashcards and maintain your streak.
               </p>
             </div>
 

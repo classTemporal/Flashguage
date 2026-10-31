@@ -45,7 +45,7 @@ const ALL_MOBILE_NAV = [
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];
 
-export function Header({ title = "English Flashcards", showNav = true }: HeaderProps) {
+export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const isLoggedIn = status === "authenticated";
@@ -120,17 +120,17 @@ export function Header({ title = "English Flashcards", showNav = true }: HeaderP
             <Link
               href={logoHref}
               className="group flex items-center gap-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
-              aria-label="English Flashcards Home"
+              aria-label="Flashguage Home"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-500 text-primary-foreground font-black shadow-sm group-hover:scale-105 transition-transform duration-200">
-                <span className="text-xs tracking-wider">EF</span>
+                <span className="text-xs tracking-wider">FG</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-base font-bold tracking-tight text-foreground leading-tight">
                   {title}
                 </span>
                 <span className="text-[10px] font-medium text-muted-foreground hidden sm:inline -mt-0.5">
-                  Smart Spaced Repetition
+                  Multi-Language Spaced Recall
                 </span>
               </div>
             </Link>

@@ -16,6 +16,8 @@ import { LoadingPage } from "@/components/ui/loading";
 import { BackButton } from "@/components/ui/back-button";
 import { useToast } from "@/components/ui/toast";
 
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
+
 interface FlashcardForm {
   front: string;
   back: string;
@@ -27,6 +29,7 @@ export default function ContextPickerPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [text, setText] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FlashcardForm>({
     front: "",
@@ -34,7 +37,7 @@ export default function ContextPickerPage() {
     tags: "",
     deckId: "",
   });
-  const [decks, setDecks] = useState<{ id: string; name: string }[]>([]);
+  const [decks, setDecks] = useState<{ id: string; name: string; targetLanguage?: string }[]>([]);
   const [loadingDecks, setLoadingDecks] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -140,14 +143,36 @@ export default function ContextPickerPage() {
         )}
 
         <Card className="p-6 space-y-4">
-          <label htmlFor="context-input" className="block text-sm font-medium text-foreground">
-            Input Reading Text
-          </label>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <label htmlFor="context-input" className="block text-sm font-medium text-foreground">
+              Input Reading Text
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">Language Track:</span>
+              <select
+                value={selectedLanguage}
+                onChange={(e) => {
+                  setSelectedLanguage(e.target.value);
+                  const matchingDeck = decks.find((d) => d.targetLanguage === e.target.value);
+                  if (matchingDeck) {
+                    setForm((prev) => ({ ...prev, deckId: matchingDeck.id }));
+                  }
+                }}
+                className="text-xs bg-muted border border-border rounded-lg px-2.5 py-1 text-foreground font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <textarea
             id="context-input"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste an article excerpt, book quote, or sentence here to analyze..."
+            placeholder={`Paste an article excerpt, book quote, or sentence in ${getLanguage(selectedLanguage).name} here to analyze...`}
             rows={5}
             className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary"
           />
@@ -168,6 +193,7 @@ export default function ContextPickerPage() {
         {text.trim() ? (
           <ContextPicker
             text={text}
+            targetLanguage={getLanguage(selectedLanguage).name}
             onSelectWord={() => {}}
             onCreateCard={handleCreateCard}
           />
@@ -176,7 +202,7 @@ export default function ContextPickerPage() {
             <div className="text-3xl mb-2">📖</div>
             <p className="text-sm font-medium text-foreground">No text entered yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Type or paste English text above to start selecting words and generating definitions.
+              Type or paste text in any language above to start selecting words and generating definitions.
             </p>
           </div>
         )}

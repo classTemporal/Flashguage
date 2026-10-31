@@ -15,6 +15,7 @@ import { DeckCardSkeleton, EmptyState } from "@/components/ui/loading";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
+import { getLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -23,6 +24,7 @@ interface Deck {
   name: string;
   description: string | null;
   isPublic: boolean;
+  targetLanguage?: string;
   createdAt: string;
   updatedAt: string;
   _count?: { cards: number };
@@ -128,7 +130,7 @@ export default function DecksPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 lg:pb-0">
-      <Header title="English Flashcards" />
+      <Header title="Flashguage" />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 space-y-6">
         <div className="flex items-center justify-between">
@@ -250,12 +252,19 @@ export default function DecksPage() {
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <Link
-                        href={`/deck/${deck.id}`}
-                        className="font-bold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1"
-                      >
-                        {deck.name}
-                      </Link>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {deck.targetLanguage && (
+                          <span className="text-base shrink-0" title={getLanguage(deck.targetLanguage).name}>
+                            {getLanguage(deck.targetLanguage).flag}
+                          </span>
+                        )}
+                        <Link
+                          href={`/deck/${deck.id}`}
+                          className="font-bold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1"
+                        >
+                          {deck.name}
+                        </Link>
+                      </div>
                       <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
                         {cardCount} {cardCount === 1 ? "card" : "cards"}
                       </span>

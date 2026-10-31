@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 
 interface QuickAddDeckModalProps {
   isOpen: boolean;
@@ -12,19 +13,13 @@ interface QuickAddDeckModalProps {
   onDeckCreated?: (newDeck: any) => void;
 }
 
-const PRESET_DECKS = [
-  { name: "🎯 Essential B1-B2 Vocabulary", desc: "Core words for fluent daily conversation" },
-  { name: "💼 Business & Workplace English", desc: "Professional terms for meetings and emails" },
-  { name: "✈️ Travel & Daily Situations", desc: "Practical expressions for traveling abroad" },
-  { name: "📚 Must-know Phrasal Verbs", desc: "Most common multi-word verbs in English" },
-];
-
 export function QuickAddDeckModal({
   isOpen,
   onClose,
   onDeckCreated,
 }: QuickAddDeckModalProps) {
   const { showToast } = useToast();
+  const [targetLanguage, setTargetLanguage] = useState("en");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(false);
@@ -32,6 +27,9 @@ export function QuickAddDeckModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
+
+  const currentLang = getLanguage(targetLanguage);
+  const presets = currentLang.deckPresets;
 
   const handleUsePreset = (preset: { name: string; desc: string }) => {
     setName(preset.name);
@@ -50,13 +48,14 @@ export function QuickAddDeckModal({
     setIsSubmitting(true);
 
     try {
-      // 1. Create the deck
+      // 1. Create the deck with targetLanguage
       const res = await fetch("/api/decks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trimmedName,
           description: description.trim() || null,
+          targetLanguage,
           isPublic,
         }),
       });
@@ -68,13 +67,17 @@ export function QuickAddDeckModal({
 
       const newDeck = await res.json();
 
-      // 2. If user chose AI generation, create 3 starter flashcards right away
+      // 2. If user chose AI generation, create 3 starter flashcards in that target language
       if (generateCardsWithAI) {
         try {
           const aiRes = await fetch("/api/ai/generate-flashcards", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: trimmedName, count: 3 }),
+            body: JSON.stringify({
+              prompt: trimmedName,
+              count: 3,
+              targetLanguage: currentLang.name,
+            }),
           });
 
           if (aiRes.ok) {
@@ -104,7 +107,7 @@ export function QuickAddDeckModal({
       }
 
       await invalidateAppCache();
-      showToast(`Deck "${trimmedName}" ready to study!`, "success");
+      showToast(`Deck "${trimmedName}" (${currentLang.flag} ${currentLang.name}) ready to study!`, "success");
       onDeckCreated?.(newDeck);
       setName("");
       setDescription("");
@@ -128,7 +131,7 @@ export function QuickAddDeckModal({
             </div>
             <div>
               <h2 className="text-lg font-black text-foreground">Create New Deck</h2>
-              <p className="text-xs text-muted-foreground">Setup your deck in 1-click</p>
+              <p className="text-xs text-muted-foreground">Setup your multi-language deck in 1-click</p>
             </div>
           </div>
           <button
@@ -139,13 +142,38 @@ export function QuickAddDeckModal({
           </button>
         </div>
 
-        {/* Quick Presets */}
+        {/* Target Language Selection */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Quick Topic Presets:
+            Learning Language Track:
+          </label>
+          <select
+            value={targetLanguage}
+            onChange={(e) => {
+              setTargetLanguage(e.target.value);
+              const lang = getLanguage(e.target.value);
+              if (lang.deckPresets[0]) {
+                setName(lang.deckPresets[0].name);
+                setDescription(lang.deckPresets[0].desc);
+              }
+            }}
+            className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {SUPPORTED_LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.flag} {l.name} ({l.nativeName})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Quick Presets for Target Language */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            {currentLang.flag} Suggested {currentLang.name} Presets:
           </label>
           <div className="flex flex-wrap gap-1.5">
-            {PRESET_DECKS.map((preset, i) => (
+            {presets.map((preset, i) => (
               <button
                 key={i}
                 type="button"
@@ -158,36 +186,36 @@ export function QuickAddDeckModal({
           </div>
         </div>
 
-        {/* Form */}
+        {/* Deck Form */}
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Deck Name or Topic *
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">
+              Deck Title *
             </label>
             <input
               type="text"
-              autoFocus
+              required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Job Interview Vocab, Idioms, Travel..."
-              className="w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
+              placeholder={`e.g. ${presets[0]?.name || "Core Vocabulary"}`}
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Description (optional)
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">
+              Description (Optional)
             </label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief summary of topic..."
+              placeholder="What are you focusing on in this deck?"
               rows={2}
             />
           </div>
 
-          {/* AI Starter Flashcards option */}
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 space-y-2">
+          {/* AI Starter Cards Checkbox */}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3.5 space-y-1">
             <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
@@ -195,31 +223,27 @@ export function QuickAddDeckModal({
                 onChange={(e) => setGenerateCardsWithAI(e.target.checked)}
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
-              <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                <span>✨</span> Generate starter cards with AI
+              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <span>✨</span>
+                <span>Generate 3 starter cards with AI ({currentLang.name})</span>
               </span>
             </label>
-            <p className="text-[11px] text-muted-foreground pl-6.5 leading-snug">
-              Automatically creates 3 starter cards with definitions, phonetics, and images for this topic.
+            <p className="text-[11px] text-muted-foreground pl-6.5">
+              Instantly creates relevant vocabulary with definitions, native audio phonetics, and images.
             </p>
           </div>
 
-          <div className="flex gap-2 pt-2 border-t border-border/60">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              className="flex-1"
-            >
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button
               type="submit"
-              variant="primary"
-              disabled={isSubmitting || !name.trim()}
-              className="flex-1 font-bold shadow-md"
+              disabled={isSubmitting}
+              className="font-bold shadow-md bg-primary text-primary-foreground"
             >
-              {isSubmitting ? "Creating with AI..." : "Create Deck ✓"}
+              {isSubmitting ? "Creating Deck..." : "⚡ Create Deck"}
             </Button>
           </div>
         </form>

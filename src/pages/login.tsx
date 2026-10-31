@@ -53,17 +53,17 @@ export default function Login() {
           <Link
             href="/"
             className="inline-flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-lg p-1"
-            aria-label="English Flashcards Home"
+            aria-label="Flashguage Home"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20">
-              <span className="text-xl">EF</span>
+              <span className="text-xl">FG</span>
             </div>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Welcome back
+            Welcome to Flashguage
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sign in to continue your English learning streak
+            Sign in to continue your multi-language learning streak
           </p>
         </div>
 

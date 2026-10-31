@@ -41,7 +41,7 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
           ...(deckFilter ? {} : { deck: { userId: session.user.id } }),
         },
         include: {
-          deck: { select: { id: true, name: true } },
+          deck: { select: { id: true, name: true, targetLanguage: true } },
           reviews: {
             where: { userId: session.user.id },
           },
@@ -90,7 +90,7 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
       include: {
         card: {
           include: {
-            deck: { select: { id: true, name: true } },
+            deck: { select: { id: true, name: true, targetLanguage: true } },
           },
         },
       },
@@ -123,7 +123,7 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
         ...(excludeIds.size > 0 ? { id: { notIn: [...excludeIds] } } : {}),
       },
       include: {
-        deck: { select: { id: true, name: true } },
+        deck: { select: { id: true, name: true, targetLanguage: true } },
       },
     });
 

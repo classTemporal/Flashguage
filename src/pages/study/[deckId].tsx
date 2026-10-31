@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import { invalidateAppCache } from "@/lib/cache";
 import { getNextIntervalPreview, calculateCardMastery } from "@/lib/sm2";
+import { speakInLanguage, getSpeechVoice } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -96,15 +97,8 @@ function blankOutVocab(sentence: string, vocab: string): React.ReactNode[] {
   });
 }
 
-function speakText(text: string) {
-  if (typeof window === "undefined") return;
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.88;
-  utterance.pitch = 1;
-  window.speechSynthesis.speak(utterance);
+function speakText(text: string, langCode: string = "en") {
+  speakInLanguage(text, langCode);
 }
 
 // ─── Image component with fallback ───────────────────────────────────────────
@@ -592,11 +586,14 @@ export default function StudySessionPage({
     [queue, currentIndex, isSubmitting, showToast]
   );
 
-  const handleSpeak = useCallback((text: string) => {
+  const currentReview = queue[currentIndex] || null;
+  const deckLang = (currentReview?.card as any)?.deck?.targetLanguage || "en";
+
+  const handleSpeak = useCallback((text: string, customLang?: string) => {
     setIsSpeaking(true);
-    speakText(text);
+    speakInLanguage(text, customLang || deckLang);
     setTimeout(() => setIsSpeaking(false), 2000);
-  }, []);
+  }, [deckLang]);
 
   const handleAdvanceDay = useCallback(async () => {
     setIsAdvancing(true);
@@ -639,7 +636,6 @@ export default function StudySessionPage({
   }, [phase, isSubmitting, completed, handleRate]);
 
   // All card-level derivations and hooks MUST run unconditionally before any early returns!
-  const currentReview = queue[currentIndex] || null;
   const card = currentReview?.card || null;
   const media = useMemo(() => parseMedia(card?.media), [card?.media]);
   const tags = useMemo(() => parseTags(card?.tags || "[]"), [card?.tags]);
@@ -946,7 +942,7 @@ export default function StudySessionPage({
                       }
                     }}
                     disabled={phase === "answer" && typingResult === "correct"}
-                    placeholder="Type the English spelling..."
+                    placeholder="Type the correct spelling..."
                     className={`flex-1 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 ${
                       typingResult === "correct"
                         ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30"
@@ -1034,7 +1030,7 @@ export default function StudySessionPage({
                 <button
                   onClick={() => handleSpeak(card.front)}
                   className="flex items-center gap-2 text-xs font-bold text-primary-foreground bg-primary px-4 py-2 rounded-full shadow-xs hover:opacity-90 active:scale-95 transition-all"
-                  title="Listen to English pronunciation"
+                  title="Listen to pronunciation"
                 >
                   <span>🔊</span>
                   <span>Pronounce Word</span>

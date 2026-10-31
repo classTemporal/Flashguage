@@ -12,16 +12,21 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useToast } from "@/components/ui/toast";
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 
 export default function NewDeck() {
   const router = useRouter();
   const { showToast } = useToast();
+  const [targetLanguage, setTargetLanguage] = useState("en");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [generateCardsWithAI, setGenerateCardsWithAI] = useState(true);
   const [nameError, setNameError] = useState("");
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const currentLang = getLanguage(targetLanguage);
+  const presets = currentLang.deckPresets;
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -53,7 +58,11 @@ export default function NewDeck() {
       const res = await fetch("/api/decks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName, description: description.trim() || null }),
+        body: JSON.stringify({
+          name: trimmedName,
+          description: description.trim() || null,
+          targetLanguage,
+        }),
       });
 
       let data: any = {};
@@ -73,7 +82,11 @@ export default function NewDeck() {
             const aiRes = await fetch("/api/ai/generate-flashcards", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ prompt: trimmedName, count: 3 }),
+              body: JSON.stringify({
+                prompt: trimmedName,
+                count: 3,
+                targetLanguage: currentLang.name,
+              }),
             });
             if (aiRes.ok) {
               const aiData = await aiRes.json();
@@ -134,18 +147,38 @@ export default function NewDeck() {
             </p>
           </div>
 
-          {/* Quick Presets */}
+          {/* Target Language Selection */}
+          <div className="mb-5 space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Learning Language Track:
+            </label>
+            <select
+              value={targetLanguage}
+              onChange={(e) => {
+                setTargetLanguage(e.target.value);
+                const lang = getLanguage(e.target.value);
+                if (lang.deckPresets[0]) {
+                  setName(lang.deckPresets[0].name);
+                  setDescription(lang.deckPresets[0].desc);
+                }
+              }}
+              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.flag} {l.name} ({l.nativeName})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quick Presets for Selected Language */}
           <div className="mb-6 space-y-1.5">
             <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Quick Topic Presets:
+              {currentLang.flag} Suggested {currentLang.name} Presets:
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { name: "🎯 Essential B1-B2 Vocabulary", desc: "Core words for fluent daily conversation" },
-                { name: "💼 Business & Workplace English", desc: "Professional terms for meetings and emails" },
-                { name: "✈️ Travel & Daily Situations", desc: "Practical expressions for traveling abroad" },
-                { name: "📚 Must-know Phrasal Verbs", desc: "Most common multi-word verbs in English" },
-              ].map((preset, i) => (
+              {presets.map((preset, i) => (
                 <button
                   key={i}
                   type="button"
@@ -179,7 +212,7 @@ export default function NewDeck() {
               onChange={handleNameChange}
               error={nameError}
               required
-              placeholder="e.g. Business English, Phrasal Verbs"
+              placeholder="e.g. Daily Vocabulary, Travel Phrases, Conversational Mastery"
             />
 
             <Textarea

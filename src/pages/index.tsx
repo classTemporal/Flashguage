@@ -17,11 +17,11 @@ export default function Home() {
         <div className="max-w-2xl w-full text-center space-y-8">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold tracking-tight text-foreground text-balance sm:text-5xl">
-              Learn English with{" "}
-              <span className="text-primary">smart flashcards</span>
+              Master Languages with{" "}
+              <span className="text-primary">Flashguage</span>
             </h1>
             <p className="text-lg text-muted-foreground">
-              Spaced repetition, AI-powered examples, and offline support.
+              Smart spaced repetition, native audio pronunciation, and multi-language learning tracks.
             </p>
           </div>
 

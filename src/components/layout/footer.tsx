@@ -11,14 +11,14 @@ export function Footer() {
         <div className="flex flex-col items-center sm:items-start gap-1 text-center sm:text-left">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary text-primary-foreground font-black text-xs shadow-xs">
-              EF
+              FG
             </div>
             <span className="text-sm font-bold tracking-tight text-foreground">
-              English Flashcards
+              Flashguage
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Modern spaced repetition with SM-2, AI definitions & offline capability.
+            Modern spaced repetition with SM-2, AI definitions & multi-language learning tracks.
           </p>
         </div>
 

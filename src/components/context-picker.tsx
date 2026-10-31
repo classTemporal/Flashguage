@@ -6,11 +6,12 @@ import { Spinner } from "@/components/ui/loading";
 
 interface ContextPickerProps {
   text: string;
+  targetLanguage?: string;
   onSelectWord: (word: string) => void;
   onCreateCard: (word: string, definition: string) => void;
 }
 
-export function ContextPicker({ text, onSelectWord, onCreateCard }: ContextPickerProps) {
+export function ContextPicker({ text, targetLanguage, onSelectWord, onCreateCard }: ContextPickerProps) {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [definition, setDefinition] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,7 +36,11 @@ export function ContextPicker({ text, onSelectWord, onCreateCard }: ContextPicke
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "definition", word: selectedWord }),
+        body: JSON.stringify({
+          action: "definition",
+          word: selectedWord,
+          targetLanguage,
+        }),
       });
 
       if (!res.ok) {
@@ -77,7 +82,7 @@ export function ContextPicker({ text, onSelectWord, onCreateCard }: ContextPicke
 
       <div className="rounded-md border border-border bg-background p-3 sm:p-5 text-base sm:text-lg leading-loose text-foreground font-sans">
         {text.split(/(\s+)/).map((segment, i) => {
-          const cleanWord = segment.replace(/[^a-zA-Z'-]/g, "");
+          const cleanWord = segment.trim().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
           if (!cleanWord || segment.trim().length === 0) {
             return <span key={i}>{segment}</span>;
           }

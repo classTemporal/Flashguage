@@ -32,7 +32,7 @@ export async function createDeck(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { id, name, description, isPublic } = req.body;
+    const { id, name, description, isPublic, targetLanguage } = req.body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return res.status(400).json({ message: "Name is required" });
@@ -50,6 +50,7 @@ export async function createDeck(req: NextApiRequest, res: NextApiResponse) {
           data: {
             name: name.trim(),
             description: description?.trim() || null,
+            ...(targetLanguage ? { targetLanguage } : {}),
             ...(isPublic !== undefined ? { isPublic: Boolean(isPublic) } : {}),
           },
           include: {
@@ -64,6 +65,7 @@ export async function createDeck(req: NextApiRequest, res: NextApiResponse) {
       data: {
         name: name.trim(),
         description: description?.trim() || null,
+        targetLanguage: targetLanguage || "en",
         isPublic: Boolean(isPublic),
         userId: session.user.id,
       },
@@ -86,7 +88,7 @@ export async function updateDeck(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { id, name, description, isPublic } = req.body;
+    const { id, name, description, isPublic, targetLanguage } = req.body;
 
     if (!id || typeof id !== "string") {
       return res.status(400).json({ message: "Deck id is required" });
@@ -105,6 +107,7 @@ export async function updateDeck(req: NextApiRequest, res: NextApiResponse) {
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(description !== undefined ? { description: description?.trim() || null } : {}),
+        ...(targetLanguage !== undefined ? { targetLanguage } : {}),
         ...(isPublic !== undefined ? { isPublic: Boolean(isPublic) } : {}),
       },
       include: {

@@ -17,11 +17,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { action, word, context, config } = req.body as {
+  const { action, word, context, config, targetLanguage } = req.body as {
     action?: Action;
     word?: string;
     context?: string;
     config?: AIConfig;
+    targetLanguage?: string;
   };
 
   if (!action || !word) {
@@ -75,15 +76,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     switch (action) {
       case "definition":
-        const definition = await generateDefinition(word, context, effectiveConfig);
+        const definition = await generateDefinition(word, context, effectiveConfig, targetLanguage);
         return res.status(200).json({ data: definition });
 
       case "example":
-        const example = await generateExample(word, context, effectiveConfig);
+        const example = await generateExample(word, context, effectiveConfig, targetLanguage);
         return res.status(200).json({ data: { example } });
 
       case "suggest":
-        const suggestions = await suggestRelatedWords(word, effectiveConfig);
+        const suggestions = await suggestRelatedWords(word, effectiveConfig, targetLanguage);
         return res.status(200).json({ data: { suggestions } });
 
       default:

@@ -65,17 +65,17 @@ export default function Register() {
           <Link
             href="/"
             className="inline-flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-lg p-1"
-            aria-label="English Flashcards Home"
+            aria-label="Flashguage Home"
           >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20">
-              <span className="text-xl">EF</span>
+              <span className="text-xl">FG</span>
             </div>
           </Link>
           <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Create an account
+            Create your Flashguage Account
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Start mastering English with spaced repetition and AI
+            Master multiple languages with smart spaced repetition and AI
           </p>
         </div>
 

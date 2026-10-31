@@ -15,6 +15,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { useToast } from "@/components/ui/toast";
 import { ImagePicker } from "@/components/card/image-picker";
 import { invalidateAppCache } from "@/lib/cache";
+import { SUPPORTED_LANGUAGES, speakInLanguage, getLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -58,6 +59,7 @@ export interface DictionaryDefinitionItem {
 interface UserDeck {
   id: string;
   name: string;
+  targetLanguage?: string;
 }
 
 /**
@@ -123,6 +125,7 @@ function transformApiResponse(apiData: ApiResponseItem[]): DictionaryDefinitionI
 
 export default function DictionariesPage() {
   const { showToast } = useToast();
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [searchTerm, setSearchTerm] = useState("ubiquitous");
   const [activeQuery, setActiveQuery] = useState("ubiquitous");
 
@@ -153,11 +156,17 @@ export default function DictionariesPage() {
   // Fetch user decks for 'Create Flashcard' target selection
   const { data: userDecks = [] } = useSWR<UserDeck[]>("/api/decks", fetcher);
 
+  // Auto-select deck matching language
   useEffect(() => {
-    if (userDecks.length > 0 && !selectedDeckId) {
-      setSelectedDeckId(userDecks[0].id);
+    if (userDecks.length > 0) {
+      const match = userDecks.find((d) => d.targetLanguage === selectedLanguage);
+      if (match) {
+        setSelectedDeckId(match.id);
+      } else if (!selectedDeckId) {
+        setSelectedDeckId(userDecks[0].id);
+      }
     }
-  }, [userDecks, selectedDeckId]);
+  }, [userDecks, selectedLanguage, selectedDeckId]);
 
   const openCardModal = async (item: DictionaryDefinitionItem) => {
     setSelectedItemToCard(item);
@@ -212,6 +221,7 @@ export default function DictionariesPage() {
           body: JSON.stringify({
             word: cardFront.trim(),
             context: cardBack.trim(),
+            targetLanguage: selectedLanguage,
           }),
         });
         if (autoRes.ok) {
@@ -288,6 +298,7 @@ export default function DictionariesPage() {
         body: JSON.stringify({
           word: cardFront.trim(),
           context: cardBack.trim(),
+          targetLanguage: selectedLanguage,
         }),
       });
       if (!res.ok) throw new Error();
@@ -308,7 +319,7 @@ export default function DictionariesPage() {
     }
   };
 
-  const fetchDictionaryWord = useCallback(async (wordToFetch: string) => {
+  const fetchDictionaryWord = useCallback(async (wordToFetch: string, lang = selectedLanguage) => {
     const trimmed = wordToFetch.trim();
     if (!trimmed) {
       setResults([]);
@@ -321,36 +332,51 @@ export default function DictionariesPage() {
 
     try {
       const res = await fetch(
-        `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(trimmed.toLowerCase())}`
+        `/api/dictionary-lookup?word=${encodeURIComponent(trimmed)}&lang=${lang}`
       );
 
       if (!res.ok) {
         if (res.status === 404) {
           setErrorMessage(`No definitions found for "${trimmed}". Please check the spelling or try another word.`);
         } else {
-          setErrorMessage(`Unable to look up "${trimmed}" right now (status ${res.status}). Please try again later.`);
+          setErrorMessage(`Unable to look up "${trimmed}" right now. Please try again later.`);
         }
         setResults([]);
         return;
       }
 
-      let raw: unknown;
+      let data: any;
       try {
-        raw = await res.json();
+        data = await res.json();
       } catch {
         setErrorMessage(`No definitions found for "${trimmed}".`);
         setResults([]);
         return;
       }
 
-      if (Array.isArray(raw) && raw.length > 0) {
-        const transformed = transformApiResponse(raw as ApiResponseItem[]);
-        if (transformed.length === 0) {
-          setErrorMessage(`No definitions found for "${trimmed}".`);
-          setResults([]);
-        } else {
-          setResults(transformed);
-        }
+      if (data.definitions && Array.isArray(data.definitions) && data.definitions.length > 0) {
+        const transformed: DictionaryDefinitionItem[] = data.definitions.map((def: any, idx: number) => ({
+          id: def.id || `${trimmed}-${def.partOfSpeech || 'term'}-${idx}`,
+          word: data.word || trimmed,
+          phonetic: data.phonetic || undefined,
+          audio: data.audio || undefined,
+          partOfSpeech: def.partOfSpeech || data.partOfSpeech || "term",
+          definition: def.definition || "",
+          example: def.example || undefined,
+          synonyms: def.synonyms || [],
+        }));
+        setResults(transformed);
+      } else if (data.definition) {
+        setResults([{
+          id: `${trimmed}-0`,
+          word: data.word || trimmed,
+          phonetic: data.phonetic || undefined,
+          audio: data.audio || undefined,
+          partOfSpeech: data.partOfSpeech || "term",
+          definition: data.definition,
+          example: data.example || undefined,
+          synonyms: data.synonyms || [],
+        }]);
       } else {
         setErrorMessage(`No definitions found for "${trimmed}".`);
         setResults([]);
@@ -361,45 +387,53 @@ export default function DictionariesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedLanguage]);
 
   // Initial load
   useEffect(() => {
-    fetchDictionaryWord("ubiquitous");
-  }, [fetchDictionaryWord]);
+    fetchDictionaryWord(searchTerm, selectedLanguage);
+  }, []);
+
+  const handleLanguageChange = (newLang: string) => {
+    setSelectedLanguage(newLang);
+    let sampleWord = searchTerm;
+    if (newLang === "es") sampleWord = "efímero";
+    else if (newLang === "fr") sampleWord = "bienveillance";
+    else if (newLang === "de") sampleWord = "sehnsucht";
+    else if (newLang === "it") sampleWord = "meraviglia";
+    else if (newLang === "ja") sampleWord = "木漏れ日";
+    else if (newLang === "en") sampleWord = "ubiquitous";
+    
+    setSearchTerm(sampleWord);
+    setActiveQuery(sampleWord);
+    fetchDictionaryWord(sampleWord, newLang);
+  };
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = searchTerm.trim();
     if (!trimmed) return;
     setActiveQuery(trimmed);
-    fetchDictionaryWord(trimmed);
+    fetchDictionaryWord(trimmed, selectedLanguage);
   };
 
   const handleSelectWord = (word: string) => {
     setSearchTerm(word);
     setActiveQuery(word);
-    fetchDictionaryWord(word);
+    fetchDictionaryWord(word, selectedLanguage);
   };
 
   const handlePlayAudio = (word: string, audioUrl?: string) => {
     if (!word) return;
 
-    // Primary: Web Speech API (matches Study mode, reliable and native on mobile/desktop)
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = "en-US";
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-        return;
-      } catch {
-        // Fallback to audio element
-      }
+    // Primary: Web Speech API with selected target language
+    try {
+      speakInLanguage(word, selectedLanguage);
+      return;
+    } catch {
+      // Fallback to audio element if available
     }
 
-    // Secondary fallback: external audio file URL if Web Speech API is absent
     if (audioUrl) {
       try {
         if (audioRef.current) {
@@ -470,7 +504,7 @@ export default function DictionariesPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <Header title="English Flashcards" />
+      <Header title="Flashguage" />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 space-y-6">
         {/* BackButton to /dashboard at top */}
@@ -488,7 +522,7 @@ export default function DictionariesPage() {
               </h1>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Search real definitions, pronunciations, and examples from the Free Dictionary API.
+              Search real definitions, native audio pronunciations, and examples in {getLanguage(selectedLanguage).name} and more.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -498,16 +532,43 @@ export default function DictionariesPage() {
           </div>
         </div>
 
+        {/* Language Track Selector */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
+            Language Track:
+          </span>
+          <div className="flex items-center gap-1.5 flex-nowrap">
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const isSelected = selectedLanguage === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => handleLanguageChange(lang.code)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-sm font-semibold ring-2 ring-primary/40"
+                      : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50"
+                  }`}
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Search Bar */}
         <form onSubmit={handleSearchSubmit} className="space-y-2">
           <label htmlFor="dict-search" className="block text-sm font-medium text-foreground">
-            Search Word
+            Search Word in {getLanguage(selectedLanguage).name} {getLanguage(selectedLanguage).flag}
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
                 id="dict-search"
-                placeholder="Type any English word (e.g. ubiquitous, catalyst, resilient)..."
+                placeholder={`Search word in ${getLanguage(selectedLanguage).name}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 text-base py-2.5"

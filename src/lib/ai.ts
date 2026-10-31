@@ -399,24 +399,24 @@ async function tryProviders(
   throw new Error(`AI generation failed across providers:\n${errors.join("\n")}`);
 }
 
-function buildDefinitionPrompt(word: string, context?: string): string {
+function buildDefinitionPrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are a helpful English-learning assistant. For the word or phrase "${word}"${ctx}, provide:
+  return `You are an expert language-learning assistant. For the word or phrase "${word}" in ${targetLanguage}${ctx}, provide:
 1. part of speech (noun/verb/adjective/adverb/etc.)
-2. a clear, concise definition
-3. IPA pronunciation if known
-4. one natural example sentence using it
+2. a clear, concise definition or translation
+3. phonetic pronunciation or IPA if known
+4. one natural example sentence using it in context
 
 Format strictly as JSON with keys: partOfSpeech, definition, pronunciation, example. Do not include any other text.`;
 }
 
-function buildExamplePrompt(word: string, context?: string): string {
+function buildExamplePrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are a helpful English-learning assistant. Generate a single natural example sentence using the word or phrase "${word}"${ctx}. Return only the sentence, no quotes or extra text.`;
+  return `You are an expert language-learning assistant. Generate a single natural example sentence in ${targetLanguage} using the word or phrase "${word}"${ctx}. Return only the sentence, no quotes or extra text.`;
 }
 
-function buildSuggestPrompt(word: string): string {
-  return `You are a helpful English-learning assistant. For the word "${word}", list 8 related words or phrases that are useful to learn together. Return as a JSON array of strings only, no other text. Example: ["synonym1", "antonym1", "collocation1", ...]`;
+function buildSuggestPrompt(word: string, targetLanguage = "the target language"): string {
+  return `You are an expert language-learning assistant. For the word "${word}" in ${targetLanguage}, list 8 related words or phrases in ${targetLanguage} that are useful to learn together. Return as a JSON array of strings only, no other text. Example: ["word1", "word2", "word3", ...]`;
 }
 
 function cleanJsonOutput(raw: string): string {
@@ -450,9 +450,10 @@ function cleanJsonArrayOutput(raw: string): string {
 export async function generateDefinition(
   word: string,
   context?: string,
-  config?: AIConfig
+  config?: AIConfig,
+  targetLanguage?: string
 ): Promise<DefinitionResult> {
-  const prompt = buildDefinitionPrompt(word, context);
+  const prompt = buildDefinitionPrompt(word, context, targetLanguage);
   const raw = await tryProviders(prompt, "definition", word, context, config);
 
   try {
@@ -473,18 +474,20 @@ export async function generateDefinition(
 export async function generateExample(
   word: string,
   context?: string,
-  config?: AIConfig
+  config?: AIConfig,
+  targetLanguage?: string
 ): Promise<string> {
-  const prompt = buildExamplePrompt(word, context);
+  const prompt = buildExamplePrompt(word, context, targetLanguage);
   const raw = await tryProviders(prompt, "example", word, context, config);
   return raw.trim().replace(/^["']|["']$/g, "");
 }
 
 export async function suggestRelatedWords(
   word: string,
-  config?: AIConfig
+  config?: AIConfig,
+  targetLanguage?: string
 ): Promise<string[]> {
-  const prompt = buildSuggestPrompt(word);
+  const prompt = buildSuggestPrompt(word, targetLanguage);
   const raw = await tryProviders(prompt, "suggest", word, undefined, config);
 
   try {

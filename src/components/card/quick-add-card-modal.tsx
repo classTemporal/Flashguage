@@ -6,11 +6,13 @@ import { Input, Textarea } from "@/components/ui/input";
 import { ImagePicker } from "@/components/card/image-picker";
 import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
+import { speakInLanguage, getLanguage } from "@/lib/languages";
 
 interface QuickAddCardModalProps {
   isOpen: boolean;
   onClose: () => void;
   deckId: string;
+  targetLanguage?: string;
   onCardAdded?: () => void;
 }
 
@@ -28,6 +30,7 @@ export function QuickAddCardModal({
   isOpen,
   onClose,
   deckId,
+  targetLanguage = "en",
   onCardAdded,
 }: QuickAddCardModalProps) {
   const { showToast } = useToast();
@@ -63,19 +66,9 @@ export function QuickAddCardModal({
 
   if (!isOpen) return null;
 
-  // Speak word using Web Speech API
+  // Speak word using Web Speech API with deck target language
   const handleSpeak = (text: string) => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = "en-US";
-        u.rate = 0.9;
-        window.speechSynthesis.speak(u);
-      } catch {
-        // ignore
-      }
-    }
+    speakInLanguage(text, targetLanguage);
   };
 
   // Step 1: Search definitions for the word
@@ -94,8 +87,8 @@ export function QuickAddCardModal({
     setSelectedImageUrl("");
 
     try {
-      // 1. Try dictionary lookup for multiple definitions
-      const dictRes = await fetch(`/api/dictionary-lookup?word=${encodeURIComponent(prompt)}`);
+      // 1. Try dictionary lookup for multiple definitions in deck language
+      const dictRes = await fetch(`/api/dictionary-lookup?word=${encodeURIComponent(prompt)}&lang=${targetLanguage}`);
       if (dictRes.ok) {
         const dictData = await dictRes.json();
         const defs: DefinitionOption[] = dictData.definitions || [];
@@ -118,7 +111,11 @@ export function QuickAddCardModal({
       const aiRes = await fetch("/api/ai/generate-flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, count: 1 }),
+        body: JSON.stringify({
+          prompt,
+          count: 1,
+          targetLanguage: getLanguage(targetLanguage).name,
+        }),
       });
 
       if (!aiRes.ok) throw new Error("Could not find definitions for this word");
@@ -243,7 +240,7 @@ export function QuickAddCardModal({
     }
     setIsManualLookup(true);
     try {
-      const res = await fetch(`/api/dictionary-lookup?word=${encodeURIComponent(term)}`);
+      const res = await fetch(`/api/dictionary-lookup?word=${encodeURIComponent(term)}&lang=${targetLanguage}`);
       if (res.ok) {
         const data = await res.json();
         if (data.phonetic && !phonetic) setPhonetic(data.phonetic);

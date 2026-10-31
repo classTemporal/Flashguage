@@ -10,6 +10,7 @@ import { invalidateAppCache } from "@/lib/cache";
 interface EditCardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  targetLanguage?: string;
   card: {
     id: string;
     front: string;
@@ -23,6 +24,7 @@ interface EditCardModalProps {
 export function EditCardModal({
   isOpen,
   onClose,
+  targetLanguage = "en",
   card,
   onCardUpdated,
 }: EditCardModalProps) {
@@ -95,6 +97,7 @@ export function EditCardModal({
         body: JSON.stringify({
           word: front.trim(),
           context: back.trim() || undefined,
+          targetLanguage,
         }),
       });
       if (!res.ok) throw new Error("Could not enrich with AI");

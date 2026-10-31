@@ -36,7 +36,7 @@ function generateFallbackSentence(word: string, partOfSpeech: string = "word"): 
   if (pos.includes("idiom") || pos.includes("phrase")) {
     return `When discussing the problem, they decided to ${clean} to resolve it quickly.`;
   }
-  return `Understanding how to use "${clean}" in conversation will elevate your English fluency.`;
+  return `Understanding how to use "${clean}" in conversation will elevate your language fluency.`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -94,19 +94,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 2. If AI key is configured, use LLM
   if (hasApiKey) {
     try {
-      const prompt = `You are an expert English language teacher. Provide contextual enrichment for the vocabulary term "${cleanWord}".
+      const targetLang = req.body.targetLanguage || req.body.language || "English";
+      const prompt = `You are an expert ${targetLang} language teacher. Provide contextual enrichment for the vocabulary term "${cleanWord}" in ${targetLang}.
 ${context ? `Known definition/context: "${context}"` : ""}
 
 Return ONLY a valid JSON object matching this schema:
 {
-  "example": "A single best natural example sentence containing '${cleanWord}'",
+  "example": "A single best natural example sentence in ${targetLang} containing '${cleanWord}'",
   "examples": [
-    "First natural example sentence containing '${cleanWord}'",
+    "First natural example sentence in ${targetLang} containing '${cleanWord}'",
     "Second natural example sentence showing another context with '${cleanWord}'"
   ],
-  "phonetic": "/phonetic transcription/",
+  "phonetic": "/phonetic transcription or reading/",
   "partOfSpeech": "noun | verb | adjective | adverb | idiom",
-  "imageSearchQuery": "A concrete 2-4 word visual query describing what this meaning looks like (e.g. for crane bird: 'crane bird nature', for large musical note: 'musical note sheet music', for concur agree: 'handshake agreement')",
+  "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this meaning looks like (e.g. for cat: 'cat animal', for agree: 'handshake agreement')",
   "tags": ["category", "grammar-tag"]
 }
 Output raw JSON only without markdown fences or additional commentary.`;
@@ -181,7 +182,7 @@ Output raw JSON only without markdown fences or additional commentary.`;
       try {
         const wikiRes = await fetch(
           `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanWord)}`,
-          { headers: { "User-Agent": "EnglishFlashcardsApp/1.0" } }
+          { headers: { "User-Agent": "FlashguageApp/1.0" } }
         );
         if (wikiRes.ok) {
           const wikiData = await wikiRes.json();

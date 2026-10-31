@@ -5,7 +5,7 @@ export function CardCounterPlugin(): Plugin {
     id: "card-counter",
     name: "Card Counter",
     version: "1.0.0",
-    author: "English Flashcards",
+    author: "Flashguage",
     description: "Tracks how many times each card has been reviewed. Adds a review counter to card metadata.",
     hooks: {
       onCardReview(ctx) {
