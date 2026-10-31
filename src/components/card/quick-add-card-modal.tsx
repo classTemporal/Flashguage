@@ -42,6 +42,13 @@ export function QuickAddCardModal({
   const [definitionOptions, setDefinitionOptions] = useState<DefinitionOption[]>([]);
   const [wordHeader, setWordHeader] = useState("");
   const [phoneticHeader, setPhoneticHeader] = useState("");
+  const [definitionSource, setDefinitionSource] = useState("");
+  const [aiNotice, setAiNotice] = useState<{
+    type: "warning" | "info";
+    title: string;
+    message: string;
+    showSettingsLink?: boolean;
+  } | null>(null);
   
   // Selected definition review state before saving
   const [selectedDefinition, setSelectedDefinition] = useState<DefinitionOption | null>(null);
@@ -85,19 +92,34 @@ export function QuickAddCardModal({
     setSelectedDefinition(null);
     setImageCandidates([]);
     setSelectedImageUrl("");
+    setAiNotice(null);
+    setDefinitionSource("");
 
     try {
-      // 1. Try dictionary & idiom lookup (Wiktionary, FreeDictionary, Wikipedia, AI)
+      // 1. Try dictionary & idiom lookup (Wiktionary, FreeDictionary, Wikipedia, or AI if personal key configured)
       const aiQuery = forceAi ? "&forceAi=true" : "";
       const dictRes = await fetch(
         `/api/dictionary-lookup?word=${encodeURIComponent(prompt)}&lang=${targetLanguage}${aiQuery}`
       );
+      const dictData = await dictRes.json().catch(() => ({}));
+
       if (dictRes.ok) {
-        const dictData = await dictRes.json();
         const defs: DefinitionOption[] = dictData.definitions || [];
 
         setWordHeader(dictData.word || prompt);
         setPhoneticHeader(dictData.phonetic || "");
+        setDefinitionSource(dictData.source || "");
+
+        // If user requested AI Explain but had no personal key, or dictionary fallback was used with warning
+        if (dictData.requiresAiKey || dictData.aiWarning) {
+          setAiNotice({
+            type: "warning",
+            title: "API Key de IA no configurada",
+            message: dictData.aiWarning || "Mostrando resultados del diccionario estándar. Para explicaciones profundas con IA, añade tu clave personal en Ajustes.",
+            showSettingsLink: true,
+          });
+          showToast(dictData.aiWarning || "Configura tu API Key en Ajustes para usar AI Explain", "warning");
+        }
 
         if (defs.length > 0) {
           setDefinitionOptions(defs);
@@ -105,6 +127,21 @@ export function QuickAddCardModal({
           if (defs.length === 1) {
             await handleSelectDefinition(defs[0], dictData.word || prompt);
           }
+          setIsLookingUp(false);
+          return;
+        }
+      }
+
+      // If dictRes was not OK or returned 404 (e.g. unknown phrase/slang like "cursed memory")
+      if (dictData.requiresAiKey || !dictRes.ok) {
+        if (dictData.requiresAiKey) {
+          setAiNotice({
+            type: "warning",
+            title: "Sin resultados en diccionario estándar",
+            message: dictData.message || `"${prompt}" no se encontró en diccionarios estándar. Para que la IA analice modismos, expresiones inventadas o coloquiales, debes configurar tu API Key personal en Ajustes.`,
+            showSettingsLink: true,
+          });
+          showToast(`No se encontró en diccionarios. Configura tu API Key en Ajustes para analizar con IA.`, "warning");
           setIsLookingUp(false);
           return;
         }
@@ -121,19 +158,43 @@ export function QuickAddCardModal({
         }),
       });
 
-      if (!aiRes.ok) throw new Error("Could not find definitions for this word or phrase");
+      const aiData = await aiRes.json().catch(() => ({}));
 
-      const aiData = await aiRes.json();
+      if (!aiRes.ok) {
+        if (aiData.requiresAiKey) {
+          setAiNotice({
+            type: "warning",
+            title: "API Key requerida para IA",
+            message: aiData.message || `Para generar tarjetas de expresiones complejas con IA, configura tu clave personal en Ajustes.`,
+            showSettingsLink: true,
+          });
+          showToast(aiData.message || "Configura tu API Key en Ajustes para generar tarjetas con IA", "warning");
+          setIsLookingUp(false);
+          return;
+        }
+        throw new Error(aiData.message || "No se encontraron definiciones para este término");
+      }
+
       const generated = aiData.cards?.[0];
 
       if (!generated || !generated.front) {
-        showToast("Could not generate card for this term", "error");
+        showToast("No se pudo generar la tarjeta para este término", "error");
         setIsLookingUp(false);
         return;
       }
 
       setWordHeader(generated.front);
       setPhoneticHeader(generated.phonetic || "");
+      setDefinitionSource(aiData.hasPersonalAiKey ? "✨ AI Generated (Personal Key)" : "Dictionary Fallback");
+
+      if (aiData.sourceNotice) {
+        setAiNotice({
+          type: "info",
+          title: "Resultado de Diccionario",
+          message: aiData.sourceNotice,
+          showSettingsLink: true,
+        });
+      }
 
       const singleDef: DefinitionOption = {
         id: "ai-def-0",
@@ -434,6 +495,68 @@ export function QuickAddCardModal({
               </div>
             </form>
 
+            {/* Feedback / AI Notice Banner */}
+            {aiNotice && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 flex items-start justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span className="text-lg shrink-0 mt-0.5">⚠️</span>
+                  <div className="space-y-1 min-w-0">
+                    <p className="font-bold text-amber-100">{aiNotice.title}</p>
+                    <p className="text-amber-200/90 leading-relaxed text-[11px]">{aiNotice.message}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {aiNotice.showSettingsLink && (
+                    <a
+                      href="/settings"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-primary-foreground bg-primary hover:bg-primary/90 px-2.5 py-1.5 rounded-xl transition-all shadow-xs inline-flex items-center gap-1"
+                    >
+                      ⚙️ Settings
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAiNotice(null)}
+                    className="text-amber-300/70 hover:text-amber-100 p-1 rounded-lg"
+                    title="Dismiss"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Empty State after search failure with key guidance */}
+            {!selectedDefinition && definitionOptions.length === 0 && !isLookingUp && aiNotice && (
+              <div className="rounded-2xl border border-border/80 bg-muted/10 p-4 text-center space-y-3 animate-in fade-in">
+                <p className="text-xs text-muted-foreground">
+                  Can&apos;t find this in standard dictionaries? You can configure your personal AI key in Settings or fill the card manually:
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <a
+                    href="/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all inline-flex items-center gap-1.5 shadow-xs"
+                  >
+                    ⚙️ Configure AI in Settings
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFront(aiPrompt.trim());
+                      setTab("manual");
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-border bg-background text-foreground text-xs font-bold hover:bg-muted transition-all"
+                  >
+                    ✍️ Switch to Manual Form
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Sub-State A: Display Definition Choices if multiple found and none selected */}
             {definitionOptions.length > 0 && !selectedDefinition && (
               <div className="space-y-2.5 pt-2 animate-in fade-in duration-150">
@@ -445,6 +568,11 @@ export function QuickAddCardModal({
                     {phoneticHeader && (
                       <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
                         {phoneticHeader}
+                      </span>
+                    )}
+                    {definitionSource && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {definitionSource}
                       </span>
                     )}
                   </div>
@@ -503,6 +631,11 @@ export function QuickAddCardModal({
                       {phoneticHeader && (
                         <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
                           {phoneticHeader}
+                        </span>
+                      )}
+                      {definitionSource && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {definitionSource}
                         </span>
                       )}
                       <button

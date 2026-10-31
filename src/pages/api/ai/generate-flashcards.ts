@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { prisma } from "@/lib/prisma";
-import { AIConfig, AIProvider, callOpenAI, callAnthropic, callGemini, callOllama, generateDefinition } from "@/lib/ai";
+import { AIConfig, AIProvider, callOpenAI, callAnthropic, callGemini, callOllama, callCustom, generateDefinition } from "@/lib/ai";
 import { resolveSemanticImage } from "@/lib/image-search";
 
 export interface GeneratedFlashcard {
@@ -136,8 +136,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const cleanPrompt = prompt.trim();
   const numCards = Math.min(Math.max(1, Number(count) || 1), 5);
 
-  // 1. Check user AI settings
+  // 1. Check user AI settings (strictly user's personal keys)
   let userConfig: AIConfig = {};
+  let hasApiKey = false;
+
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -145,38 +147,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     if (user?.settings) {
       const s = JSON.parse(user.settings);
+      const provider = (s.aiProvider as AIProvider) || "gemini";
+      let personalKey = "";
+      if (provider === "gemini") personalKey = (s.geminiKey || s.aiApiKey || "").trim();
+      else if (provider === "openai") personalKey = (s.openaiKey || s.aiApiKey || "").trim();
+      else if (provider === "anthropic") personalKey = (s.anthropicKey || s.aiApiKey || "").trim();
+      else if (provider === "custom") personalKey = (s.customApiKey || s.aiApiKey || "").trim();
+      else if (provider === "ollama") personalKey = "ollama-local";
+
+      if (personalKey) {
+        hasApiKey = true;
+      }
+
       userConfig = {
-        provider: (s.aiProvider as AIProvider) || "gemini",
-        openaiKey: s.openaiKey || process.env.OPENAI_API_KEY || "",
-        anthropicKey: s.anthropicKey || process.env.ANTHROPIC_API_KEY || "",
-        geminiKey: s.geminiKey || process.env.GEMINI_API_KEY || "",
-        ollamaUrl: s.ollamaUrl || "http://localhost:11434",
-        ollamaModel: s.ollamaModel || "llama3",
+        provider,
+        apiKey: personalKey,
+        geminiKey: (s.geminiKey || "").trim(),
+        openaiKey: (s.openaiKey || "").trim(),
+        anthropicKey: (s.anthropicKey || "").trim(),
+        customApiKey: (s.customApiKey || "").trim(),
+        customBaseUrl: (s.customBaseUrl || "").trim(),
+        customModel: (s.customModel || "").trim(),
+        ollamaUrl: (s.ollamaUrl as string) || "http://localhost:11434",
+        ollamaModel: (s.ollamaModel as string) || "llama3",
         openaiModel: s.openaiModel || "gpt-4o-mini",
         anthropicModel: s.anthropicModel || "claude-3-5-haiku-latest",
-        geminiModel: s.geminiModel || "gemini-3.1-flash-lite",
+        geminiModel: (s.geminiModel as string) || "gemini-3.1-flash-lite",
       };
     }
   } catch {
     // continue
   }
 
-  // Ensure server GEMINI_API_KEY is available as fallback
-  if (!userConfig.geminiKey && process.env.GEMINI_API_KEY) {
-    userConfig.geminiKey = process.env.GEMINI_API_KEY;
-    userConfig.apiKey = process.env.GEMINI_API_KEY;
-    userConfig.geminiModel = "gemini-3.1-flash-lite";
-  }
-
-  const hasApiKey = Boolean(
-    (userConfig.provider === "openai" && (userConfig.openaiKey || process.env.OPENAI_API_KEY)) ||
-      (userConfig.provider === "anthropic" && (userConfig.anthropicKey || process.env.ANTHROPIC_API_KEY)) ||
-      (userConfig.provider === "gemini" && (userConfig.geminiKey || process.env.GEMINI_API_KEY)) ||
-      Boolean(process.env.GEMINI_API_KEY) ||
-      userConfig.provider === "ollama"
-  );
-
-  // 2. If AI provider is available, use LLM to generate rich flashcards
+  // 2. If user configured an AI provider with their own key, use LLM to generate rich flashcards
   if (hasApiKey) {
     try {
       const targetLang = req.body.targetLanguage || req.body.language || "English";
@@ -197,12 +200,14 @@ Format your response ONLY as a JSON array of objects with the exact schema:
 Do not include any conversational text or markdown formatting. Output raw valid JSON only.`;
 
       let rawResponse = "";
-      if (userConfig.provider === "anthropic" && (userConfig.anthropicKey || process.env.ANTHROPIC_API_KEY)) {
+      if (userConfig.provider === "anthropic" && userConfig.anthropicKey) {
         rawResponse = await callAnthropic(systemPrompt, userConfig);
-      } else if (userConfig.provider === "openai" && (userConfig.openaiKey || process.env.OPENAI_API_KEY)) {
+      } else if (userConfig.provider === "openai" && userConfig.openaiKey) {
         rawResponse = await callOpenAI(systemPrompt, userConfig);
       } else if (userConfig.provider === "ollama") {
         rawResponse = await callOllama(systemPrompt, userConfig);
+      } else if (userConfig.provider === "custom" && userConfig.customBaseUrl) {
+        rawResponse = await callCustom(systemPrompt, userConfig);
       } else {
         userConfig.provider = "gemini";
         rawResponse = await callGemini(systemPrompt, userConfig);
@@ -227,14 +232,13 @@ Do not include any conversational text or markdown formatting. Output raw valid 
         })
       );
 
-      return res.status(200).json({ cards: enrichedCards });
+      return res.status(200).json({ cards: enrichedCards, hasPersonalAiKey: true });
     } catch (err) {
       console.warn("LLM generation failed, falling back to dictionary lookup:", err);
     }
   }
 
-  // 3. Fallback: Free Dictionary & Image Engine
-  // Split prompt if comma-separated words (e.g. "reluctant, resilient")
+  // 3. Fallback when user has no AI key: Free Dictionary & Image Engine
   const words = cleanPrompt.includes(",")
     ? cleanPrompt.split(",").map((w) => w.trim()).filter(Boolean)
     : [cleanPrompt];
@@ -246,33 +250,20 @@ Do not include any conversational text or markdown formatting. Output raw valid 
     if (card) {
       results.push(card);
     } else {
-      // If not in dictionary, attempt AI definition generation
-      let aiDefBack = `Explanation for "${word}"`;
-      let aiDefEx = `Example sentence with "${word}".`;
-      let aiPos = word.includes(" ") ? "idiom / phrase" : "vocabulary";
-
-      try {
-        const aiRes = await generateDefinition(word, undefined, userConfig, "English");
-        if (aiRes && aiRes.definition) {
-          aiDefBack = aiRes.definition;
-          aiDefEx = aiRes.example || aiDefEx;
-          aiPos = aiRes.partOfSpeech || aiPos;
-        }
-      } catch {
-        // ignore
-      }
-
-      const imageResult = await resolveSemanticImage(word, aiDefBack);
-      results.push({
-        front: word,
-        back: aiDefBack,
-        partOfSpeech: aiPos,
-        example: aiDefEx,
-        imageUrl: imageResult.imageUrl,
-        tags: [aiPos],
+      // If not in dictionary and user has no personal AI key, inform them clearly
+      return res.status(400).json({
+        error: "AI_KEY_REQUIRED",
+        requiresAiKey: true,
+        message: `"${word}" was not found in standard dictionaries. Please configure your personal AI key (Gemini, OpenAI, Claude) in Settings to analyze novel or colloquial expressions with AI.`,
       });
     }
   }
 
-  return res.status(200).json({ cards: results });
+  return res.status(200).json({
+    cards: results,
+    requiresAiKey: !hasApiKey,
+    sourceNotice: !hasApiKey
+      ? "Generated from standard dictionary. Configure your personal AI key in Settings to unlock AI generation."
+      : undefined,
+  });
 }

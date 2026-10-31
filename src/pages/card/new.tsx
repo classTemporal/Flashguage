@@ -71,14 +71,23 @@ export default function NewCard() {
         body: JSON.stringify({ prompt, count: aiCount }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error("Failed to generate flashcards");
+        if (data.requiresAiKey) {
+          showToast(data.message || "A personal AI API key is required in Settings to generate cards with AI", "warning");
+          return;
+        }
+        throw new Error(data.message || "Failed to generate flashcards");
       }
 
-      const data = await res.json();
       if (data.cards && data.cards.length > 0) {
         setGeneratedCards(data.cards);
-        showToast(`✨ Successfully generated ${data.cards.length} card(s)!`, "success");
+        if (data.sourceNotice) {
+          showToast(`ℹ️ ${data.sourceNotice}`, "warning");
+        } else {
+          showToast(`✨ Successfully generated ${data.cards.length} card(s)!`, "success");
+        }
       } else {
         showToast("No cards generated. Please try a different term.", "error");
       }

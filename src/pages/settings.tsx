@@ -748,8 +748,8 @@ export default function SettingsPage() {
                       type="text"
                       value={geminiModel}
                       onChange={(e) => setGeminiModel(e.target.value)}
-                      placeholder="gemini-2.0-flash"
-                      hint="Gemini model (e.g. gemini-2.0-flash, gemini-1.5-pro)."
+                      placeholder="gemini-3.1-flash-lite"
+                      hint="Gemini model (e.g. gemini-3.1-flash-lite, gemini-3.5-flash-lite)."
                     />
                     <Button
                       type="button"

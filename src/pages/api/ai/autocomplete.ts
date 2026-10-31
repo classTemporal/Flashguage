@@ -67,17 +67,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     if (user?.settings) {
       const s = JSON.parse(user.settings);
-      const provider = s.aiProvider || "openai";
+      const provider = s.aiProvider || "gemini";
       userConfig = {
         provider,
-        openaiKey: s.openaiKey || process.env.OPENAI_API_KEY || "",
-        anthropicKey: s.anthropicKey || process.env.ANTHROPIC_API_KEY || "",
-        geminiKey: s.geminiKey || process.env.GEMINI_API_KEY || "",
+        openaiKey: (s.openaiKey || "").trim(),
+        anthropicKey: (s.anthropicKey || "").trim(),
+        geminiKey: (s.geminiKey || "").trim(),
         ollamaUrl: s.ollamaUrl || "http://localhost:11434",
         ollamaModel: s.ollamaModel || "llama3",
-        openaiModel: s.openaiModel || "gpt-3.5-turbo",
-        anthropicModel: s.anthropicModel || "claude-3-haiku-20240307",
-        geminiModel: s.geminiModel || "gemini-1.5-flash",
+        openaiModel: s.openaiModel || "gpt-4o-mini",
+        anthropicModel: s.anthropicModel || "claude-3-5-haiku-latest",
+        geminiModel: s.geminiModel || "gemini-3.1-flash-lite",
       };
     }
   } catch {
@@ -85,9 +85,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const hasApiKey = Boolean(
-    (userConfig.provider === "openai" && (userConfig.openaiKey || process.env.OPENAI_API_KEY)) ||
-      (userConfig.provider === "anthropic" && (userConfig.anthropicKey || process.env.ANTHROPIC_API_KEY)) ||
-      (userConfig.provider === "gemini" && (userConfig.geminiKey || process.env.GEMINI_API_KEY)) ||
+    (userConfig.provider === "openai" && userConfig.openaiKey) ||
+      (userConfig.provider === "anthropic" && userConfig.anthropicKey) ||
+      (userConfig.provider === "gemini" && userConfig.geminiKey) ||
       userConfig.provider === "ollama"
   );
 

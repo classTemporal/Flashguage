@@ -120,6 +120,11 @@ export default function NewDeck() {
                   });
                 }
               }
+            } else {
+              const aiData = await aiRes.json().catch(() => ({}));
+              if (aiData.requiresAiKey) {
+                showToast("Deck created. Configure your personal AI key in Settings to auto-generate starter cards.", "warning");
+              }
             }
           } catch {
             // deck created anyway

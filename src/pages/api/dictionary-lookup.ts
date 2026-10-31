@@ -31,87 +31,90 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const lowerWord = cleanWord.toLowerCase();
   const langInfo = getLanguage(langCode);
 
-  // Helper function to query user or system AI
-  async function queryAiDefinition(): Promise<WordDefinitionItem[] | null> {
-    try {
-      const session = await getServerSession(req, res, authOptions);
-      let userConfig: AIConfig = {};
+  // Retrieve user's personal AI configuration (strictly user-configured keys)
+  let hasPersonalAiKey = false;
+  let userConfig: AIConfig = {};
 
-      if (session?.user?.id) {
-        const user = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { settings: true },
-        });
-        if (user?.settings) {
-          try {
-            const s = JSON.parse(user.settings);
-            const provider = (s.aiProvider as string) || "gemini";
-            const apiKey =
-              (s.aiApiKey as string) || s.geminiKey || s.openaiKey || s.anthropicKey || process.env.GEMINI_API_KEY || "";
-            userConfig = {
-              provider: provider as any,
-              apiKey,
-              model: (s.aiModel as string) || s.geminiModel || s.openaiModel || "gemini-3.1-flash-lite",
-              geminiKey: s.geminiKey || process.env.GEMINI_API_KEY || "",
-              openaiKey: s.openaiKey || process.env.OPENAI_API_KEY || "",
-              anthropicKey: s.anthropicKey || process.env.ANTHROPIC_API_KEY || "",
-              geminiModel: (s.geminiModel as string) || "gemini-3.1-flash-lite",
-              ollamaUrl: s.ollamaUrl || "",
-              ollamaModel: s.ollamaModel || "",
-            };
-          } catch {
-            // ignore
+  try {
+    const session = await getServerSession(req, res, authOptions);
+    if (session?.user?.id) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { settings: true },
+      });
+      if (user?.settings) {
+        try {
+          const s = JSON.parse(user.settings);
+          const provider = (s.aiProvider as any) || "gemini";
+          let personalKey = "";
+          if (provider === "gemini") personalKey = (s.geminiKey || s.aiApiKey || "").trim();
+          else if (provider === "openai") personalKey = (s.openaiKey || s.aiApiKey || "").trim();
+          else if (provider === "anthropic") personalKey = (s.anthropicKey || s.aiApiKey || "").trim();
+          else if (provider === "custom") personalKey = (s.customApiKey || s.aiApiKey || "").trim();
+          else if (provider === "ollama") personalKey = "ollama-local";
+
+          if (personalKey) {
+            hasPersonalAiKey = true;
           }
+
+          userConfig = {
+            provider,
+            apiKey: personalKey,
+            geminiKey: (s.geminiKey || "").trim(),
+            openaiKey: (s.openaiKey || "").trim(),
+            anthropicKey: (s.anthropicKey || "").trim(),
+            customApiKey: (s.customApiKey || "").trim(),
+            customBaseUrl: (s.customBaseUrl || "").trim(),
+            customModel: (s.customModel || "").trim(),
+            geminiModel: (s.geminiModel as string) || "gemini-3.1-flash-lite",
+            openaiModel: s.openaiModel || "gpt-4o-mini",
+            anthropicModel: s.anthropicModel || "claude-3-5-haiku-latest",
+            ollamaUrl: (s.ollamaUrl as string) || "http://localhost:11434",
+            ollamaModel: (s.ollamaModel as string) || "llama3",
+          };
+        } catch {
+          // ignore
         }
       }
+    }
+  } catch {
+    // ignore
+  }
 
-      // If user has not configured personal keys, use server Gemini default
-      if (!userConfig.apiKey && process.env.GEMINI_API_KEY) {
-        userConfig.provider = "gemini";
-        userConfig.geminiKey = process.env.GEMINI_API_KEY;
-        userConfig.apiKey = process.env.GEMINI_API_KEY;
-        userConfig.geminiModel = "gemini-3.1-flash-lite";
-      }
+  // Helper function to query user AI with their personal key
+  async function queryAiDefinition(): Promise<WordDefinitionItem[] | null> {
+    if (!hasPersonalAiKey) return null;
+    try {
+      const result = await generateDefinition(
+        cleanWord,
+        cleanWord.includes(" ")
+          ? "This is an English idiom, phrasal verb, expression, or colloquialism. Explain its idiomatic meaning clearly."
+          : undefined,
+        userConfig,
+        langInfo.name
+      );
 
-      // Check if user has an AI key or if environment has an API key
-      const hasAi =
-        Boolean(userConfig.apiKey) ||
-        Boolean(process.env.GEMINI_API_KEY) ||
-        Boolean(process.env.OPENAI_API_KEY) ||
-        Boolean(process.env.ANTHROPIC_API_KEY);
-
-      if (hasAi) {
-        const result = await generateDefinition(
-          cleanWord,
-          cleanWord.includes(" ")
-            ? "This is an English idiom, phrasal verb, expression, or colloquialism. Explain its idiomatic meaning clearly."
-            : undefined,
-          userConfig,
-          langInfo.name
-        );
-
-        if (result && result.definition && result.definition.length > 5) {
-          const isPhrase = cleanWord.includes(" ");
-          const pos = result.partOfSpeech || (isPhrase ? "idiom / phrase" : "vocabulary");
-          return [
-            {
-              id: "ai-def-0",
-              partOfSpeech: pos,
-              definition: result.definition,
-              example: result.example || undefined,
-              synonyms: [],
-            },
-          ];
-        }
+      if (result && result.definition && result.definition.length > 5) {
+        const isPhrase = cleanWord.includes(" ");
+        const pos = result.partOfSpeech || (isPhrase ? "idiom / phrase" : "vocabulary");
+        return [
+          {
+            id: "ai-def-0",
+            partOfSpeech: pos,
+            definition: result.definition,
+            example: result.example || undefined,
+            synonyms: [],
+          },
+        ];
       }
     } catch (err) {
-      console.warn("AI idiom lookup fallback warning:", err);
+      console.warn("AI idiom lookup warning:", err);
     }
     return null;
   }
 
-  // If forceAi is requested, directly run AI explanation
-  if (forceAi) {
+  // If forceAi is requested, directly run AI explanation if user has their own key
+  if (forceAi && hasPersonalAiKey) {
     const aiDefs = await queryAiDefinition();
     if (aiDefs && aiDefs.length > 0) {
       return res.status(200).json({
@@ -124,7 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         synonyms: [],
         definitions: aiDefs,
         language: langInfo.code,
-        source: "AI Explanation",
+        source: "✨ AI Explanation",
+        hasPersonalAiKey: true,
       });
     }
   }
@@ -183,6 +187,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               definitions,
               language: "en",
               source: "Dictionary",
+              hasPersonalAiKey,
+              requiresAiKey: forceAi && !hasPersonalAiKey,
+              aiWarning: forceAi && !hasPersonalAiKey
+                ? "Showing standard dictionary results. Configure your personal AI key in Settings to use AI Explain."
+                : undefined,
             });
           }
         }
@@ -249,6 +258,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             definitions,
             language: langInfo.code,
             source: "Wiktionary Idioms & Expressions",
+            hasPersonalAiKey,
+            requiresAiKey: forceAi && !hasPersonalAiKey,
+            aiWarning: forceAi && !hasPersonalAiKey
+              ? "Showing Wiktionary results. Configure your personal AI key in Settings to use AI Explain."
+              : undefined,
           });
         }
       }
@@ -257,21 +271,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // continue
   }
 
-  // 3. AI Assistance Fallback for Slang, Modern Idioms & Expressions
-  const aiDefs = await queryAiDefinition();
-  if (aiDefs && aiDefs.length > 0) {
-    return res.status(200).json({
-      word: cleanWord,
-      phonetic: "",
-      audio: "",
-      partOfSpeech: aiDefs[0].partOfSpeech,
-      definition: aiDefs[0].definition,
-      example: aiDefs[0].example || "",
-      synonyms: [],
-      definitions: aiDefs,
-      language: langInfo.code,
-      source: "AI Assistant",
-    });
+  // 3. AI Assistance Fallback for Slang, Modern Idioms & Expressions (strictly using personal key)
+  if (hasPersonalAiKey) {
+    const aiDefs = await queryAiDefinition();
+    if (aiDefs && aiDefs.length > 0) {
+      return res.status(200).json({
+        word: cleanWord,
+        phonetic: "",
+        audio: "",
+        partOfSpeech: aiDefs[0].partOfSpeech,
+        definition: aiDefs[0].definition,
+        example: aiDefs[0].example || "",
+        synonyms: [],
+        definitions: aiDefs,
+        language: langInfo.code,
+        source: "✨ AI Assistant",
+        hasPersonalAiKey: true,
+      });
+    }
   }
 
   // 4. Multilingual Wikipedia Summary (works in es, fr, de, it, ja, zh, ru, pt, etc.)
@@ -322,6 +339,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           definitions,
           language: langInfo.code,
           source: "Wikipedia",
+          hasPersonalAiKey,
+          requiresAiKey: forceAi && !hasPersonalAiKey,
+          aiWarning: forceAi && !hasPersonalAiKey
+            ? "Showing Wikipedia results. Configure your personal AI key in Settings to use AI Explain."
+            : undefined,
         });
       }
     }
@@ -329,10 +351,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // continue
   }
 
-  // 5. If not found in any dictionary or source, return 404 with notFound flag
+  // 5. If not found in any dictionary or source
   return res.status(404).json({
     notFound: true,
-    message: `No dictionary definitions found for "${cleanWord}". Try AI generation or manual entry.`,
+    requiresAiKey: !hasPersonalAiKey,
+    hasPersonalAiKey,
+    message: hasPersonalAiKey
+      ? `No definitions found for "${cleanWord}".`
+      : `No standard dictionary definitions found for "${cleanWord}". Please configure your personal AI key (Gemini, OpenAI, Claude) in Settings to analyze novel or colloquial expressions with AI.`,
     word: cleanWord,
     definitions: [],
   });
