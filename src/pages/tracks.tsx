@@ -10,7 +10,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import { LoadingPage } from "@/components/ui/loading";
-import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
+import { SUPPORTED_LANGUAGES, getLanguage, setStoredActiveLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -68,9 +68,7 @@ export default function TracksPage() {
   }, [userTrackStats]);
 
   const handleSelectTrack = (code: string) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("flashguage_active_lang", code);
-    }
+    setStoredActiveLanguage(code);
     router.push(`/dashboard?lang=${encodeURIComponent(code)}`);
   };
 

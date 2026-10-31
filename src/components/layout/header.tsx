@@ -56,6 +56,16 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
+  const [currentTrackLang, setCurrentTrackLang] = useState<string>("en");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = router.query.lang as string;
+      const stored = localStorage.getItem("flashguage_active_lang");
+      if (q && q.trim()) setCurrentTrackLang(q.trim());
+      else if (stored && stored.trim()) setCurrentTrackLang(stored.trim());
+    }
+  }, [router.query.lang]);
 
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const moreDropdownRef = useRef<HTMLDivElement>(null);
@@ -312,13 +322,13 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-3 py-1.5 shadow-lg safe-area-pb">
           <div className="mx-auto flex max-w-md items-center justify-around">
             {[
-              { href: "/dashboard", label: "Dashboard", icon: "📊" },
-              { href: "/decks", label: "Decks", icon: "🗂️" },
-              { href: "/study", label: "Study", icon: "🧠", isHero: true },
-              { href: "/dictionaries", label: "Search", icon: "📖" },
-              { href: "/settings", label: "Settings", icon: "⚙️" },
+              { href: currentTrackLang ? `/dashboard?lang=${encodeURIComponent(currentTrackLang)}` : "/dashboard", baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
+              { href: currentTrackLang ? `/decks?lang=${encodeURIComponent(currentTrackLang)}` : "/decks", baseRoute: "/decks", label: "Decks", icon: "🗂️" },
+              { href: currentTrackLang ? `/study?lang=${encodeURIComponent(currentTrackLang)}` : "/study", baseRoute: "/study", label: "Study", icon: "🧠", isHero: true },
+              { href: "/dictionaries", baseRoute: "/dictionaries", label: "Search", icon: "📖" },
+              { href: "/settings", baseRoute: "/settings", label: "Settings", icon: "⚙️" },
             ].map((btn) => {
-              const active = isRouteActive(btn.href);
+              const active = isRouteActive(btn.baseRoute);
               if (btn.isHero) {
                 return (
                   <Link

@@ -15,12 +15,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { deckId, days = 1 } = req.body;
+    const { deckId, lang, days = 1 } = req.body;
     const daysShift = Math.max(1, Number(days) || 1);
 
     const where: any = { userId: session.user.id };
-    if (deckId && typeof deckId === "string") {
+    if (deckId && typeof deckId === "string" && deckId !== "all") {
       where.card = { deckId };
+    } else if (lang && typeof lang === "string" && lang !== "all") {
+      where.card = { deck: { targetLanguage: lang } };
     }
 
     const reviews = await prisma.review.findMany({

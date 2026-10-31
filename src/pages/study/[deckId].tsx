@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import { invalidateAppCache } from "@/lib/cache";
 import { getNextIntervalPreview, calculateCardMastery } from "@/lib/sm2";
-import { speakInLanguage, getSpeechVoice } from "@/lib/languages";
+import { speakInLanguage, getSpeechVoice, getLanguage, SUPPORTED_LANGUAGES } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -286,6 +286,7 @@ function ProgressRing({
 function CompletionScreen({
   deckId,
   deckName,
+  activeLanguage = "en",
   totalReviewed,
   streak,
   againCount,
@@ -295,6 +296,7 @@ function CompletionScreen({
 }: {
   deckId: string;
   deckName: string;
+  activeLanguage?: string;
   totalReviewed: number;
   streak: number;
   againCount: number;
@@ -302,9 +304,10 @@ function CompletionScreen({
   isAdvancing: boolean;
   isCramMode: boolean;
 }) {
+  const currentLang = getLanguage(activeLanguage);
   const retainedPct = totalReviewed > 0 ? Math.round(((totalReviewed - againCount) / totalReviewed) * 100) : 100;
-  const backUrl = deckId === "all" ? "/dashboard" : `/deck/${deckId}`;
-  const backLabel = deckId === "all" ? "Back to Dashboard" : "Back to Deck";
+  const backUrl = deckId === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deckId}`;
+  const backLabel = deckId === "all" ? `Back to ${currentLang.name} Dashboard` : "Back to Deck";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
@@ -369,7 +372,7 @@ function CompletionScreen({
         </button>
 
         <Link
-          href={deckId === "all" ? "/study/all?mode=all" : `/study/${deckId}?mode=all`}
+          href={deckId === "all" ? `/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all` : `/study/${deckId}?mode=all`}
           className="w-full rounded-2xl border border-transparent py-2.5 text-muted-foreground hover:text-foreground font-medium text-xs transition-colors"
         >
           Review Again in Free Practice Mode
@@ -384,42 +387,54 @@ function CompletionScreen({
 function NoDueCards({
   deckId,
   deckName,
+  activeLanguage = "en",
   onAdvanceDay,
   isAdvancing,
 }: {
   deckId: string;
   deckName: string;
+  activeLanguage?: string;
   onAdvanceDay: () => void;
   isAdvancing: boolean;
 }) {
-  const backUrl = deckId === "all" ? "/dashboard" : `/deck/${deckId}`;
-  const backLabel = deckId === "all" ? "Dashboard" : "Deck";
+  const currentLang = getLanguage(activeLanguage);
+  const backUrl = deckId === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deckId}`;
+  const backLabel = deckId === "all" ? `${currentLang.name} Dashboard` : "Deck";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
       <div className="mb-4 text-6xl">🎉</div>
       <span className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-        Spaced Repetition Up to Date
+        {currentLang.flag} {currentLang.name} Track
       </span>
       <h1 className="text-2xl sm:text-3xl font-black text-foreground mb-2">
         All cards caught up!
       </h1>
       <p className="text-muted-foreground mb-8 max-w-sm text-sm">
-        According to your spaced repetition memory schedule, all vocabulary in <strong>{deckName}</strong> is currently reviewed.
+        {deckId === "all"
+          ? `According to your spaced repetition schedule, all cards in your ${currentLang.name} track are currently up to date.`
+          : `According to your spaced repetition memory schedule, all vocabulary in ${deckName} is currently reviewed.`}
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <Link
-          href={deckId === "all" ? "/study/all?mode=all" : `/study/${deckId}?mode=all`}
+          href={deckId === "all" ? `/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all` : `/study/${deckId}?mode=all`}
           className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-white font-bold text-center transition-colors shadow-md flex items-center justify-center gap-2"
         >
           <span>🎯</span> Free Practice Mode
         </Link>
 
+        <Link
+          href={`/decks?lang=${encodeURIComponent(activeLanguage)}`}
+          className="w-full rounded-2xl border border-border bg-card py-3 text-foreground font-semibold hover:bg-muted transition-colors text-sm flex items-center justify-center gap-2"
+        >
+          <span>🗂️</span> Manage {currentLang.name} Decks
+        </Link>
+
         <button
           onClick={onAdvanceDay}
           disabled={isAdvancing}
-          className="w-full rounded-2xl border border-dashed border-border bg-card py-3 text-foreground font-semibold hover:bg-muted transition-colors text-sm flex items-center justify-center gap-2"
+          className="w-full rounded-2xl border border-dashed border-border bg-card py-2.5 text-foreground font-semibold hover:bg-muted transition-colors text-xs flex items-center justify-center gap-2"
         >
           <span>⏩</span> {isAdvancing ? "Advancing day..." : "Simulate Next Day (+1 Day)"}
         </button>
@@ -444,14 +459,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { redirect: { destination: "/login", permanent: false } };
   }
 
-  const { deckId } = context.query;
+  const { deckId, lang } = context.query;
   if (!deckId || typeof deckId !== "string") return { notFound: true };
+
+  const cookieLang = context.req.cookies["flashguage_active_lang"];
+  const effectiveLang = typeof lang === "string" && lang.trim() && lang !== "all"
+    ? lang.trim()
+    : (cookieLang || "en");
 
   if (deckId === "all") {
     return {
       props: {
         session,
-        deck: { id: "all", name: "All Decks (Daily Review)" },
+        deck: { id: "all", name: "All Decks (Daily Review)", targetLanguage: effectiveLang },
+        lang: effectiveLang,
       },
     };
   }
@@ -465,7 +486,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   return {
     props: {
       session,
-      deck: { id: deck.id, name: deck.name },
+      deck: { id: deck.id, name: deck.name, targetLanguage: deck.targetLanguage || effectiveLang },
+      lang: deck.targetLanguage || effectiveLang,
     },
   };
 };
@@ -474,15 +496,24 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
 export default function StudySessionPage({
   deck,
+  lang: initialLang,
 }: {
-  deck: { id: string; name: string };
+  deck: { id: string; name: string; targetLanguage?: string };
+  lang?: string;
 }) {
   const router = useRouter();
-  const { deckId, mode } = router.query;
+  const { deckId, mode, lang: queryLang } = router.query;
   const isCramMode = mode === "all";
 
   const { data: session } = useSession();
   const { showToast } = useToast();
+
+  const activeLanguage =
+    (typeof queryLang === "string" && queryLang.trim() && queryLang !== "all" ? queryLang.trim() : null) ||
+    deck.targetLanguage ||
+    initialLang ||
+    (typeof window !== "undefined" ? localStorage.getItem("flashguage_active_lang") : null) ||
+    "en";
 
   // ── Core state ──
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -511,7 +542,9 @@ export default function StudySessionPage({
 
   const effectiveDeckId = deck?.id || (typeof deckId === "string" ? deckId : "");
   const swrUrl = effectiveDeckId
-    ? `/api/reviews/due?deckId=${effectiveDeckId}${isCramMode ? "&mode=all" : ""}`
+    ? `/api/reviews/due?deckId=${effectiveDeckId}${isCramMode ? "&mode=all" : ""}${
+        effectiveDeckId === "all" ? `&lang=${encodeURIComponent(activeLanguage)}` : ""
+      }`
     : null;
 
   const { data: reviews, error, mutate: mutateReviews } = useSWR<Review[]>(swrUrl, fetcher);
@@ -587,7 +620,7 @@ export default function StudySessionPage({
   );
 
   const currentReview = queue[currentIndex] || null;
-  const deckLang = (currentReview?.card as any)?.deck?.targetLanguage || "en";
+  const deckLang = (currentReview?.card as any)?.deck?.targetLanguage || activeLanguage || "en";
 
   const handleSpeak = useCallback((text: string, customLang?: string) => {
     setIsSpeaking(true);
@@ -601,7 +634,7 @@ export default function StudySessionPage({
       const res = await fetch("/api/reviews/advance-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deckId }),
+        body: JSON.stringify({ deckId, lang: activeLanguage }),
       });
       if (!res.ok) throw new Error();
       showToast("Time advanced +1 day! New cards are ready.", "success");
@@ -614,7 +647,7 @@ export default function StudySessionPage({
     } finally {
       setIsAdvancing(false);
     }
-  }, [deckId, mutateReviews, showToast]);
+  }, [deckId, activeLanguage, mutateReviews, showToast]);
 
   // Keyboard shortcuts (Space = reveal, 1 = Again, 2 = Hard, 3 = Mastered)
   useEffect(() => {
@@ -757,7 +790,7 @@ export default function StudySessionPage({
     );
   }
 
-  const studyBackUrl = deck.id === "all" ? "/dashboard" : `/deck/${deck.id}`;
+  const studyBackUrl = deck.id === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deck.id}`;
   const studyBackLabel = deck.id === "all" ? "Dashboard" : "Deck";
 
   if (error || (reviews && !Array.isArray(reviews))) {
@@ -778,6 +811,7 @@ export default function StudySessionPage({
       <NoDueCards
         deckId={deck.id}
         deckName={deck.name}
+        activeLanguage={activeLanguage}
         onAdvanceDay={handleAdvanceDay}
         isAdvancing={isAdvancing}
       />
@@ -789,6 +823,7 @@ export default function StudySessionPage({
       <CompletionScreen
         deckId={deck.id}
         deckName={deck.name}
+        activeLanguage={activeLanguage}
         totalReviewed={totalReviewed}
         streak={bestStreak}
         againCount={againCount}

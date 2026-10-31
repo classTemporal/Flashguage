@@ -3,7 +3,8 @@
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
@@ -15,7 +16,7 @@ import { DeckCardSkeleton, EmptyState } from "@/components/ui/loading";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
-import { getLanguage } from "@/lib/languages";
+import { getLanguage, getStoredActiveLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -31,8 +32,22 @@ interface Deck {
 }
 
 export default function DecksPage() {
+  const router = useRouter();
   const { showToast } = useToast();
-  const { data: decks, error, isLoading, mutate } = useSWR<Deck[]>("/api/decks", fetcher);
+  const [activeLanguage, setActiveLanguage] = useState<string>("en");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = router.query.lang as string;
+      const stored = getStoredActiveLanguage();
+      if (q && q.trim()) setActiveLanguage(q.trim());
+      else if (stored && stored.trim()) setActiveLanguage(stored.trim());
+    }
+  }, [router.query.lang]);
+
+  const currentLang = getLanguage(activeLanguage);
+  const decksUrl = activeLanguage ? `/api/decks?lang=${encodeURIComponent(activeLanguage)}` : "/api/decks";
+  const { data: decks, error, isLoading, mutate } = useSWR<Deck[]>(decksUrl, fetcher);
 
   // Search state
   const [search, setSearch] = useState("");
@@ -134,14 +149,20 @@ export default function DecksPage() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 space-y-6">
         <div className="flex items-center justify-between">
-          <BackButton href="/dashboard" label="Back to Dashboard" />
+          <div className="flex items-center gap-3">
+            <BackButton href={activeLanguage ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : "/dashboard"} label="Back to Dashboard" />
+            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border flex items-center gap-1.5">
+              <span>{currentLang.flag}</span>
+              <span>{currentLang.name}</span>
+            </span>
+          </div>
           <Button
             type="button"
             size="sm"
             onClick={() => setIsCreateOpen(true)}
             className="gap-1.5 font-bold shadow-xs"
           >
-            <span>⚡ + Nuevo Mazo</span>
+            <span>⚡ + New Deck</span>
           </Button>
         </div>
 
@@ -381,6 +402,7 @@ export default function DecksPage() {
         {/* Quick Add Deck Modal */}
         <QuickAddDeckModal
           isOpen={isCreateOpen}
+          defaultLanguage={activeLanguage}
           onClose={() => setIsCreateOpen(false)}
           onDeckCreated={() => mutate()}
         />

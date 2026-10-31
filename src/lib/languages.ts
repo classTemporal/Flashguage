@@ -119,3 +119,23 @@ export function speakInLanguage(text: string, languageCode: string = "en"): void
     console.error("Speech synthesis error:", err);
   }
 }
+
+export function getStoredActiveLanguage(): string {
+  if (typeof window === "undefined") return "en";
+  try {
+    return localStorage.getItem("flashguage_active_lang") || "en";
+  } catch {
+    return "en";
+  }
+}
+
+export function setStoredActiveLanguage(code: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("flashguage_active_lang", code);
+    document.cookie = `flashguage_active_lang=${encodeURIComponent(code)}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch (err) {
+    console.error("Failed to store active language:", err);
+  }
+}
+

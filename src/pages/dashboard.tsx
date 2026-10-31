@@ -18,7 +18,7 @@ import { OfflineBanner } from "@/components/offline-banner";
 import { useSyncQueue } from "@/hooks/use-sync";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
 import { useToast } from "@/components/ui/toast";
-import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
+import { SUPPORTED_LANGUAGES, getLanguage, getStoredActiveLanguage, setStoredActiveLanguage } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -149,12 +149,18 @@ function GoalProgress({
   goal,
   percentage,
   activeLanguage = "en",
+  totalCards = 0,
+  dueCount = 0,
+  onCreateDeck,
   onUpdateGoal,
 }: {
   current: number;
   goal: number;
   percentage: number;
   activeLanguage?: string;
+  totalCards?: number;
+  dueCount?: number;
+  onCreateDeck?: () => void;
   onUpdateGoal: (newGoal: number) => Promise<void>;
 }) {
   const clampedPct = Math.min(percentage, 100);
@@ -255,10 +261,44 @@ function GoalProgress({
           <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
             Goal achieved! 🎯
           </span>
+        ) : totalCards === 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground font-medium">No cards in track yet</span>
+            {onCreateDeck && (
+              <Button
+                type="button"
+                onClick={onCreateDeck}
+                size="sm"
+                className="h-6 text-[11px] px-2.5 py-0 font-bold shadow-xs"
+              >
+                + Create Deck
+              </Button>
+            )}
+          </div>
+        ) : dueCount === 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">0 cards due today</span>
+            <Button
+              href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
+              as="link"
+              variant="secondary"
+              size="sm"
+              className="h-6 text-[11px] px-2 py-0"
+            >
+              Practice Any →
+            </Button>
+          </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-primary font-semibold">{Math.max(goal - current, 0)} cards left</span>
-            <Button href={`/study?lang=${activeLanguage}`} as="link" size="sm" className="h-6 text-[11px] px-2 py-0">
+            <span className="text-primary font-semibold">
+              {Math.min(dueCount, Math.max(goal - current, 0))} cards due
+            </span>
+            <Button
+              href={`/study?lang=${encodeURIComponent(activeLanguage)}`}
+              as="link"
+              size="sm"
+              className="h-6 text-[11px] px-2 py-0"
+            >
               Study Now →
             </Button>
           </div>
@@ -285,22 +325,22 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const q = router.query.lang as string;
-      const stored = localStorage.getItem("flashguage_active_lang");
+      const stored = getStoredActiveLanguage();
       if (q && q.trim()) {
         setActiveLanguage(q);
+        setStoredActiveLanguage(q);
       } else if (stored && stored.trim()) {
         setActiveLanguage(stored);
       } else if (allDecks && allDecks.length > 0 && allDecks[0].targetLanguage) {
         setActiveLanguage(allDecks[0].targetLanguage);
+        setStoredActiveLanguage(allDecks[0].targetLanguage);
       }
     }
   }, [router.query.lang, allDecks]);
 
   const handleSelectTrack = (langCode: string) => {
     setActiveLanguage(langCode);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("flashguage_active_lang", langCode);
-    }
+    setStoredActiveLanguage(langCode);
     router.replace(
       { pathname: router.pathname, query: { ...router.query, lang: langCode } },
       undefined,
@@ -428,16 +468,45 @@ export default function Dashboard() {
 
             {/* Desktop quick action buttons */}
             <div className="hidden sm:flex flex-wrap items-center gap-3">
+              {(stats?.totalCards ?? 0) === 0 ? (
+                <Button
+                  type="button"
+                  onClick={() => setIsCreateDeckOpen(true)}
+                  size="md"
+                  className="font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
+                >
+                  <span>✨</span>
+                  <span>Create {currentLang.name} Deck</span>
+                </Button>
+              ) : (dueReviews?.length ?? 0) > 0 ? (
+                <Button
+                  href={`/study?lang=${encodeURIComponent(activeLanguage)}`}
+                  as="link"
+                  size="md"
+                  className="font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
+                >
+                  <span>🧠</span>
+                  <span>Study {activeLanguage === "all" ? "Due Cards" : currentLang.name}</span>
+                </Button>
+              ) : (
+                <Button
+                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
+                  as="link"
+                  variant="secondary"
+                  size="md"
+                  className="gap-1.5 font-bold shadow-xs"
+                >
+                  <span>🎯</span>
+                  <span>Practice {currentLang.name} (All)</span>
+                </Button>
+              )}
               <Button
-                href={`/study?lang=${activeLanguage}`}
+                href={`/decks?lang=${encodeURIComponent(activeLanguage)}`}
                 as="link"
+                variant="secondary"
                 size="md"
-                className="font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
+                className="gap-1.5"
               >
-                <span>🧠</span>
-                <span>Study {activeLanguage === "all" ? "Due Cards" : currentLang.name}</span>
-              </Button>
-              <Button href="/decks" as="link" variant="secondary" size="md" className="gap-1.5">
                 <span>🗂️</span>
                 <span>View All Decks</span>
               </Button>
@@ -565,6 +634,9 @@ export default function Dashboard() {
                   goal={stats.dailyGoal.goal}
                   percentage={stats.dailyGoal.percentage}
                   activeLanguage={activeLanguage}
+                  totalCards={stats.totalCards}
+                  dueCount={dueReviews?.length ?? 0}
+                  onCreateDeck={() => setIsCreateDeckOpen(true)}
                   onUpdateGoal={handleUpdateGoal}
                 />
               </div>
