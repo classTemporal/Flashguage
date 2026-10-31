@@ -3,7 +3,7 @@
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,19 @@ export default function NewDeck() {
   const router = useRouter();
   const { showToast } = useToast();
   const [targetLanguage, setTargetLanguage] = useState("en");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = router.query.lang as string;
+      const stored = localStorage.getItem("flashguage_active_lang");
+      if (q && q.trim()) {
+        setTargetLanguage(q);
+      } else if (stored && stored.trim()) {
+        setTargetLanguage(stored);
+      }
+    }
+  }, [router.query.lang]);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [generateCardsWithAI, setGenerateCardsWithAI] = useState(true);
@@ -146,22 +159,17 @@ export default function NewDeck() {
             </p>
           </div>
 
-          {/* Target Language Selection */}
-          <div className="mb-6 space-y-1.5">
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Learning Language Track:
-            </label>
-            <select
-              value={targetLanguage}
-              onChange={(e) => setTargetLanguage(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.flag} {l.name} ({l.nativeName})
-                </option>
-              ))}
-            </select>
+          {/* Current Language Track Indicator */}
+          <div className="mb-6 flex items-center justify-between rounded-2xl bg-muted/40 border border-border px-4 py-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Language Track
+            </span>
+            <span className="inline-flex items-center gap-2 text-sm font-black text-foreground">
+              <span className="text-xl" role="img" aria-label={currentLang.name}>
+                {currentLang.flag}
+              </span>
+              <span>{currentLang.name}</span>
+            </span>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>

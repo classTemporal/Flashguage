@@ -14,6 +14,7 @@ interface HeaderProps {
 
 // Core primary navigation items for desktop top-bar
 const PRIMARY_NAV = [
+  { href: "/tracks", label: "Tracks", icon: "🌐" },
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/decks", label: "Decks", icon: "🗂️" },
   { href: "/progress", label: "Progress", icon: "📈" },
@@ -23,6 +24,7 @@ const PRIMARY_NAV = [
 
 // Secondary tools menu inside "More" dropdown
 const MORE_TOOLS = [
+  { href: "/tracks", label: "Learning Tracks", description: "Switch language or start a new track", icon: "🌐" },
   { href: "/progress", label: "Learning Progress", description: "Mastery percentages & review timers", icon: "📈" },
   { href: "/context-picker", label: "Context Picker", description: "Generate cards from highlighted text", icon: "🔍" },
   { href: "/import", label: "Import Cards", description: "CSV, JSON, Anki format", icon: "📥" },
@@ -32,6 +34,7 @@ const MORE_TOOLS = [
 
 // All links for mobile navigation drawer
 const ALL_MOBILE_NAV = [
+  { href: "/tracks", label: "Learning Tracks", icon: "🌐" },
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/decks", label: "Decks", icon: "🗂️" },
   { href: "/progress", label: "Learning Progress", icon: "📈" },

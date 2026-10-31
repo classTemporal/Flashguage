@@ -435,78 +435,41 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Dedicated Language Track Selector */}
-        <div className="bg-card border border-border rounded-3xl p-5 shadow-xs space-y-3.5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Track Banner with Switch Track Action */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card border border-border rounded-2xl px-5 py-3.5 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl" role="img" aria-label={currentLang.name}>
+              {currentLang.flag}
+            </span>
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <span>🎯</span> Active Language Track
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                Learning Track
               </span>
-              <h2 className="text-xl sm:text-2xl font-black text-foreground mt-0.5 flex items-center gap-2">
-                <span>{activeLanguage === "all" ? "🌐" : currentLang.flag}</span>
-                <span>{activeLanguage === "all" ? "All Languages" : `${currentLang.name} Track`}</span>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  {activeLanguage === "all" ? "Global Mode" : "100% Dedicated"}
-                </span>
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-muted-foreground font-semibold">Switch Track:</span>
-              <select
-                value={activeLanguage}
-                onChange={(e) => handleSelectTrack(e.target.value)}
-                className="text-xs bg-muted border border-border rounded-xl px-3 py-1.5 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
-              >
-                {SUPPORTED_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.flag} {l.name}
-                  </option>
-                ))}
-                <option value="all">🌐 All Languages (Combined)</option>
-              </select>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsCreateDeckOpen(true)}
-                className="text-xs font-bold gap-1"
-              >
-                <span>+ New {activeLanguage === "all" ? "" : currentLang.name} Deck</span>
-              </Button>
+              <p className="text-base font-black text-foreground">
+                {currentLang.name}
+              </p>
             </div>
           </div>
 
-          {/* Quick Track Switcher Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-2 border-t border-border/60">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
-              Active Tracks:
-            </span>
-            {activeTracks.map((code) => {
-              const lang = getLanguage(code);
-              const isSelected = activeLanguage === code;
-              const deckCount = allDecks?.filter((d) => d.targetLanguage === code).length || 0;
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => handleSelectTrack(code)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/40 font-black"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-border"
-                  }`}
-                >
-                  <span>{lang.flag}</span>
-                  <span>{lang.name}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    isSelected ? "bg-white/20 text-white" : "bg-muted-foreground/20 text-foreground"
-                  }`}>
-                    {deckCount}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <Button
+              href="/tracks"
+              as="link"
+              variant="secondary"
+              size="sm"
+              className="text-xs font-bold gap-1.5"
+            >
+              <span>⇄</span>
+              <span>Switch Learning Track</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsCreateDeckOpen(true)}
+              className="text-xs font-bold gap-1"
+            >
+              <span>+ New Deck</span>
+            </Button>
           </div>
         </div>
 

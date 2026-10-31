@@ -144,22 +144,17 @@ export function QuickAddDeckModal({
           </button>
         </div>
 
-        {/* Target Language Selection */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Learning Language Track:
-          </label>
-          <select
-            value={targetLanguage}
-            onChange={(e) => setTargetLanguage(e.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {SUPPORTED_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.flag} {l.name} ({l.nativeName})
-              </option>
-            ))}
-          </select>
+        {/* Current Language Track Indicator */}
+        <div className="flex items-center justify-between rounded-2xl bg-muted/40 border border-border px-3.5 py-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Language Track
+          </span>
+          <span className="inline-flex items-center gap-2 text-xs font-black text-foreground">
+            <span className="text-base" role="img" aria-label={currentLang.name}>
+              {currentLang.flag}
+            </span>
+            <span>{currentLang.name}</span>
+          </span>
         </div>
 
         {/* Deck Form */}
