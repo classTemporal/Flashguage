@@ -36,3 +36,9 @@ yarn-error.log*
 # SQLite database
 prisma/*.db
 prisma/*.db-journal
+
+# Documentation and internal markdown notes (whitelist repository docs)
+*.md
+!README.md
+!CODE_OF_CONDUCT.md
+!CONTRIBUTING.md
