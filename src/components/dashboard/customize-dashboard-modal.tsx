@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 export type DashboardSectionId =
@@ -110,11 +110,16 @@ export function CustomizeDashboardModal({
 }: CustomizeDashboardModalProps) {
   const [currentOrder, setCurrentOrder] = useState<DashboardSectionId[]>(sectionsOrder);
   const [currentHidden, setCurrentHidden] = useState<DashboardSectionId[]>(hiddenSections);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const touchIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setCurrentOrder(sectionsOrder);
       setCurrentHidden(hiddenSections);
+      setDraggedIndex(null);
+      setDragOverIndex(null);
     }
   }, [isOpen, sectionsOrder, hiddenSections]);
 
@@ -127,6 +132,14 @@ export function CustomizeDashboardModal({
     const newOrder = [...currentOrder];
     const [moved] = newOrder.splice(index, 1);
     newOrder.splice(targetIndex, 0, moved);
+    setCurrentOrder(newOrder);
+  };
+
+  const reorder = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= currentOrder.length || to >= currentOrder.length) return;
+    const newOrder = [...currentOrder];
+    const [moved] = newOrder.splice(from, 1);
+    newOrder.splice(to, 0, moved);
     setCurrentOrder(newOrder);
   };
 
@@ -148,6 +161,62 @@ export function CustomizeDashboardModal({
     onClose();
   };
 
+  // ── HTML5 Mouse Drag Handlers ──
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", `${index}`);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== targetIndex) {
+      reorder(draggedIndex, targetIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  // ── Mobile Touch Drag Handlers ──
+  const handleTouchStart = (index: number) => {
+    touchIndexRef.current = index;
+    setDraggedIndex(index);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchIndexRef.current === null) return;
+    const touch = e.touches[0];
+    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    const itemEl = targetEl?.closest("[data-section-index]");
+    if (itemEl) {
+      const overIndex = Number(itemEl.getAttribute("data-section-index"));
+      if (!isNaN(overIndex) && overIndex !== touchIndexRef.current) {
+        reorder(touchIndexRef.current, overIndex);
+        touchIndexRef.current = overIndex;
+        setDraggedIndex(overIndex);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchIndexRef.current = null;
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
@@ -166,7 +235,7 @@ export function CustomizeDashboardModal({
               </h2>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Reorder sections using the arrows or hide widgets to personalize your study view.
+              Drag items or use the arrows to reorder sections. Toggle the eye icon to hide or show widgets.
             </p>
           </div>
           <button
@@ -179,30 +248,60 @@ export function CustomizeDashboardModal({
           </button>
         </div>
 
-        {/* Section List */}
-        <div className="flex-1 overflow-y-auto py-4 space-y-2.5 pr-1">
+        {/* Section List with Drag & Drop */}
+        <div
+          className="flex-1 overflow-y-auto py-4 space-y-2.5 pr-1 touch-manipulation select-none"
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {currentOrder.map((sectionId, index) => {
             const config = DASHBOARD_SECTIONS[sectionId];
             if (!config) return null;
             const isHidden = currentHidden.includes(sectionId);
+            const isBeingDragged = draggedIndex === index;
+            const isDropTarget = dragOverIndex === index && !isBeingDragged;
 
             return (
               <div
                 key={sectionId}
-                className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
-                  isHidden
-                    ? "bg-muted/20 border-border/40 opacity-60"
+                data-section-index={index}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`group flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all duration-150 cursor-grab active:cursor-grabbing ${
+                  isBeingDragged
+                    ? "opacity-50 ring-2 ring-primary border-primary bg-primary/10 scale-[0.98] shadow-lg"
+                    : isDropTarget
+                    ? "border-primary ring-2 ring-primary/40 bg-accent/40"
+                    : isHidden
+                    ? "bg-muted/20 border-border/40 opacity-60 hover:opacity-80"
                     : "bg-muted/40 border-border hover:border-primary/40 shadow-xs"
                 }`}
               >
-                {/* Left: Position badge, Icon, Info */}
-                <div className="flex items-center gap-3 min-w-0">
+                {/* Left: Drag Handle, Position badge, Icon, Info */}
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {/* 6-dot Drag Handle with Touch support */}
+                  <div
+                    onTouchStart={() => handleTouchStart(index)}
+                    className="p-1 text-muted-foreground/60 hover:text-foreground active:text-primary transition-colors cursor-grab active:cursor-grabbing shrink-0"
+                    title="Drag to reorder"
+                    aria-label="Drag to reorder"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M5 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm6-10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z" />
+                    </svg>
+                  </div>
+
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-card border border-border text-[11px] font-mono font-bold text-muted-foreground">
                     #{index + 1}
                   </span>
+
                   <div className="text-xl shrink-0" aria-hidden="true">
                     {config.icon}
                   </div>
+
                   <div className="min-w-0">
                     <p className={`text-xs font-bold truncate ${isHidden ? "line-through text-muted-foreground" : "text-foreground"}`}>
                       {config.label}
