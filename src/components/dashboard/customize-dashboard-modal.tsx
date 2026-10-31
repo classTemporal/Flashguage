@@ -112,7 +112,20 @@ export function CustomizeDashboardModal({
   const [currentHidden, setCurrentHidden] = useState<DashboardSectionId[]>(hiddenSections);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
   const touchIndexRef = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Lock background body scrolling whenever modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -122,8 +135,6 @@ export function CustomizeDashboardModal({
       setDragOverIndex(null);
     }
   }, [isOpen, sectionsOrder, hiddenSections]);
-
-  if (!isOpen) return null;
 
   const moveSection = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -142,6 +153,64 @@ export function CustomizeDashboardModal({
     newOrder.splice(to, 0, moved);
     setCurrentOrder(newOrder);
   };
+
+  // ── Non-passive Touch Drag Listener for Mobile (prevents background and container scroll) ──
+  useEffect(() => {
+    const listEl = listRef.current;
+    if (!listEl) return;
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchIndexRef.current === null) return;
+      // Prevent browser from scrolling behind the drag
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
+      const touch = e.touches[0];
+      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+      const itemEl = targetEl?.closest("[data-section-index]");
+      if (itemEl) {
+        const overIndex = Number(itemEl.getAttribute("data-section-index"));
+        if (!isNaN(overIndex) && overIndex !== touchIndexRef.current) {
+          // Tactile haptic feedback on mobile
+          if (typeof window !== "undefined" && window.navigator?.vibrate) {
+            try {
+              window.navigator.vibrate(12);
+            } catch {}
+          }
+          const from = touchIndexRef.current;
+          const to = overIndex;
+          setCurrentOrder((prev) => {
+            const next = [...prev];
+            const [moved] = next.splice(from, 1);
+            next.splice(to, 0, moved);
+            return next;
+          });
+          touchIndexRef.current = overIndex;
+          setDraggedIndex(overIndex);
+          setDragOverIndex(overIndex);
+        }
+      }
+    };
+
+    const onTouchEnd = () => {
+      touchIndexRef.current = null;
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+    };
+
+    listEl.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+
+    return () => {
+      listEl.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
+
+  if (!isOpen) return null;
 
   const toggleVisibility = (id: DashboardSectionId) => {
     setCurrentHidden((prev) =>
@@ -190,36 +259,15 @@ export function CustomizeDashboardModal({
     setDragOverIndex(null);
   };
 
-  // ── Mobile Touch Drag Handlers ──
   const handleTouchStart = (index: number) => {
     touchIndexRef.current = index;
     setDraggedIndex(index);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchIndexRef.current === null) return;
-    const touch = e.touches[0];
-    const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    const itemEl = targetEl?.closest("[data-section-index]");
-    if (itemEl) {
-      const overIndex = Number(itemEl.getAttribute("data-section-index"));
-      if (!isNaN(overIndex) && overIndex !== touchIndexRef.current) {
-        reorder(touchIndexRef.current, overIndex);
-        touchIndexRef.current = overIndex;
-        setDraggedIndex(overIndex);
-      }
-    }
-  };
-
-  const handleTouchEnd = () => {
-    touchIndexRef.current = null;
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    setDragOverIndex(index);
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="customize-dashboard-title"
@@ -235,7 +283,7 @@ export function CustomizeDashboardModal({
               </h2>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Drag items or use the arrows to reorder sections. Toggle the eye icon to hide or show widgets.
+              Drag items to lift and reorder them into position, or use the arrows.
             </p>
           </div>
           <button
@@ -250,9 +298,8 @@ export function CustomizeDashboardModal({
 
         {/* Section List with Drag & Drop */}
         <div
-          className="flex-1 overflow-y-auto py-4 space-y-2.5 pr-1 touch-manipulation select-none"
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          ref={listRef}
+          className="flex-1 overflow-y-auto py-4 space-y-2.5 pr-1 select-none"
         >
           {currentOrder.map((sectionId, index) => {
             const config = DASHBOARD_SECTIONS[sectionId];
@@ -270,31 +317,35 @@ export function CustomizeDashboardModal({
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
                 onDragEnd={handleDragEnd}
-                className={`group flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all duration-150 cursor-grab active:cursor-grabbing ${
+                className={`group relative flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all duration-200 ${
                   isBeingDragged
-                    ? "opacity-50 ring-2 ring-primary border-primary bg-primary/10 scale-[0.98] shadow-lg"
+                    ? "z-30 scale-[1.04] -translate-y-1 shadow-2xl ring-2 ring-primary border-primary bg-card/95 shadow-primary/25 cursor-grabbing"
                     : isDropTarget
-                    ? "border-primary ring-2 ring-primary/40 bg-accent/40"
+                    ? "scale-[1.01] border-primary/90 ring-2 ring-primary/40 bg-primary/10 shadow-md"
                     : isHidden
                     ? "bg-muted/20 border-border/40 opacity-60 hover:opacity-80"
                     : "bg-muted/40 border-border hover:border-primary/40 shadow-xs"
                 }`}
               >
-                {/* Left: Drag Handle, Position badge, Icon, Info */}
+                {/* Left: Drag Grip Handle, Position badge, Icon, Info */}
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {/* 6-dot Drag Handle with Touch support */}
+                  {/* Dedicated 6-dot Drag Handle with Touch prevention */}
                   <div
                     onTouchStart={() => handleTouchStart(index)}
-                    className="p-1 text-muted-foreground/60 hover:text-foreground active:text-primary transition-colors cursor-grab active:cursor-grabbing shrink-0"
-                    title="Drag to reorder"
-                    aria-label="Drag to reorder"
+                    className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-primary active:text-primary transition-colors cursor-grab active:cursor-grabbing touch-none select-none shrink-0"
+                    title="Press and drag to reorder"
+                    aria-label="Drag handle"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M5 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm6-10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z" />
                     </svg>
                   </div>
 
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-card border border-border text-[11px] font-mono font-bold text-muted-foreground">
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[11px] font-mono font-bold transition-colors ${
+                    isBeingDragged
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border text-muted-foreground"
+                  }`}>
                     #{index + 1}
                   </span>
 
