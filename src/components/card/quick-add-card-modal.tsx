@@ -71,12 +71,12 @@ export function QuickAddCardModal({
     speakInLanguage(text, targetLanguage);
   };
 
-  // Step 1: Search definitions for the word
-  const handleSearchDefinitions = async (e?: React.FormEvent) => {
+  // Step 1: Search definitions for the word or idiom
+  const handleSearchDefinitions = async (e?: React.FormEvent, forceAi: boolean = false) => {
     if (e) e.preventDefault();
     const prompt = aiPrompt.trim();
     if (!prompt) {
-      showToast("Please enter a word or idiom to search", "error");
+      showToast("Please enter a word, phrase or idiom to search", "error");
       return;
     }
 
@@ -87,8 +87,11 @@ export function QuickAddCardModal({
     setSelectedImageUrl("");
 
     try {
-      // 1. Try dictionary lookup for multiple definitions in deck language
-      const dictRes = await fetch(`/api/dictionary-lookup?word=${encodeURIComponent(prompt)}&lang=${targetLanguage}`);
+      // 1. Try dictionary & idiom lookup (Wiktionary, FreeDictionary, Wikipedia, AI)
+      const aiQuery = forceAi ? "&forceAi=true" : "";
+      const dictRes = await fetch(
+        `/api/dictionary-lookup?word=${encodeURIComponent(prompt)}&lang=${targetLanguage}${aiQuery}`
+      );
       if (dictRes.ok) {
         const dictData = await dictRes.json();
         const defs: DefinitionOption[] = dictData.definitions || [];
@@ -118,7 +121,7 @@ export function QuickAddCardModal({
         }),
       });
 
-      if (!aiRes.ok) throw new Error("Could not find definitions for this word");
+      if (!aiRes.ok) throw new Error("Could not find definitions for this word or phrase");
 
       const aiData = await aiRes.json();
       const generated = aiData.cards?.[0];
@@ -134,7 +137,7 @@ export function QuickAddCardModal({
 
       const singleDef: DefinitionOption = {
         id: "ai-def-0",
-        partOfSpeech: generated.partOfSpeech || "vocabulary",
+        partOfSpeech: generated.partOfSpeech || (prompt.includes(" ") ? "idiom / phrase" : "vocabulary"),
         definition: generated.back,
         example: generated.example,
       };
@@ -405,7 +408,7 @@ export function QuickAddCardModal({
                   autoFocus
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="e.g. rat, straw, bank, crane, serendipity..."
+                  placeholder="e.g. cut corners, all of a sudden, bite the bullet, perched..."
                   className="flex-1 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
                 />
                 <Button
@@ -416,6 +419,16 @@ export function QuickAddCardModal({
                 >
                   {isLookingUp ? "Searching..." : "🔍 Find Definitions"}
                 </Button>
+                <button
+                  type="button"
+                  title="Explain expression or slang with AI"
+                  disabled={isLookingUp || !aiPrompt.trim()}
+                  onClick={() => handleSearchDefinitions(undefined, true)}
+                  className="rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 text-xs font-bold transition-all disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-xs"
+                >
+                  <span>✨</span>
+                  <span className="hidden sm:inline">AI Explain</span>
+                </button>
               </div>
             </form>
 
