@@ -12,6 +12,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { LoadingPage, StatCardSkeleton, DeckCardSkeleton, EmptyState } from "@/components/ui/loading";
 import { OfflineBanner } from "@/components/offline-banner";
 import { useSyncQueue } from "@/hooks/use-sync";
@@ -401,6 +402,15 @@ export default function Dashboard() {
       <Header />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 space-y-8">
+        {/* Top Navigation: Switch Language & Active Indicator */}
+        <div className="flex items-center justify-between -mb-2">
+          <BackButton href="/tracks" label="Switch Language" />
+          <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border flex items-center gap-1.5">
+            <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
+            <span>{currentLang.name}</span>
+          </span>
+        </div>
+
         {/* Welcome Banner Card with Quick Actions */}
         <div className="rounded-3xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -432,44 +442,6 @@ export default function Dashboard() {
                 <span>View All Decks</span>
               </Button>
             </div>
-          </div>
-        </div>
-
-        {/* Track Banner with Switch Track Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card border border-border rounded-2xl px-5 py-3.5 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl" role="img" aria-label={currentLang.name}>
-              {currentLang.flag}
-            </span>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                Learning Track
-              </span>
-              <p className="text-base font-black text-foreground">
-                {currentLang.name}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              href="/tracks"
-              as="link"
-              variant="secondary"
-              size="sm"
-              className="text-xs font-bold gap-1.5"
-            >
-              <span>⇄</span>
-              <span>Switch Learning Track</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setIsCreateDeckOpen(true)}
-              className="text-xs font-bold gap-1"
-            >
-              <span>+ New Deck</span>
-            </Button>
           </div>
         </div>
 
