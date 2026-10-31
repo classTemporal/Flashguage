@@ -325,7 +325,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
               { href: currentTrackLang ? `/dashboard?lang=${encodeURIComponent(currentTrackLang)}` : "/dashboard", baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
               { href: currentTrackLang ? `/decks?lang=${encodeURIComponent(currentTrackLang)}` : "/decks", baseRoute: "/decks", label: "Decks", icon: "🗂️" },
               { href: currentTrackLang ? `/study?lang=${encodeURIComponent(currentTrackLang)}` : "/study", baseRoute: "/study", label: "Study", icon: "🧠", isHero: true },
-              { href: "/dictionaries", baseRoute: "/dictionaries", label: "Search", icon: "📖" },
+              { href: currentTrackLang ? `/dictionaries?lang=${encodeURIComponent(currentTrackLang)}` : "/dictionaries", baseRoute: "/dictionaries", label: "Search", icon: "📖" },
               { href: "/settings", baseRoute: "/settings", label: "Settings", icon: "⚙️" },
             ].map((btn) => {
               const active = isRouteActive(btn.baseRoute);

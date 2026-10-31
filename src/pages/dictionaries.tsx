@@ -4,6 +4,7 @@ import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -15,7 +16,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { useToast } from "@/components/ui/toast";
 import { ImagePicker } from "@/components/card/image-picker";
 import { invalidateAppCache } from "@/lib/cache";
-import { SUPPORTED_LANGUAGES, speakInLanguage, getLanguage } from "@/lib/languages";
+import { SUPPORTED_LANGUAGES, speakInLanguage, getLanguage, getStoredActiveLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -124,6 +125,7 @@ function transformApiResponse(apiData: ApiResponseItem[]): DictionaryDefinitionI
 }
 
 export default function DictionariesPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [searchTerm, setSearchTerm] = useState("ubiquitous");
@@ -153,8 +155,9 @@ export default function DictionariesPage() {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [cardModalTab, setCardModalTab] = useState<"ai" | "manual">("ai");
 
-  // Fetch user decks for 'Create Flashcard' target selection
-  const { data: userDecks = [] } = useSWR<UserDeck[]>("/api/decks", fetcher);
+  // Fetch user decks for 'Create Flashcard' target selection (scoped to current track)
+  const decksUrl = selectedLanguage ? `/api/decks?lang=${encodeURIComponent(selectedLanguage)}` : "/api/decks";
+  const { data: userDecks = [] } = useSWR<UserDeck[]>(decksUrl, fetcher);
 
   // Auto-select deck matching language
   useEffect(() => {
@@ -162,11 +165,13 @@ export default function DictionariesPage() {
       const match = userDecks.find((d) => d.targetLanguage === selectedLanguage);
       if (match) {
         setSelectedDeckId(match.id);
-      } else if (!selectedDeckId) {
+      } else {
         setSelectedDeckId(userDecks[0].id);
       }
+    } else {
+      setSelectedDeckId("");
     }
-  }, [userDecks, selectedLanguage, selectedDeckId]);
+  }, [userDecks, selectedLanguage]);
 
   const openCardModal = async (item: DictionaryDefinitionItem) => {
     setSelectedItemToCard(item);
@@ -389,25 +394,32 @@ export default function DictionariesPage() {
     }
   }, [selectedLanguage]);
 
-  // Initial load
+  // Synchronize language track strictly with URL query or stored track
   useEffect(() => {
-    fetchDictionaryWord(searchTerm, selectedLanguage);
-  }, []);
+    if (typeof window !== "undefined") {
+      const q = router.query.lang as string;
+      const stored = getStoredActiveLanguage();
+      const lang = (q && q.trim()) || stored || "en";
+      setSelectedLanguage(lang);
 
-  const handleLanguageChange = (newLang: string) => {
-    setSelectedLanguage(newLang);
-    let sampleWord = searchTerm;
-    if (newLang === "es") sampleWord = "efímero";
-    else if (newLang === "fr") sampleWord = "bienveillance";
-    else if (newLang === "de") sampleWord = "sehnsucht";
-    else if (newLang === "it") sampleWord = "meraviglia";
-    else if (newLang === "ja") sampleWord = "木漏れ日";
-    else if (newLang === "en") sampleWord = "ubiquitous";
-    
-    setSearchTerm(sampleWord);
-    setActiveQuery(sampleWord);
-    fetchDictionaryWord(sampleWord, newLang);
-  };
+      let sampleWord = "ubiquitous";
+      if (lang === "es") sampleWord = "efímero";
+      else if (lang === "fr") sampleWord = "bienveillance";
+      else if (lang === "de") sampleWord = "sehnsucht";
+      else if (lang === "it") sampleWord = "meraviglia";
+      else if (lang === "ja") sampleWord = "木漏れ日";
+      else if (lang === "pt") sampleWord = "saudade";
+      else if (lang === "zh") sampleWord = "学习";
+      else if (lang === "ko") sampleWord = "행복";
+      else if (lang === "ru") sampleWord = "вдохновение";
+      else if (lang === "ar") sampleWord = "أمل";
+      else if (lang === "en") sampleWord = "ubiquitous";
+
+      setSearchTerm(sampleWord);
+      setActiveQuery(sampleWord);
+      fetchDictionaryWord(sampleWord, lang);
+    }
+  }, [router.query.lang]);
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -507,9 +519,16 @@ export default function DictionariesPage() {
       <Header title="Flashguage" />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 space-y-6">
-        {/* BackButton to /dashboard at top */}
-        <div>
-          <BackButton href="/dashboard" label="Back to Dashboard" />
+        {/* Top Navigation: Back to Dashboard & Language Badge */}
+        <div className="flex items-center justify-between">
+          <BackButton
+            href={selectedLanguage ? `/dashboard?lang=${encodeURIComponent(selectedLanguage)}` : "/dashboard"}
+            label="Back to Dashboard"
+          />
+          <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border flex items-center gap-1.5">
+            <span role="img" aria-label={getLanguage(selectedLanguage).name}>{getLanguage(selectedLanguage).flag}</span>
+            <span>{getLanguage(selectedLanguage).name}</span>
+          </span>
         </div>
 
         {/* Page Title */}
@@ -518,44 +537,22 @@ export default function DictionariesPage() {
             <div className="flex items-center gap-2">
               <span className="text-2xl" aria-hidden="true">📖</span>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Dictionary Lookup
+                {getLanguage(selectedLanguage).name} Dictionary
               </h1>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Search real definitions, native audio pronunciations, and examples in {getLanguage(selectedLanguage).name} and more.
+              Search real definitions, native audio pronunciations, and examples in {getLanguage(selectedLanguage).name}.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button href="/decks" as="link" variant="secondary" size="sm">
-              View My Decks
+            <Button
+              href={selectedLanguage ? `/decks?lang=${encodeURIComponent(selectedLanguage)}` : "/decks"}
+              as="link"
+              variant="secondary"
+              size="sm"
+            >
+              View {getLanguage(selectedLanguage).name} Decks
             </Button>
-          </div>
-        </div>
-
-        {/* Language Track Selector */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
-            Language Track:
-          </span>
-          <div className="flex items-center gap-1.5 flex-nowrap">
-            {SUPPORTED_LANGUAGES.map((lang) => {
-              const isSelected = selectedLanguage === lang.code;
-              return (
-                <button
-                  key={lang.code}
-                  type="button"
-                  onClick={() => handleLanguageChange(lang.code)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-sm font-semibold ring-2 ring-primary/40"
-                      : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50"
-                  }`}
-                >
-                  <span>{lang.flag}</span>
-                  <span>{lang.name}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
