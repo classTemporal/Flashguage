@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardFooter } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/loading";
 
 export default function Register() {
@@ -80,12 +80,12 @@ export default function Register() {
         </div>
 
         {/* Centered Card */}
-        <Card className="shadow-md">
+        <Card className="border border-border bg-card text-card-foreground shadow-lg rounded-2xl overflow-hidden">
           <form onSubmit={handleSubmit}>
-            <CardContent className="p-6 space-y-4">
+            <div className="p-6 sm:p-8 space-y-5">
               {error && (
                 <div
-                  className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive font-medium animate-in fade-in"
+                  className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive font-medium animate-in fade-in"
                   role="alert"
                 >
                   {error}
@@ -145,13 +145,13 @@ export default function Register() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full gap-2 font-medium"
+                  className="w-full gap-2 font-bold py-3 text-base shadow-xs"
                 >
                   {loading && <Spinner className="h-4 w-4 border-2 border-primary-foreground border-t-transparent" />}
                   <span>{loading ? "Creating account..." : "Create Account"}</span>
                 </Button>
               </div>
-            </CardContent>
+            </div>
 
             <CardFooter className="justify-center border-t border-border bg-muted/20 px-6 py-4 text-center">
               <p className="text-sm text-muted-foreground">
