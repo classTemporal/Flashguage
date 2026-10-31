@@ -213,10 +213,10 @@ export default function DecksPage() {
               action={
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button type="button" onClick={() => setIsCreateOpen(true)} size="md" className="font-bold">
-                    ⚡ + Crear Primer Mazo
+                    ⚡ + Create First Deck
                   </Button>
                   <Button as="link" href="/import" variant="secondary" size="md">
-                    Importar Tarjetas
+                    Import Flashcards
                   </Button>
                 </div>
               }

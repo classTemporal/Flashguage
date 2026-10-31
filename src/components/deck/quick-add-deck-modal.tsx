@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -10,31 +10,33 @@ import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 interface QuickAddDeckModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultLanguage?: string;
   onDeckCreated?: (newDeck: any) => void;
 }
 
 export function QuickAddDeckModal({
   isOpen,
   onClose,
+  defaultLanguage = "en",
   onDeckCreated,
 }: QuickAddDeckModalProps) {
   const { showToast } = useToast();
-  const [targetLanguage, setTargetLanguage] = useState("en");
+  const [targetLanguage, setTargetLanguage] = useState(defaultLanguage);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [generateCardsWithAI, setGenerateCardsWithAI] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (defaultLanguage && defaultLanguage !== "all") {
+      setTargetLanguage(defaultLanguage);
+    }
+  }, [defaultLanguage, isOpen]);
+
   if (!isOpen) return null;
 
   const currentLang = getLanguage(targetLanguage);
-  const presets = currentLang.deckPresets;
-
-  const handleUsePreset = (preset: { name: string; desc: string }) => {
-    setName(preset.name);
-    setDescription(preset.desc);
-  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,14 +151,7 @@ export function QuickAddDeckModal({
           </label>
           <select
             value={targetLanguage}
-            onChange={(e) => {
-              setTargetLanguage(e.target.value);
-              const lang = getLanguage(e.target.value);
-              if (lang.deckPresets[0]) {
-                setName(lang.deckPresets[0].name);
-                setDescription(lang.deckPresets[0].desc);
-              }
-            }}
+            onChange={(e) => setTargetLanguage(e.target.value)}
             className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {SUPPORTED_LANGUAGES.map((l) => (
@@ -165,25 +160,6 @@ export function QuickAddDeckModal({
               </option>
             ))}
           </select>
-        </div>
-
-        {/* Quick Presets for Target Language */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            {currentLang.flag} Suggested {currentLang.name} Presets:
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {presets.map((preset, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleUsePreset(preset)}
-                className="rounded-full bg-muted/70 hover:bg-primary/10 hover:text-primary border border-border/80 px-2.5 py-1 text-xs font-semibold transition-all text-left"
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Deck Form */}
@@ -197,7 +173,7 @@ export function QuickAddDeckModal({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={`e.g. ${presets[0]?.name || "Core Vocabulary"}`}
+              placeholder="e.g. Core Vocabulary, Travel Phrases, Exam Prep"
               className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>

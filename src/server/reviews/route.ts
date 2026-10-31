@@ -17,10 +17,11 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { deckId, mode, cram } = req.query;
+    const { deckId, mode, cram, lang } = req.query;
     const isAllMode = mode === "all" || cram === "true";
+    const language = typeof lang === "string" && lang !== "all" ? lang : undefined;
 
-    let deckFilter: { deckId: string } | undefined;
+    let deckFilter: { deckId?: string; deck?: { targetLanguage?: string; userId?: string } } | undefined;
 
     if (deckId && typeof deckId === "string" && deckId !== "all") {
       // Verify deck ownership
@@ -31,6 +32,8 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
         return res.status(404).json({ message: "Deck not found" });
       }
       deckFilter = { deckId };
+    } else if (language) {
+      deckFilter = { deck: { targetLanguage: language, userId: session.user.id } };
     }
 
     if (isAllMode) {

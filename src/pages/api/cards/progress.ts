@@ -17,10 +17,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === "GET") {
     try {
-      const { deckId, status, search } = req.query;
+      const { deckId, status, search, lang } = req.query;
+      const language = typeof lang === "string" && lang !== "all" ? lang : undefined;
 
       const whereCard: any = {
-        deck: { userId },
+        deck: {
+          userId,
+          ...(language ? { targetLanguage: language } : {}),
+        },
       };
 
       if (deckId && typeof deckId === "string" && deckId !== "all") {

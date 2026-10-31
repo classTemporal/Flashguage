@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AdjustProgressModal } from "@/components/card/adjust-progress-modal";
 import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -22,6 +24,7 @@ const fetcher = async (url: string) => {
 interface Deck {
   id: string;
   name: string;
+  targetLanguage?: string;
 }
 
 interface CardProgressItem {
@@ -68,8 +71,10 @@ interface ProgressResponse {
 }
 
 export default function ProgressPage() {
+  const router = useRouter();
   const { showToast } = useToast();
 
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
   const [selectedDeckId, setSelectedDeckId] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "due" | "in_progress" | "mastered" | "new">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,13 +83,25 @@ export default function ProgressPage() {
   const [adjustingCard, setAdjustingCard] = useState<CardProgressItem | null>(null);
   const [actingCardId, setActingCardId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (router.query.lang && typeof router.query.lang === "string") {
+      setSelectedLanguage(router.query.lang);
+    }
+  }, [router.query.lang]);
+
   // Fetch decks for filtering dropdown
   const { data: decks } = useSWR<Deck[]>("/api/decks", fetcher);
+
+  const filteredDecks = useMemo(() => {
+    if (!Array.isArray(decks)) return [];
+    if (selectedLanguage === "all") return decks;
+    return decks.filter((d) => d.targetLanguage === selectedLanguage);
+  }, [decks, selectedLanguage]);
 
   // Fetch progress cards
   const progressUrl = `/api/cards/progress?deckId=${encodeURIComponent(selectedDeckId)}&status=${encodeURIComponent(
     statusFilter
-  )}&search=${encodeURIComponent(searchQuery)}`;
+  )}&search=${encodeURIComponent(searchQuery)}&lang=${encodeURIComponent(selectedLanguage)}`;
 
   const { data, error, isLoading, mutate } = useSWR<ProgressResponse>(progressUrl, fetcher);
 
@@ -260,15 +277,34 @@ export default function ProgressPage() {
               )}
             </div>
 
+            {/* Language Selector */}
+            <div className="sm:w-48 shrink-0">
+              <select
+                value={selectedLanguage}
+                onChange={(e) => {
+                  setSelectedLanguage(e.target.value);
+                  setSelectedDeckId("all");
+                }}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="all">🌐 All Languages</option>
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.flag} {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Deck Selector */}
-            <div className="sm:w-56 shrink-0">
+            <div className="sm:w-52 shrink-0">
               <select
                 value={selectedDeckId}
                 onChange={(e) => setSelectedDeckId(e.target.value)}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="all">📁 All Decks ({decks?.length || 0})</option>
-                {decks?.map((d) => (
+                <option value="all">📁 All Decks ({filteredDecks?.length || 0})</option>
+                {filteredDecks?.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>

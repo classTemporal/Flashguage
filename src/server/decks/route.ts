@@ -10,8 +10,14 @@ export async function getDecks(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const { lang } = req.query;
+    const language = typeof lang === "string" && lang !== "all" ? lang : undefined;
+
     const decks = await prisma.deck.findMany({
-      where: { userId: session.user.id },
+      where: {
+        userId: session.user.id,
+        ...(language ? { targetLanguage: language } : {}),
+      },
       include: {
         _count: { select: { cards: true } },
       },

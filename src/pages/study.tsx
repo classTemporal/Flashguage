@@ -18,7 +18,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  const { deckId } = context.query;
+  const { deckId, lang } = context.query;
+  const language = typeof lang === "string" && lang !== "all" ? lang : undefined;
+
   if (deckId && typeof deckId === "string") {
     return {
       redirect: {
@@ -28,11 +30,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  // 1. Find the first deck that has due reviews for this user
+  // 1. Find the first deck that has due reviews for this user (matching language if provided)
   const dueReview = await prisma.review.findFirst({
     where: {
       userId: session.user.id,
       dueDate: { lte: new Date() },
+      ...(language ? { card: { deck: { targetLanguage: language } } } : {}),
     },
     include: { card: true },
     orderBy: { dueDate: "asc" },
@@ -47,11 +50,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  // 2. Otherwise find the most recently updated deck that has cards
+  // 2. Otherwise find the most recently updated deck that has cards (matching language if provided)
   const userDeck = await prisma.deck.findFirst({
     where: {
       userId: session.user.id,
       cards: { some: {} },
+      ...(language ? { targetLanguage: language } : {}),
     },
     orderBy: { updatedAt: "desc" },
   });

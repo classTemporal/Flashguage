@@ -3,7 +3,7 @@
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
@@ -17,6 +17,7 @@ import { OfflineBanner } from "@/components/offline-banner";
 import { useSyncQueue } from "@/hooks/use-sync";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
 import { useToast } from "@/components/ui/toast";
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -31,6 +32,7 @@ interface Deck {
   id: string;
   name: string;
   description: string | null;
+  targetLanguage?: string;
   isPublic: boolean;
   _count: {
     cards: number;
@@ -145,11 +147,13 @@ function GoalProgress({
   current,
   goal,
   percentage,
+  activeLanguage = "en",
   onUpdateGoal,
 }: {
   current: number;
   goal: number;
   percentage: number;
+  activeLanguage?: string;
   onUpdateGoal: (newGoal: number) => Promise<void>;
 }) {
   const clampedPct = Math.min(percentage, 100);
@@ -253,7 +257,7 @@ function GoalProgress({
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-primary font-semibold">{Math.max(goal - current, 0)} cards left</span>
-            <Button href="/study" as="link" size="sm" className="h-6 text-[11px] px-2 py-0">
+            <Button href={`/study?lang=${activeLanguage}`} as="link" size="sm" className="h-6 text-[11px] px-2 py-0">
               Study Now →
             </Button>
           </div>
@@ -269,19 +273,72 @@ export default function Dashboard() {
   const { showToast } = useToast();
   const { pendingCount, isSyncing, isOnline, sync } = useSyncQueue();
   const [isCreateDeckOpen, setIsCreateDeckOpen] = useState(false);
+  const [activeLanguage, setActiveLanguage] = useState<string>("en");
 
-  const { data: decks, error: decksError, isLoading: decksLoading, mutate: mutateDecks } = useSWR<Deck[]>(
+  // Fetch all user decks to detect active tracks and totals
+  const { data: allDecks } = useSWR<Deck[]>(
     status === "authenticated" ? "/api/decks" : null,
     fetcher
   );
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const q = router.query.lang as string;
+      const stored = localStorage.getItem("flashguage_active_lang");
+      if (q && q.trim()) {
+        setActiveLanguage(q);
+      } else if (stored && stored.trim()) {
+        setActiveLanguage(stored);
+      } else if (allDecks && allDecks.length > 0 && allDecks[0].targetLanguage) {
+        setActiveLanguage(allDecks[0].targetLanguage);
+      }
+    }
+  }, [router.query.lang, allDecks]);
+
+  const handleSelectTrack = (langCode: string) => {
+    setActiveLanguage(langCode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("flashguage_active_lang", langCode);
+    }
+    router.replace(
+      { pathname: router.pathname, query: { ...router.query, lang: langCode } },
+      undefined,
+      { shallow: true }
+    );
+  };
+
+  const activeTracks = useMemo(() => {
+    const langs = new Set<string>();
+    if (Array.isArray(allDecks)) {
+      allDecks.forEach((d) => {
+        if (d.targetLanguage) langs.add(d.targetLanguage);
+      });
+    }
+    if (activeLanguage && activeLanguage !== "all") langs.add(activeLanguage);
+    if (langs.size === 0) langs.add("en");
+    return Array.from(langs);
+  }, [allDecks, activeLanguage]);
+
+  const currentLang = getLanguage(activeLanguage);
+
+  // Scoped queries to active language track
+  const decksUrl = status === "authenticated" ? `/api/decks?lang=${encodeURIComponent(activeLanguage)}` : null;
+  const statsUrl = status === "authenticated" ? `/api/stats?lang=${encodeURIComponent(activeLanguage)}` : null;
+  const dueReviewsUrl = status === "authenticated" ? `/api/reviews/due?lang=${encodeURIComponent(activeLanguage)}` : null;
+  const progressUrl = status === "authenticated" ? `/api/cards/progress?lang=${encodeURIComponent(activeLanguage)}` : null;
+
+  const { data: decks, error: decksError, isLoading: decksLoading, mutate: mutateDecks } = useSWR<Deck[]>(
+    decksUrl,
+    fetcher
+  );
+
   const { data: stats, isLoading: statsLoading, mutate: mutateStats } = useSWR<Stats>(
-    status === "authenticated" ? "/api/stats" : null,
+    statsUrl,
     fetcher
   );
 
   const { data: dueReviews } = useSWR<DueReviewItem[]>(
-    status === "authenticated" ? "/api/reviews/due" : null,
+    dueReviewsUrl,
     fetcher
   );
 
@@ -293,7 +350,7 @@ export default function Dashboard() {
       masteredCount: number;
       averageMastery: number;
     };
-  }>(status === "authenticated" ? "/api/cards/progress" : null, fetcher);
+  }>(progressUrl, fetcher);
 
   const pendingByDeck = useMemo(() => {
     if (!Array.isArray(dueReviews) || dueReviews.length === 0) return [];
@@ -359,22 +416,97 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* Desktop quick action buttons (hidden on mobile to eliminate duplication with bottom navigation) */}
+            {/* Desktop quick action buttons */}
             <div className="hidden sm:flex flex-wrap items-center gap-3">
               <Button
-                href="/study"
+                href={`/study?lang=${activeLanguage}`}
                 as="link"
                 size="md"
                 className="font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
               >
                 <span>🧠</span>
-                <span>Study Now</span>
+                <span>Study {activeLanguage === "all" ? "Due Cards" : currentLang.name}</span>
               </Button>
               <Button href="/decks" as="link" variant="secondary" size="md" className="gap-1.5">
                 <span>🗂️</span>
                 <span>View All Decks</span>
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Dedicated Language Track Selector */}
+        <div className="bg-card border border-border rounded-3xl p-5 shadow-xs space-y-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <span>🎯</span> Active Language Track
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-foreground mt-0.5 flex items-center gap-2">
+                <span>{activeLanguage === "all" ? "🌐" : currentLang.flag}</span>
+                <span>{activeLanguage === "all" ? "All Languages" : `${currentLang.name} Track`}</span>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  {activeLanguage === "all" ? "Global Mode" : "100% Dedicated"}
+                </span>
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-semibold">Switch Track:</span>
+              <select
+                value={activeLanguage}
+                onChange={(e) => handleSelectTrack(e.target.value)}
+                className="text-xs bg-muted border border-border rounded-xl px-3 py-1.5 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.flag} {l.name}
+                  </option>
+                ))}
+                <option value="all">🌐 All Languages (Combined)</option>
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsCreateDeckOpen(true)}
+                className="text-xs font-bold gap-1"
+              >
+                <span>+ New {activeLanguage === "all" ? "" : currentLang.name} Deck</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Quick Track Switcher Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-2 border-t border-border/60">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
+              Active Tracks:
+            </span>
+            {activeTracks.map((code) => {
+              const lang = getLanguage(code);
+              const isSelected = activeLanguage === code;
+              const deckCount = allDecks?.filter((d) => d.targetLanguage === code).length || 0;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => handleSelectTrack(code)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/40 font-black"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-border"
+                  }`}
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    isSelected ? "bg-white/20 text-white" : "bg-muted-foreground/20 text-foreground"
+                  }`}>
+                    {deckCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -443,7 +575,7 @@ export default function Dashboard() {
                   </div>
 
                   <Button
-                    href="/progress"
+                    href={activeLanguage === "all" ? "/progress" : `/progress?lang=${activeLanguage}`}
                     as="link"
                     size="md"
                     className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 shrink-0"
@@ -497,6 +629,7 @@ export default function Dashboard() {
                   current={stats.dailyGoal.current}
                   goal={stats.dailyGoal.goal}
                   percentage={stats.dailyGoal.percentage}
+                  activeLanguage={activeLanguage}
                   onUpdateGoal={handleUpdateGoal}
                 />
               </div>
@@ -613,14 +746,29 @@ export default function Dashboard() {
         <section aria-label="Your Decks" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Your Decks</h2>
-              <p className="text-xs text-muted-foreground">Select a deck to practice or manage flashcards</p>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <span>{activeLanguage === "all" ? "🌐" : currentLang.flag}</span>
+                <span>{activeLanguage === "all" ? "All Decks" : `${currentLang.name} Decks`}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {decks?.length || 0}
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {activeLanguage === "all"
+                  ? "Showing decks across all languages"
+                  : `Dedicated decks for ${currentLang.name} vocabulary and practice`}
+              </p>
             </div>
-            {decks && decks.length > 0 && (
-              <Button href="/deck/new" as="link" variant="secondary" size="sm">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsCreateDeckOpen(true)}
+              >
                 + Add Deck
               </Button>
-            )}
+            </div>
           </div>
 
           {decksError && (
@@ -641,12 +789,12 @@ export default function Dashboard() {
             <div className="bg-card border border-border rounded-2xl p-6 shadow-xs">
               <EmptyState
                 icon="📚"
-                title="No decks found"
-                description="Get started by creating your first flashcard deck or importing existing cards."
+                title={`No ${activeLanguage === "all" ? "" : currentLang.name} decks found`}
+                description={`You haven't created any decks in the ${activeLanguage === "all" ? "collection" : currentLang.name + " track"} yet. Start learning by adding your first deck!`}
                 action={
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Button href="/deck/new" as="link">
-                      Create Deck
+                    <Button type="button" onClick={() => setIsCreateDeckOpen(true)}>
+                      + Create {activeLanguage === "all" ? "" : currentLang.name} Deck
                     </Button>
                     <Button href="/import" as="link" variant="secondary">
                       Import Cards
@@ -666,12 +814,19 @@ export default function Dashboard() {
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <Link
-                        href={`/deck/${deck.id}`}
-                        className="font-bold text-lg text-foreground group-hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded line-clamp-1"
-                      >
-                        {deck.name}
-                      </Link>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {deck.targetLanguage && (
+                          <span className="text-base shrink-0" title={getLanguage(deck.targetLanguage).name}>
+                            {getLanguage(deck.targetLanguage).flag}
+                          </span>
+                        )}
+                        <Link
+                          href={`/deck/${deck.id}`}
+                          className="font-bold text-lg text-foreground group-hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded line-clamp-1"
+                        >
+                          {deck.name}
+                        </Link>
+                      </div>
                       <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
                         {deck._count.cards} {deck._count.cards === 1 ? "card" : "cards"}
                       </span>
@@ -712,8 +867,12 @@ export default function Dashboard() {
         {/* Quick Add Deck Modal */}
         <QuickAddDeckModal
           isOpen={isCreateDeckOpen}
+          defaultLanguage={activeLanguage === "all" ? "en" : activeLanguage}
           onClose={() => setIsCreateDeckOpen(false)}
-          onDeckCreated={() => mutateDecks()}
+          onDeckCreated={() => {
+            mutateDecks();
+            mutateStats();
+          }}
         />
       </main>
 

@@ -24,17 +24,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userId = session.user.id;
+    const lang = (req.query.lang as string) || undefined;
 
     const [reviews, totalCards, cardsLearned, mastery, weeklyActivity, user] =
       await Promise.all([
         prisma.review.findMany({
-          where: { userId },
+          where: {
+            userId,
+            ...(lang && lang !== "all" ? { card: { deck: { targetLanguage: lang } } } : {}),
+          },
           select: { lastReview: true, createdAt: true },
         }),
-        getTotalCards(userId),
-        getCardsLearned(userId),
-        getMasteryLevel(userId),
-        getWeeklyActivity(userId),
+        getTotalCards(userId, lang),
+        getCardsLearned(userId, lang),
+        getMasteryLevel(userId, lang),
+        getWeeklyActivity(userId, lang),
         prisma.user.findUnique({
           where: { id: userId },
           select: { dailyGoal: true },
@@ -43,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const streak = getStreak(reviews);
     const goal = user?.dailyGoal ?? 20;
-    const goalProgress = await getDailyGoalProgress(userId, goal);
+    const goalProgress = await getDailyGoalProgress(userId, goal, lang);
 
     return res.status(200).json({
       streak,

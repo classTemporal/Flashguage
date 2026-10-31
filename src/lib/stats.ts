@@ -52,25 +52,41 @@ export function getStreak(reviews: ReviewLite[]): number {
   return streak;
 }
 
-export async function getTotalCards(userId: string): Promise<number> {
+export async function getTotalCards(userId: string, language?: string): Promise<number> {
   const result = await prisma.card.count({
-    where: { deck: { userId } },
+    where: {
+      deck: {
+        userId,
+        ...(language && language !== "all" ? { targetLanguage: language } : {}),
+      },
+    },
   });
   return result;
 }
 
-export async function getCardsLearned(userId: string): Promise<number> {
+export async function getCardsLearned(userId: string, language?: string): Promise<number> {
   const result = await prisma.review.findMany({
-    where: { userId, repetitions: { gt: 0 } },
+    where: {
+      userId,
+      repetitions: { gt: 0 },
+      ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+    },
     select: { cardId: true },
   });
   const uniqueCards = new Set(result.map((r) => r.cardId));
   return uniqueCards.size;
 }
 
-export async function getMasteryLevel(userId: string): Promise<{ level: number; xp: number; nextLevelXp: number }> {
+export async function getMasteryLevel(
+  userId: string,
+  language?: string
+): Promise<{ level: number; xp: number; nextLevelXp: number }> {
   const reviews = await prisma.review.findMany({
-    where: { userId, repetitions: { gt: 0 } },
+    where: {
+      userId,
+      repetitions: { gt: 0 },
+      ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+    },
     select: { repetitions: true },
   });
 
@@ -82,7 +98,10 @@ export async function getMasteryLevel(userId: string): Promise<{ level: number; 
   return { level, xp, nextLevelXp };
 }
 
-export async function getWeeklyActivity(userId: string): Promise<{ day: string; count: number }[]> {
+export async function getWeeklyActivity(
+  userId: string,
+  language?: string
+): Promise<{ day: string; count: number }[]> {
   const days: { day: string; count: number }[] = [];
   const today = new Date();
 
@@ -96,6 +115,7 @@ export async function getWeeklyActivity(userId: string): Promise<{ day: string; 
       where: {
         userId,
         lastReview: { gte: startOfDay, lt: endOfDay },
+        ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
       },
     });
 
@@ -110,7 +130,8 @@ export async function getWeeklyActivity(userId: string): Promise<{ day: string; 
 
 export async function getDailyGoalProgress(
   userId: string,
-  goal: number
+  goal: number,
+  language?: string
 ): Promise<{ current: number; goal: number; percentage: number }> {
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -120,6 +141,7 @@ export async function getDailyGoalProgress(
     where: {
       userId,
       lastReview: { gte: startOfDay, lt: endOfDay },
+      ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
     },
   });
 
