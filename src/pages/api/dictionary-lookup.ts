@@ -47,14 +47,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const s = JSON.parse(user.settings);
             const provider = (s.aiProvider as string) || "gemini";
             const apiKey =
-              (s.aiApiKey as string) || s.geminiKey || s.openaiKey || s.anthropicKey || "";
+              (s.aiApiKey as string) || s.geminiKey || s.openaiKey || s.anthropicKey || process.env.GEMINI_API_KEY || "";
             userConfig = {
               provider: provider as any,
               apiKey,
-              model: (s.aiModel as string) || s.geminiModel || s.openaiModel || "gemini-2.5-flash",
-              geminiKey: s.geminiKey || "",
-              openaiKey: s.openaiKey || "",
-              anthropicKey: s.anthropicKey || "",
+              model: (s.aiModel as string) || s.geminiModel || s.openaiModel || "gemini-3.1-flash-lite",
+              geminiKey: s.geminiKey || process.env.GEMINI_API_KEY || "",
+              openaiKey: s.openaiKey || process.env.OPENAI_API_KEY || "",
+              anthropicKey: s.anthropicKey || process.env.ANTHROPIC_API_KEY || "",
+              geminiModel: (s.geminiModel as string) || "gemini-3.1-flash-lite",
               ollamaUrl: s.ollamaUrl || "",
               ollamaModel: s.ollamaModel || "",
             };
@@ -62,6 +63,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // ignore
           }
         }
+      }
+
+      // If user has not configured personal keys, use server Gemini default
+      if (!userConfig.apiKey && process.env.GEMINI_API_KEY) {
+        userConfig.provider = "gemini";
+        userConfig.geminiKey = process.env.GEMINI_API_KEY;
+        userConfig.apiKey = process.env.GEMINI_API_KEY;
+        userConfig.geminiModel = "gemini-3.1-flash-lite";
       }
 
       // Check if user has an AI key or if environment has an API key

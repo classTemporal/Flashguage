@@ -196,55 +196,72 @@ export async function callGemini(prompt: string, config?: AIConfig): Promise<str
   const apiKey = getGeminiKey(config);
   if (!apiKey) throw new Error("Missing Google Gemini API Key");
 
-  const model = (config?.provider === "gemini" && (config.geminiModel || config.model)) || "";
-  if (!model) throw new Error("Missing model for Google Gemini provider");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const requestedModel =
+    (config?.provider === "gemini" && (config.geminiModel || config.model)) ||
+    "gemini-3.1-flash-lite";
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 512,
-      },
-    }),
-  });
+  const modelsToTry = [
+    requestedModel,
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+  ].filter((m, i, arr) => Boolean(m) && arr.indexOf(m) === i);
 
-  if (!res.ok) {
-    let errMsg = `Google Gemini error ${res.status}`;
+  let lastError: Error | null = null;
+
+  for (const model of modelsToTry) {
     try {
-      const errJson = await res.json();
-      errMsg = errJson.error?.message || errMsg;
-    } catch {
-      const text = await res.text().catch(() => "");
-      if (text) errMsg += `: ${text}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        model
+      )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 600,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = `Google Gemini (${model}) error ${res.status}`;
+        try {
+          const errJson = await res.json();
+          errMsg = errJson.error?.message || errMsg;
+        } catch {
+          const text = await res.text().catch(() => "");
+          if (text) errMsg += `: ${text}`;
+        }
+        lastError = new Error(errMsg);
+        continue;
+      }
+
+      const json = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        promptFeedback?: { blockReason?: string };
+      };
+
+      const candidate = json.candidates?.[0];
+      if (candidate?.content?.parts?.[0]?.text) {
+        return candidate.content.parts[0].text;
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
     }
-    throw new Error(errMsg);
   }
 
-  const json = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-    promptFeedback?: { blockReason?: string };
-  };
-
-  const candidate = json.candidates?.[0];
-  if (!candidate) {
-    if (json.promptFeedback?.blockReason) {
-      throw new Error(`Google Gemini blocked prompt: ${json.promptFeedback.blockReason}`);
-    }
-    throw new Error("Google Gemini returned no candidate responses");
-  }
-
-  return candidate.content?.parts?.[0]?.text ?? "";
+  throw lastError || new Error("Google Gemini failed to generate a response");
 }
 
 // 4. Ollama Client
@@ -342,8 +359,16 @@ function getFallbackChain(config?: AIConfig): AIProvider[] {
   if (config?.fallbackChain && config.fallbackChain.length > 0) {
     return config.fallbackChain;
   }
-  const primary: AIProvider = config?.provider || "openai";
-  return [primary];
+  const allProviders: AIProvider[] = ["gemini", "openai", "anthropic", "custom", "ollama"];
+  const primary: AIProvider =
+    config?.provider || (hasConfigForProvider("gemini", config) ? "gemini" : "openai");
+  const chain: AIProvider[] = [primary];
+  for (const p of allProviders) {
+    if (p !== primary && hasConfigForProvider(p, config)) {
+      chain.push(p);
+    }
+  }
+  return chain;
 }
 
 async function tryProviders(
@@ -401,13 +426,15 @@ async function tryProviders(
 
 function buildDefinitionPrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are an expert language-learning assistant. For the word or phrase "${word}" in ${targetLanguage}${ctx}, provide:
-1. part of speech (noun/verb/adjective/adverb/etc.)
-2. a clear, concise definition or translation
+  return `You are an expert language-learning assistant. For the word, idiom, compound expression, or phrase "${word}" in ${targetLanguage}${ctx}:
+Even if the term is an invented phrase, metaphorical compound, slang, or colloquialism, analyze its elements thoughtfully and provide a meaningful, educational explanation.
+Provide:
+1. part of speech (noun phrase, idiom, phrasal verb, adjective, etc.)
+2. a clear, insightful definition explaining what this concept or expression conveys (never reply with generic placeholders)
 3. phonetic pronunciation or IPA if known
-4. one natural example sentence using it in context
+4. one natural, vivid example sentence using it in context
 
-Format strictly as JSON with keys: partOfSpeech, definition, pronunciation, example. Do not include any other text.`;
+Format strictly as JSON with keys: partOfSpeech, definition, pronunciation, example. Do not include markdown code fences or any other text.`;
 }
 
 function buildExamplePrompt(word: string, context?: string, targetLanguage = "the target language"): string {

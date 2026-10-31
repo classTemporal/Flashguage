@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { prisma } from "@/lib/prisma";
-import { AIConfig, callOpenAI, callAnthropic, callGemini, callOllama } from "@/lib/ai";
+import { AIConfig, AIProvider, callOpenAI, callAnthropic, callGemini, callOllama, generateDefinition } from "@/lib/ai";
 import { resolveSemanticImage } from "@/lib/image-search";
 
 export interface GeneratedFlashcard {
@@ -145,27 +145,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     if (user?.settings) {
       const s = JSON.parse(user.settings);
-      const provider = s.aiProvider || "openai";
       userConfig = {
-        provider,
+        provider: (s.aiProvider as AIProvider) || "gemini",
         openaiKey: s.openaiKey || process.env.OPENAI_API_KEY || "",
         anthropicKey: s.anthropicKey || process.env.ANTHROPIC_API_KEY || "",
         geminiKey: s.geminiKey || process.env.GEMINI_API_KEY || "",
         ollamaUrl: s.ollamaUrl || "http://localhost:11434",
         ollamaModel: s.ollamaModel || "llama3",
-        openaiModel: s.openaiModel || "gpt-3.5-turbo",
-        anthropicModel: s.anthropicModel || "claude-3-haiku-20240307",
-        geminiModel: s.geminiModel || "gemini-1.5-flash",
+        openaiModel: s.openaiModel || "gpt-4o-mini",
+        anthropicModel: s.anthropicModel || "claude-3-5-haiku-latest",
+        geminiModel: s.geminiModel || "gemini-3.1-flash-lite",
       };
     }
   } catch {
     // continue
   }
 
+  // Ensure server GEMINI_API_KEY is available as fallback
+  if (!userConfig.geminiKey && process.env.GEMINI_API_KEY) {
+    userConfig.geminiKey = process.env.GEMINI_API_KEY;
+    userConfig.apiKey = process.env.GEMINI_API_KEY;
+    userConfig.geminiModel = "gemini-3.1-flash-lite";
+  }
+
   const hasApiKey = Boolean(
     (userConfig.provider === "openai" && (userConfig.openaiKey || process.env.OPENAI_API_KEY)) ||
       (userConfig.provider === "anthropic" && (userConfig.anthropicKey || process.env.ANTHROPIC_API_KEY)) ||
       (userConfig.provider === "gemini" && (userConfig.geminiKey || process.env.GEMINI_API_KEY)) ||
+      Boolean(process.env.GEMINI_API_KEY) ||
       userConfig.provider === "ollama"
   );
 
@@ -173,30 +180,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (hasApiKey) {
     try {
       const targetLang = req.body.targetLanguage || req.body.language || "English";
-      const systemPrompt = `You are an expert ${targetLang} language teacher. Generate ${numCards} complete, high-quality flashcard(s) for the topic or vocabulary: "${cleanPrompt}".
+      const systemPrompt = `You are an expert ${targetLang} language teacher. Generate ${numCards} complete, high-quality flashcard(s) for the topic, phrase, or vocabulary: "${cleanPrompt}".
+Even if the term is a compound metaphor, invented phrase, idiom, or slang, provide an insightful, educational definition and a realistic example sentence illustrating how it could be used.
 Format your response ONLY as a JSON array of objects with the exact schema:
 [
   {
     "front": "Word or idiom in ${targetLang}",
-    "back": "Clear definition and explanation (explained for language learners)",
+    "back": "Clear, insightful definition and explanation (explained for language learners)",
     "phonetic": "/phonetic transcription or reading/",
-    "partOfSpeech": "noun | verb | adjective | idiom | phrasal verb",
-    "example": "A realistic example sentence in ${targetLang} illustrating how the word is used in context.",
-    "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this meaning looks like (e.g. for cat: 'cat animal', for agree: 'handshake agreement')",
+    "partOfSpeech": "noun | verb | adjective | idiom | phrasal verb | phrase",
+    "example": "A realistic example sentence in ${targetLang} illustrating how the phrase is used in context.",
+    "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this concept looks like",
     "tags": ["category"]
   }
 ]
 Do not include any conversational text or markdown formatting. Output raw valid JSON only.`;
 
       let rawResponse = "";
-      if (userConfig.provider === "anthropic") {
+      if (userConfig.provider === "anthropic" && (userConfig.anthropicKey || process.env.ANTHROPIC_API_KEY)) {
         rawResponse = await callAnthropic(systemPrompt, userConfig);
-      } else if (userConfig.provider === "gemini") {
-        rawResponse = await callGemini(systemPrompt, userConfig);
+      } else if (userConfig.provider === "openai" && (userConfig.openaiKey || process.env.OPENAI_API_KEY)) {
+        rawResponse = await callOpenAI(systemPrompt, userConfig);
       } else if (userConfig.provider === "ollama") {
         rawResponse = await callOllama(systemPrompt, userConfig);
       } else {
-        rawResponse = await callOpenAI(systemPrompt, userConfig);
+        userConfig.provider = "gemini";
+        rawResponse = await callGemini(systemPrompt, userConfig);
       }
 
       // Clean JSON formatting
@@ -237,15 +246,30 @@ Do not include any conversational text or markdown formatting. Output raw valid 
     if (card) {
       results.push(card);
     } else {
-      // If not in dictionary, generate a clean draft
-      const imageResult = await resolveSemanticImage(word);
+      // If not in dictionary, attempt AI definition generation
+      let aiDefBack = `Explanation for "${word}"`;
+      let aiDefEx = `Example sentence with "${word}".`;
+      let aiPos = word.includes(" ") ? "idiom / phrase" : "vocabulary";
+
+      try {
+        const aiRes = await generateDefinition(word, undefined, userConfig, "English");
+        if (aiRes && aiRes.definition) {
+          aiDefBack = aiRes.definition;
+          aiDefEx = aiRes.example || aiDefEx;
+          aiPos = aiRes.partOfSpeech || aiPos;
+        }
+      } catch {
+        // ignore
+      }
+
+      const imageResult = await resolveSemanticImage(word, aiDefBack);
       results.push({
         front: word,
-        back: `Definition of "${word}"`,
-        partOfSpeech: "vocabulary",
-        example: `An example sentence with ${word}.`,
+        back: aiDefBack,
+        partOfSpeech: aiPos,
+        example: aiDefEx,
         imageUrl: imageResult.imageUrl,
-        tags: ["vocabulary"],
+        tags: [aiPos],
       });
     }
   }
