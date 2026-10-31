@@ -345,8 +345,8 @@ export function QuickAddCardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl rounded-3xl border border-border bg-card shadow-2xl p-6 space-y-5 max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl rounded-3xl border border-border bg-card shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-border/60">
           <div className="flex items-center gap-2.5">
@@ -402,41 +402,43 @@ export function QuickAddCardModal({
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Word or Idiom
               </label>
-              <div className="flex gap-2">
+              <div className="space-y-2">
                 <input
                   type="text"
                   autoFocus
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   placeholder="e.g. cut corners, all of a sudden, bite the bullet, perched..."
-                  className="flex-1 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-2.5 sm:py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
                 />
-                <Button
-                  type="submit"
-                  disabled={isLookingUp || !aiPrompt.trim()}
-                  size="md"
-                  className="font-bold shrink-0"
-                >
-                  {isLookingUp ? "Searching..." : "🔍 Find Definitions"}
-                </Button>
-                <button
-                  type="button"
-                  title="Explain expression or slang with AI"
-                  disabled={isLookingUp || !aiPrompt.trim()}
-                  onClick={() => handleSearchDefinitions(undefined, true)}
-                  className="rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 text-xs font-bold transition-all disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-xs"
-                >
-                  <span>✨</span>
-                  <span className="hidden sm:inline">AI Explain</span>
-                </button>
+                <div className="flex gap-2">
+                  <Button
+                    type="submit"
+                    disabled={isLookingUp || !aiPrompt.trim()}
+                    size="md"
+                    className="flex-1 font-bold justify-center"
+                  >
+                    {isLookingUp ? "Searching..." : "🔍 Find Definitions"}
+                  </Button>
+                  <button
+                    type="button"
+                    title="Explain expression or slang with AI"
+                    disabled={isLookingUp || !aiPrompt.trim()}
+                    onClick={() => handleSearchDefinitions(undefined, true)}
+                    className="rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary px-3.5 sm:px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 shrink-0 flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <span>✨</span>
+                    <span>AI Explain</span>
+                  </button>
+                </div>
               </div>
             </form>
 
             {/* Sub-State A: Display Definition Choices if multiple found and none selected */}
             {definitionOptions.length > 0 && !selectedDefinition && (
               <div className="space-y-2.5 pt-2 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                       Available Definitions for &ldquo;{wordHeader || aiPrompt}&rdquo;:
                     </span>
@@ -449,7 +451,7 @@ export function QuickAddCardModal({
                   <button
                     type="button"
                     onClick={() => handleSpeak(wordHeader || aiPrompt)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold shrink-0"
                   >
                     🔊 Pronounce
                   </button>
