@@ -139,7 +139,7 @@ export default function NewDeck() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 lg:pb-0">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 md:pb-0">
       <Header />
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-4 py-12 sm:px-6">
         <div className="mb-6">

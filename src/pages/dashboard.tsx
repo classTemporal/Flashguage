@@ -399,6 +399,47 @@ function GoalProgress({
   );
 }
 
+function QuickLookupWidget({ activeLanguage }: { activeLanguage: string }) {
+  const currentLang = getLanguage(activeLanguage);
+  const [query, setQuery] = useState("");
+  const router = useRouter();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    router.push(`/dictionaries?lang=${encodeURIComponent(activeLanguage)}&q=${encodeURIComponent(query.trim())}`);
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📖</span>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Quick Dictionary
+          </h3>
+        </div>
+        <span className="text-xs font-semibold text-primary">{currentLang.flag} {currentLang.name}</span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Look up definitions, native audio pronunciations, and create flashcards with 1 click.
+      </p>
+      <form onSubmit={handleSearch} className="flex items-center gap-2">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${currentLang.name} word...`}
+          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <Button type="submit" size="sm" className="h-8 text-xs font-bold px-3">
+          Lookup
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -527,7 +568,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 lg:pb-0">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 md:pb-0">
       <OfflineBanner
         pendingCount={pendingCount}
         isOnline={isOnline}
@@ -536,14 +577,25 @@ export default function Dashboard() {
       />
       <Header />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 space-y-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 space-y-8">
         {/* Top Navigation: Switch Language & Active Indicator */}
         <div className="flex items-center justify-between -mb-2">
-          <BackButton href="/tracks" label="Switch Language" />
-          <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border flex items-center gap-1.5">
-            <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
-            <span>{currentLang.name}</span>
-          </span>
+          <BackButton href="/tracks" label="Switch Language Track" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border flex items-center gap-1.5 shadow-xs">
+              <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
+              <span>{currentLang.name} Track</span>
+            </span>
+            <Button
+              href="/tracks"
+              as="link"
+              variant="ghost"
+              size="sm"
+              className="hidden sm:inline-flex text-xs h-7 px-2.5 font-semibold text-primary"
+            >
+              All Tracks →
+            </Button>
+          </div>
         </div>
 
         {/* Welcome Banner Card with Quick Actions */}
@@ -609,363 +661,383 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Learning Statistics Section */}
-        <section aria-label="Learning Statistics" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Performance & Progress
-            </h2>
-          </div>
-
-          {statsLoading && !stats ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCardSkeleton />
-                <StatCardSkeleton />
-                <StatCardSkeleton />
-                <StatCardSkeleton />
-              </div>
-            </div>
-          ) : stats ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <StatCard
-                  title="Daily Streak"
-                  value={`${stats.streak}d`}
-                  icon="🔥"
-                  subtitle="Consecutive study days"
-                />
-                <StatCard
-                  title="Cards Learned"
-                  value={stats.cardsLearned}
-                  icon="✓"
-                  subtitle={`of ${stats.totalCards} total cards`}
-                />
-                <StatCard
-                  title="Daily Goal"
-                  value={`${stats.dailyGoal.percentage}%`}
-                  icon="🎯"
-                  subtitle={`${stats.dailyGoal.current} / ${stats.dailyGoal.goal} target`}
-                />
-                <StatCard
-                  title="Mastery Level"
-                  value={`Lvl ${stats.mastery.level}`}
-                  icon="⭐"
-                  subtitle={`${stats.mastery.xp} / ${stats.mastery.nextLevelXp} XP`}
-                />
+        {/* ── Main Two-Column Desktop Layout ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ── Left / Main Content Column (8 cols on desktop) ── */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Learning Statistics Section */}
+            <section aria-label="Learning Statistics" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Performance & Progress
+                </h2>
               </div>
 
-              {/* Learning Progress Highlight Card (Primary element high on Dashboard) */}
-              <div className="rounded-3xl border border-primary/25 bg-gradient-to-r from-card via-card to-primary/5 p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">📈</span>
-                      <h2 className="text-base sm:text-lg font-black tracking-tight text-foreground">
-                        Learning Progress & Retention
-                      </h2>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        {progressData?.stats?.averageMastery ?? 0}% Average Mastery
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Track individual card progress %, view countdowns for next reviews, or adjust learning pace.
-                    </p>
-                  </div>
-
-                  <Button
-                    href={activeLanguage === "all" ? "/progress" : `/progress?lang=${activeLanguage}`}
-                    as="link"
-                    size="md"
-                    className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 shrink-0"
-                  >
-                    <span>📈</span>
-                    <span>View All Progress →</span>
-                  </Button>
+              {statsLoading && !stats ? (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
                 </div>
-
-                {/* Progress Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/70">
-                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">In Progress</span>
-                    <p className="text-lg font-black text-blue-600 dark:text-blue-400 mt-0.5">
-                      {progressData?.stats?.inProgressCount ?? 0} cards
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">Active learning (1-99%)</span>
+              ) : stats ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <StatCard
+                      title="Daily Streak"
+                      value={`${stats.streak}d`}
+                      icon="🔥"
+                      subtitle="Consecutive study days"
+                    />
+                    <StatCard
+                      title="Cards Learned"
+                      value={stats.cardsLearned}
+                      icon="✓"
+                      subtitle={`of ${stats.totalCards} total cards`}
+                    />
+                    <StatCard
+                      title="Daily Goal"
+                      value={`${stats.dailyGoal.percentage}%`}
+                      icon="🎯"
+                      subtitle={`${stats.dailyGoal.current} / ${stats.dailyGoal.goal} target`}
+                    />
+                    <StatCard
+                      title="Mastery Level"
+                      value={`Lvl ${stats.mastery.level}`}
+                      icon="⭐"
+                      subtitle={`${stats.mastery.xp} / ${stats.mastery.nextLevelXp} XP`}
+                    />
                   </div>
-                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ready to Review</span>
-                    <p className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">
-                      {progressData?.stats?.dueCount ?? 0} cards
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">Due for review today</span>
-                  </div>
-                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fully Mastered</span>
-                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                      {progressData?.stats?.masteredCount ?? 0} cards
-                    </p>
-                    <span className="text-[10px] text-muted-foreground">100% learned ✨</span>
-                  </div>
-                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Mastery</span>
-                    <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
-                      {progressData?.stats?.averageMastery ?? 0}%
-                    </p>
-                    <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-indigo-500 transition-all duration-500"
-                        style={{ width: `${progressData?.stats?.averageMastery ?? 0}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <WeeklyChart data={stats.weeklyActivity} />
-                <GoalProgress
-                  current={stats.dailyGoal.current}
-                  goal={stats.dailyGoal.goal}
-                  percentage={stats.dailyGoal.percentage}
-                  activeLanguage={activeLanguage}
-                  totalCards={stats.totalCards}
-                  dueCount={dueReviews?.length ?? 0}
-                  onCreateDeck={() => setIsCreateDeckOpen(true)}
-                  onUpdateGoal={handleUpdateGoal}
-                />
-              </div>
-            </div>
-          ) : null}
-        </section>
-
-        {/* Pending Reviews Breakdown by Deck (addresses User Point 5) */}
-        {pendingByDeck.length > 0 && (
-          <section aria-label="Pending Reviews by Deck" className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card/60 border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base">⏰</span>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Pending Reviews
-                  </h2>
-                  <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    {dueReviews?.length} {dueReviews?.length === 1 ? "card" : "cards"} waiting
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Scheduled for spaced repetition review today to strengthen your memory retention.
-                </p>
-              </div>
-              <Button
-                href="/study/all"
-                as="link"
-                size="md"
-                className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 w-full sm:w-auto shrink-0 justify-center"
-              >
-                <span>🧠</span>
-                <span>Study All Due Cards</span>
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {pendingByDeck.map((deck) => (
-                <div
-                  key={deck.deckId}
-                  className="flex items-center justify-between p-4 sm:p-5 rounded-2xl border border-border bg-card shadow-xs hover:border-primary/40 hover:shadow-sm transition-all gap-3"
-                >
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <p className="font-bold text-foreground text-sm truncate" title={deck.deckName}>
-                      {deck.deckName}
-                    </p>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                      ⚡ {deck.count} due
-                    </span>
-                  </div>
-                  <Button
-                    href={`/study/${deck.deckId}`}
-                    as="link"
-                    size="sm"
-                    variant="secondary"
-                    className="font-bold text-xs shrink-0"
-                  >
-                    Study Deck →
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Tools & Shortcuts Grid */}
-        <section aria-label="Tools and Shortcuts" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Tools & Shortcuts
-            </h2>
-            <Link href="/progress" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-              <span>📈 Learning Progress</span>
-              <span>→</span>
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Link
-              href="/progress"
-              className="group rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📈</div>
-              <p className="text-sm font-bold text-foreground">Learning Progress</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Track word mastery %, review countdown timers, and adjust intervals</p>
-            </Link>
-            <Link
-              href="/context-picker"
-              className="group rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">🔍</div>
-              <p className="text-sm font-bold text-foreground">Context Picker</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Select reading material and generate cards instantly with AI</p>
-            </Link>
-            <Link
-              href="/import"
-              className="group rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📥</div>
-              <p className="text-sm font-bold text-foreground">Import Flashcards</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Bulk upload word lists from CSV, Anki decks, or JSON</p>
-            </Link>
-            <Link
-              href="/community"
-              className="group rounded-2xl border border-border bg-card p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">🌐</div>
-              <p className="text-sm font-bold text-foreground">Community Decks</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Explore and clone community-shared vocabulary sets</p>
-            </Link>
-          </div>
-        </section>
-
-        {/* Decks Grid Section */}
-        <section aria-label="Your Decks" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <span>{activeLanguage === "all" ? "🌐" : currentLang.flag}</span>
-                <span>{activeLanguage === "all" ? "All Decks" : `${currentLang.name} Decks`}</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {decks?.length || 0}
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {activeLanguage === "all"
-                  ? "Showing decks across all languages"
-                  : `Dedicated decks for ${currentLang.name} vocabulary and practice`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsCreateDeckOpen(true)}
-              >
-                + Add Deck
-              </Button>
-            </div>
-          </div>
-
-          {decksError && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
-              Failed to load decks. Please refresh the page to try again.
-            </div>
-          )}
-
-          {decksLoading && !decks && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <DeckCardSkeleton />
-              <DeckCardSkeleton />
-              <DeckCardSkeleton />
-            </div>
-          )}
-
-          {!decksLoading && !decksError && decks && decks.length === 0 && (
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-xs">
-              <EmptyState
-                icon="📚"
-                title={`No ${activeLanguage === "all" ? "" : currentLang.name} decks found`}
-                description={`You haven't created any decks in the ${activeLanguage === "all" ? "collection" : currentLang.name + " track"} yet. Start learning by adding your first deck!`}
-                action={
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button type="button" onClick={() => setIsCreateDeckOpen(true)}>
-                      + Create {activeLanguage === "all" ? "" : currentLang.name} Deck
-                    </Button>
-                    <Button href="/import" as="link" variant="secondary">
-                      Import Cards
-                    </Button>
-                  </div>
-                }
-              />
-            </div>
-          )}
-
-          {!decksLoading && !decksError && decks && decks.length > 0 && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {decks.map((deck) => (
-                <div
-                  key={deck.id}
-                  className="group flex flex-col justify-between bg-card border border-border rounded-2xl p-6 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {deck.targetLanguage && (
-                          <span className="text-base shrink-0" title={getLanguage(deck.targetLanguage).name}>
-                            {getLanguage(deck.targetLanguage).flag}
+                  {/* Learning Progress Highlight Card */}
+                  <div className="rounded-3xl border border-primary/25 bg-gradient-to-r from-card via-card to-primary/5 p-6 shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📈</span>
+                          <h2 className="text-base sm:text-lg font-black tracking-tight text-foreground">
+                            Learning Progress & Retention
+                          </h2>
+                          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            {progressData?.stats?.averageMastery ?? 0}% Average Mastery
                           </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Track individual card progress %, view countdowns for next reviews, or adjust learning pace.
+                        </p>
+                      </div>
+
+                      <Button
+                        href={activeLanguage === "all" ? "/progress" : `/progress?lang=${activeLanguage}`}
+                        as="link"
+                        size="md"
+                        className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+                      >
+                        <span>📈</span>
+                        <span>View All Progress →</span>
+                      </Button>
+                    </div>
+
+                    {/* Progress Quick Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/70">
+                      <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">In Progress</span>
+                        <p className="text-lg font-black text-blue-600 dark:text-blue-400 mt-0.5">
+                          {progressData?.stats?.inProgressCount ?? 0} cards
+                        </p>
+                        <span className="text-[10px] text-muted-foreground">Active learning (1-99%)</span>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ready to Review</span>
+                        <p className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                          {progressData?.stats?.dueCount ?? 0} cards
+                        </p>
+                        <span className="text-[10px] text-muted-foreground">Due for review today</span>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fully Mastered</span>
+                        <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          {progressData?.stats?.masteredCount ?? 0} cards
+                        </p>
+                        <span className="text-[10px] text-muted-foreground">100% learned ✨</span>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Mastery</span>
+                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                          {progressData?.stats?.averageMastery ?? 0}%
+                        </p>
+                        <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                            style={{ width: `${progressData?.stats?.averageMastery ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            {/* Decks Grid Section */}
+            <section aria-label="Your Decks" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <span>{activeLanguage === "all" ? "🌐" : currentLang.flag}</span>
+                    <span>{activeLanguage === "all" ? "All Decks" : `${currentLang.name} Decks`}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {decks?.length || 0}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {activeLanguage === "all"
+                      ? "Showing decks across all languages"
+                      : `Dedicated decks for ${currentLang.name} vocabulary and practice`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsCreateDeckOpen(true)}
+                  >
+                    + Add Deck
+                  </Button>
+                </div>
+              </div>
+
+              {decksError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+                  Failed to load decks. Please refresh the page to try again.
+                </div>
+              )}
+
+              {decksLoading && !decks && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <DeckCardSkeleton />
+                  <DeckCardSkeleton />
+                </div>
+              )}
+
+              {!decksLoading && !decksError && decks && decks.length === 0 && (
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-xs">
+                  <EmptyState
+                    icon="📚"
+                    title={`No ${activeLanguage === "all" ? "" : currentLang.name} decks found`}
+                    description={`You haven't created any decks in the ${activeLanguage === "all" ? "collection" : currentLang.name + " track"} yet. Start learning by adding your first deck!`}
+                    action={
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <Button type="button" onClick={() => setIsCreateDeckOpen(true)}>
+                          + Create {activeLanguage === "all" ? "" : currentLang.name} Deck
+                        </Button>
+                        <Button href="/import" as="link" variant="secondary">
+                          Import Cards
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
+              )}
+
+              {!decksLoading && !decksError && decks && decks.length > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {decks.map((deck) => (
+                    <div
+                      key={deck.id}
+                      className="group flex flex-col justify-between bg-card border border-border rounded-2xl p-5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {deck.targetLanguage && (
+                              <span className="text-base shrink-0" title={getLanguage(deck.targetLanguage).name}>
+                                {getLanguage(deck.targetLanguage).flag}
+                              </span>
+                            )}
+                            <Link
+                              href={`/deck/${deck.id}`}
+                              className="font-bold text-base text-foreground group-hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded line-clamp-1"
+                            >
+                              {deck.name}
+                            </Link>
+                          </div>
+                          <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                            {deck._count.cards} {deck._count.cards === 1 ? "card" : "cards"}
+                          </span>
+                        </div>
+                        {deck.description ? (
+                          <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+                            {deck.description}
+                          </p>
+                        ) : (
+                          <p className="text-xs italic text-muted-foreground/60">
+                            No description provided
+                          </p>
                         )}
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between border-t border-border pt-3.5">
                         <Link
                           href={`/deck/${deck.id}`}
-                          className="font-bold text-lg text-foreground group-hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded line-clamp-1"
+                          className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          {deck.name}
+                          View cards →
                         </Link>
+                        <Button
+                          href={`/deck/${deck.id}`}
+                          as="link"
+                          size="sm"
+                          className="gap-1 font-semibold text-xs h-7 px-2.5"
+                        >
+                          <span>Study</span>
+                          <span aria-hidden="true">→</span>
+                        </Button>
                       </div>
-                      <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-                        {deck._count.cards} {deck._count.cards === 1 ? "card" : "cards"}
-                      </span>
                     </div>
-                    {deck.description ? (
-                      <p className="line-clamp-2 text-sm text-muted-foreground leading-relaxed">
-                        {deck.description}
-                      </p>
-                    ) : (
-                      <p className="text-sm italic text-muted-foreground/60">
-                        No description provided
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                    <Link
-                      href={`/deck/${deck.id}`}
-                      className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      View cards →
-                    </Link>
-                    <Button
-                      href={`/deck/${deck.id}`}
-                      as="link"
-                      size="sm"
-                      className="gap-1.5 font-semibold"
-                    >
-                      <span>Study</span>
-                      <span aria-hidden="true">→</span>
-                    </Button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              )}
+            </section>
+
+            {/* Tools & Shortcuts Grid */}
+            <section aria-label="Tools and Shortcuts" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tools & Shortcuts
+                </h2>
+                <Link href="/progress" className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                  <span>📈 Learning Progress</span>
+                  <span>→</span>
+                </Link>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Link
+                  href="/progress"
+                  className="group rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">📈</div>
+                  <p className="text-sm font-bold text-foreground">Learning Progress</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Track word mastery %, review countdown timers, and adjust intervals</p>
+                </Link>
+                <Link
+                  href="/context-picker"
+                  className="group rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">🔍</div>
+                  <p className="text-sm font-bold text-foreground">Context Picker</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Select reading material and generate cards instantly with AI</p>
+                </Link>
+                <Link
+                  href="/import"
+                  className="group rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">📥</div>
+                  <p className="text-sm font-bold text-foreground">Import Flashcards</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Bulk upload word lists from CSV, Anki decks, or JSON</p>
+                </Link>
+                <Link
+                  href="/community"
+                  className="group rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">🌐</div>
+                  <p className="text-sm font-bold text-foreground">Community Decks</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Explore and clone community-shared vocabulary sets</p>
+                </Link>
+              </div>
+            </section>
+          </div>
+
+          {/* ── Right Column / Persistent Desktop Sidebar (4 cols on desktop) ── */}
+          <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-20">
+            {/* Daily Goal & Brain Break Widget */}
+            {stats && (
+              <GoalProgress
+                current={stats.dailyGoal.current}
+                goal={stats.dailyGoal.goal}
+                percentage={stats.dailyGoal.percentage}
+                activeLanguage={activeLanguage}
+                totalCards={stats.totalCards}
+                dueCount={dueReviews?.length ?? 0}
+                onCreateDeck={() => setIsCreateDeckOpen(true)}
+                onUpdateGoal={handleUpdateGoal}
+              />
+            )}
+
+            {/* Weekly Practice 7-day Activity Chart */}
+            {stats && <WeeklyChart data={stats.weeklyActivity} />}
+
+            {/* Action Queue: Pending Reviews by Deck */}
+            {pendingByDeck.length > 0 ? (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">⏰</span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Reviews Due Today
+                    </h3>
+                  </div>
+                  <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                    {dueReviews?.length} due
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {pendingByDeck.map((d) => (
+                    <div
+                      key={d.deckId}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border/50 text-xs hover:border-primary/40 transition-colors"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="font-bold text-foreground truncate">{d.deckName}</p>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                          ⚡ {d.count} cards waiting
+                        </span>
+                      </div>
+                      <Button
+                        href={`/study/${d.deckId}`}
+                        as="link"
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 text-[10px] px-2 py-0 font-bold shrink-0"
+                      >
+                        Study →
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}`}
+                  as="link"
+                  size="sm"
+                  className="w-full text-xs font-bold mt-2"
+                >
+                  Study All Due ({dueReviews?.length}) →
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border/80 bg-card/60 p-5 shadow-xs text-center space-y-2">
+                <div className="text-2xl">🎉</div>
+                <p className="text-sm font-bold text-foreground">All caught up!</p>
+                <p className="text-xs text-muted-foreground">
+                  No spaced reviews due today for {currentLang.name}. Practice any deck anytime.
+                </p>
+                <Button
+                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
+                  as="link"
+                  variant="secondary"
+                  size="sm"
+                  className="text-xs mt-1"
+                >
+                  Free Practice Mode →
+                </Button>
+              </div>
+            )}
+
+            {/* Desktop Mini Dictionary Search Widget */}
+            <QuickLookupWidget activeLanguage={activeLanguage} />
+          </div>
+        </div>
         {/* Quick Add Deck Modal */}
         <QuickAddDeckModal
           isOpen={isCreateDeckOpen}

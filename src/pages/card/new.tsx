@@ -186,7 +186,7 @@ export default function NewCard() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 lg:pb-0">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 md:pb-0">
       <Header />
       <main className="mx-auto w-full max-w-xl flex-1 px-4 py-8 sm:px-6 space-y-6">
         <div>

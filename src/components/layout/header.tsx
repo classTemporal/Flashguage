@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
 
 interface HeaderProps {
   title?: string;
@@ -56,6 +57,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [currentTrackLang, setCurrentTrackLang] = useState<string>("en");
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
 
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const moreDropdownRef = useRef<HTMLDivElement>(null);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -78,6 +81,9 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
       }
       if (moreDropdownRef.current && !moreDropdownRef.current.contains(event.target as Node)) {
         setMoreDropdownOpen(false);
+      }
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setLangDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -91,6 +97,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
     setMobileMenuOpen(false);
     setUserDropdownOpen(false);
     setMoreDropdownOpen(false);
+    setLangDropdownOpen(false);
   }, [router.asPath]);
 
   // Lock body scroll when mobile menu is open
@@ -104,6 +111,21 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
       document.body.style.overflow = "unset";
     };
   }, [mobileMenuOpen]);
+
+  const handleSelectLanguage = (code: string) => {
+    setLangDropdownOpen(false);
+    setCurrentTrackLang(code);
+    try {
+      localStorage.setItem("flashguage_active_lang", code);
+      document.cookie = `flashguage_active_lang=${code}; path=/; max-age=31536000`;
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+    router.push(
+      { pathname: router.pathname, query: { ...router.query, lang: code } },
+      undefined,
+      { shallow: false }
+    );
+  };
 
   const handleSignOut = async () => {
     try {
@@ -122,7 +144,16 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   };
 
   const isMoreActive = MORE_TOOLS.some((item) => router.pathname.startsWith(item.href));
-  const logoHref = isLoggedIn ? "/dashboard" : "/";
+  const logoHref = isLoggedIn ? (currentTrackLang ? `/dashboard?lang=${encodeURIComponent(currentTrackLang)}` : "/dashboard") : "/";
+  const currentLang = getLanguage(currentTrackLang);
+
+  const desktopNavItems = [
+    { href: `/dashboard?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
+    { href: `/decks?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/decks", label: "Decks", icon: "🗂️" },
+    { href: `/study?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/study", label: "Study", icon: "🧠" },
+    { href: `/progress?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/progress", label: "Progress", icon: "📈" },
+    { href: `/dictionaries?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/dictionaries", label: "Dictionary", icon: "📖" },
+  ];
 
   return (
     <>
@@ -149,9 +180,9 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
             </Link>
 
             {showNav && isLoggedIn && (
-              <nav className="hidden lg:flex items-center gap-1.5 text-sm font-medium" aria-label="Main Navigation">
-                {PRIMARY_NAV.map((item) => {
-                  const active = isRouteActive(item.href);
+              <nav className="hidden md:flex items-center gap-1.5 text-sm font-medium" aria-label="Main Navigation">
+                {desktopNavItems.map((item) => {
+                  const active = isRouteActive(item.baseRoute);
                   return (
                     <Link
                       key={item.href}
@@ -222,8 +253,70 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
             )}
           </div>
 
-          {/* Right Controls: Theme Toggle + User Menu + Mobile Hamburger */}
+          {/* Right Controls: Language Switcher (Desktop) + Theme Toggle + User Menu */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Desktop Language Switcher */}
+            {isLoggedIn && (
+              <div className="relative hidden md:block" ref={langDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setLangDropdownOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
+                  aria-expanded={langDropdownOpen}
+                  aria-label="Switch active language track"
+                >
+                  <span className="text-sm">{currentLang.flag}</span>
+                  <span className="hidden lg:inline">{currentLang.name}</span>
+                  <svg
+                    className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${
+                      langDropdownOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {langDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card p-1.5 shadow-xl ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95">
+                    <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/60 mb-1 flex items-center justify-between">
+                      <span>Active Track</span>
+                      <Link
+                        href="/tracks"
+                        onClick={() => setLangDropdownOpen(false)}
+                        className="text-primary hover:underline font-semibold text-[10px]"
+                      >
+                        All Tracks →
+                      </Link>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-0.5">
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => handleSelectLanguage(lang.code)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            currentTrackLang === lang.code
+                              ? "bg-primary text-primary-foreground font-bold"
+                              : "text-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-base">{lang.flag}</span>
+                            <span className="truncate">{lang.name}</span>
+                          </div>
+                          {currentTrackLang === lang.code && <span>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <ThemeToggle />
 
             {isLoggedIn ? (
@@ -317,9 +410,9 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
         </div>
       </header>
 
-      {/* Mobile Bottom Quick-Action Bar for instant access to key study & decks (only when logged in and on authenticated pages) */}
+      {/* Mobile Bottom Quick-Action Bar for instant access to key study & decks (only when logged in on small mobile screens) */}
       {isLoggedIn && !["/", "/login", "/register"].includes(router.pathname) && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-3 py-1.5 shadow-lg safe-area-pb">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-3 py-1.5 shadow-lg safe-area-pb">
           <div className="mx-auto flex max-w-md items-center justify-around">
             {[
               { href: currentTrackLang ? `/dashboard?lang=${encodeURIComponent(currentTrackLang)}` : "/dashboard", baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
