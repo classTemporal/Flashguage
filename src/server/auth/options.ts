@@ -37,8 +37,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        const cleanEmail = credentials.email.trim().toLowerCase();
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: cleanEmail },
         });
 
         if (!user || !user.hashedPassword) {

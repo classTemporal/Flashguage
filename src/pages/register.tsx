@@ -4,6 +4,7 @@ import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,22 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
+    setSuccessMessage("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+
+    if (!cleanEmail.includes("@") || cleanEmail.length < 5) {
+      setError("Please provide a valid email address");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -40,19 +52,33 @@ export default function Register() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong creating your account");
+        setError(data.error || data.message || "Something went wrong creating your account");
+        setLoading(false);
       } else {
-        router.push("/login?registered=true");
+        setSuccessMessage("Account created successfully! Signing you in...");
+
+        // Automatically log the user in
+        const signResult = await signIn("credentials", {
+          email: cleanEmail,
+          password,
+          redirect: false,
+        });
+
+        if (signResult?.ok) {
+          window.location.href = "/dashboard";
+        } else {
+          // Fallback: redirect to login with registered flag and prefilled email
+          router.push(`/login?registered=true&email=${encodeURIComponent(cleanEmail)}`);
+        }
       }
     } catch {
       setError("Something went wrong. Please check your connection.");
-    } finally {
       setLoading(false);
     }
   };
@@ -81,7 +107,7 @@ export default function Register() {
 
         {/* Centered Card */}
         <Card className="border border-border bg-card text-card-foreground shadow-lg rounded-2xl overflow-hidden">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="touch-manipulation">
             <div className="p-6 sm:p-8 space-y-5">
               {error && (
                 <div
@@ -89,6 +115,16 @@ export default function Register() {
                   role="alert"
                 >
                   {error}
+                </div>
+              )}
+
+              {successMessage && (
+                <div
+                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm text-emerald-400 font-medium animate-in fade-in flex items-center gap-2"
+                  role="status"
+                >
+                  <span className="text-base">🎉</span>
+                  <span>{successMessage}</span>
                 </div>
               )}
 
@@ -110,6 +146,9 @@ export default function Register() {
                   name="email"
                   required
                   autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -145,7 +184,7 @@ export default function Register() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full gap-2 font-bold py-3 text-base shadow-xs"
+                  className="w-full gap-2 font-bold py-3 text-base shadow-xs touch-manipulation"
                 >
                   {loading && <Spinner className="h-4 w-4 border-2 border-primary-foreground border-t-transparent" />}
                   <span>{loading ? "Creating account..." : "Create Account"}</span>

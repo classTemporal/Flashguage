@@ -3,13 +3,12 @@
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/loading";
 
 export default function Login() {
@@ -19,15 +18,30 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (router.isReady && typeof router.query.email === "string" && router.query.email) {
+      setEmail(router.query.email);
+    }
+  }, [router.isReady, router.query.email]);
+
+  const isRegistered = router.isReady && router.query.registered === "true";
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (loading) return;
     setError("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError("Please enter your email address");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await signIn("credentials", {
-        email,
+        email: cleanEmail,
         password,
         redirect: false,
       });
@@ -70,6 +84,16 @@ export default function Login() {
         {/* Centered Card */}
         <Card className="border border-border bg-card text-card-foreground shadow-md p-6">
           <form onSubmit={handleSubmit} className="space-y-5 touch-manipulation">
+            {isRegistered && (
+              <div
+                className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-sm text-emerald-400 font-medium animate-in fade-in flex items-center gap-2"
+                role="status"
+              >
+                <span className="text-base">🎉</span>
+                <span>Account created successfully! Please sign in with your credentials.</span>
+              </div>
+            )}
+
             {error && (
               <div
                 className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive font-medium animate-in fade-in"
@@ -92,8 +116,11 @@ export default function Login() {
                   type="email"
                   name="email"
                   required
-                  autoFocus
+                  autoFocus={!router.query.email}
                   autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -114,6 +141,7 @@ export default function Login() {
                   type="password"
                   name="password"
                   required
+                  autoFocus={Boolean(router.query.email)}
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

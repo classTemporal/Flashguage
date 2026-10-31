@@ -15,23 +15,37 @@ export default async function register(
     const { email, password, name } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res.status(400).json({ message: "Email and password are required", error: "Email and password are required" });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanName = typeof name === "string" && name.trim() ? name.trim() : null;
+
+    if (!cleanEmail.includes("@") || cleanEmail.length < 5) {
+      return res.status(400).json({ message: "Please provide a valid email address", error: "Please provide a valid email address" });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters", error: "Password must be at least 6 characters" });
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: cleanEmail },
     });
 
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({
+        message: "An account with this email already exists. Please sign in.",
+        error: "An account with this email already exists. Please sign in.",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email,
-        name,
+        email: cleanEmail,
+        name: cleanName,
         hashedPassword,
       },
       select: {
