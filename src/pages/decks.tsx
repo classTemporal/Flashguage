@@ -63,16 +63,58 @@ export default function DecksPage() {
   const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [pinnedDeckIds, setPinnedDeckIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("flashguage_pinned_decks");
+        if (raw) setPinnedDeckIds(JSON.parse(raw));
+      } catch {}
+    }
+  }, []);
+
+  const handleTogglePinDeck = (id: string, name: string) => {
+    setPinnedDeckIds((prev) => {
+      const isPinned = prev.includes(id);
+      const updated = isPinned ? prev.filter((d) => d !== id) : [...prev, id];
+      try {
+        localStorage.setItem("flashguage_pinned_decks", JSON.stringify(updated));
+      } catch {}
+      if (isPinned) {
+        showToast(`Unpinned "${name}"`, "info");
+      } else {
+        showToast(`📌 Pinned "${name}" to favorites!`, "success");
+      }
+      return updated;
+    });
+  };
+
   const filteredDecks = useMemo(() => {
     if (!decks) return [];
-    if (!search.trim()) return decks;
-    const q = search.toLowerCase().trim();
-    return decks.filter(
-      (d) =>
-        d.name.toLowerCase().includes(q) ||
-        (d.description && d.description.toLowerCase().includes(q))
-    );
-  }, [decks, search]);
+    let list = decks;
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (d) =>
+          d.name.toLowerCase().includes(q) ||
+          (d.description && d.description.toLowerCase().includes(q))
+      );
+    }
+    // Sort: Pinned first -> Most recently updated -> Alphabetical
+    return [...list].sort((a, b) => {
+      const aPinned = pinnedDeckIds.includes(a.id);
+      const bPinned = pinnedDeckIds.includes(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+
+      return a.name.localeCompare(b.name);
+    });
+  }, [decks, search, pinnedDeckIds]);
 
   const handleStartEdit = (deck: Deck) => {
     setEditingDeck(deck);
@@ -266,10 +308,15 @@ export default function DecksPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredDecks.map((deck) => {
               const cardCount = deck._count?.cards ?? 0;
+              const isPinned = pinnedDeckIds.includes(deck.id);
               return (
                 <div
                   key={deck.id}
-                  className="bg-card border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-primary/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group"
+                  className={`bg-card border rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-primary/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group ${
+                    isPinned
+                      ? "border-amber-500/40 bg-gradient-to-b from-card via-card to-amber-500/5 ring-1 ring-amber-500/20"
+                      : "border-border"
+                  }`}
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -285,10 +332,30 @@ export default function DecksPage() {
                         >
                           {deck.name}
                         </Link>
+                        {isPinned && (
+                          <span className="shrink-0 text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-500 px-1.5 py-0.5 rounded-full">
+                            📌
+                          </span>
+                        )}
                       </div>
-                      <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
-                        {cardCount} {cardCount === 1 ? "card" : "cards"}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePinDeck(deck.id, deck.name)}
+                          className={`p-1.5 rounded-lg border transition-all text-xs ${
+                            isPinned
+                              ? "bg-amber-500/20 border-amber-500/40 text-amber-500 shadow-xs hover:bg-amber-500/30"
+                              : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                          }`}
+                          title={isPinned ? "Unpin favorite deck" : "Pin deck as favorite"}
+                          aria-label={isPinned ? `Unpin ${deck.name}` : `Pin ${deck.name}`}
+                        >
+                          <span className="text-sm leading-none">{isPinned ? "📌" : "🤍"}</span>
+                        </button>
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                          {cardCount} {cardCount === 1 ? "card" : "cards"}
+                        </span>
+                      </div>
                     </div>
 
                     {deck.description ? (

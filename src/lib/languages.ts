@@ -139,3 +139,45 @@ export function setStoredActiveLanguage(code: string): void {
   }
 }
 
+export function getPinnedTracks(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("flashguage_pinned_tracks");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setStoredPinnedTracks(pinned: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("flashguage_pinned_tracks", JSON.stringify(pinned));
+  } catch (err) {
+    console.error("Failed to save pinned tracks:", err);
+  }
+}
+
+export function getTrackAccessTimes(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("flashguage_track_last_accessed");
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function recordTrackAccess(code: string): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const times = getTrackAccessTimes();
+    times[code] = Date.now();
+    localStorage.setItem("flashguage_track_last_accessed", JSON.stringify(times));
+    return times;
+  } catch {
+    return {};
+  }
+}
+
+

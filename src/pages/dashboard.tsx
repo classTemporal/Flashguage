@@ -18,7 +18,7 @@ import { OfflineBanner } from "@/components/offline-banner";
 import { useSyncQueue } from "@/hooks/use-sync";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
 import { useToast } from "@/components/ui/toast";
-import { SUPPORTED_LANGUAGES, getLanguage, getStoredActiveLanguage, setStoredActiveLanguage } from "@/lib/languages";
+import { SUPPORTED_LANGUAGES, getLanguage, getStoredActiveLanguage, setStoredActiveLanguage, recordTrackAccess } from "@/lib/languages";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -329,11 +329,14 @@ export default function Dashboard() {
       if (q && q.trim()) {
         setActiveLanguage(q);
         setStoredActiveLanguage(q);
+        recordTrackAccess(q);
       } else if (stored && stored.trim()) {
         setActiveLanguage(stored);
+        recordTrackAccess(stored);
       } else if (allDecks && allDecks.length > 0 && allDecks[0].targetLanguage) {
         setActiveLanguage(allDecks[0].targetLanguage);
         setStoredActiveLanguage(allDecks[0].targetLanguage);
+        recordTrackAccess(allDecks[0].targetLanguage);
       }
     }
   }, [router.query.lang, allDecks]);
@@ -341,6 +344,7 @@ export default function Dashboard() {
   const handleSelectTrack = (langCode: string) => {
     setActiveLanguage(langCode);
     setStoredActiveLanguage(langCode);
+    recordTrackAccess(langCode);
     router.replace(
       { pathname: router.pathname, query: { ...router.query, lang: langCode } },
       undefined,
