@@ -112,7 +112,7 @@ export function CustomizeDashboardModal({
   const [currentHidden, setCurrentHidden] = useState<DashboardSectionId[]>(hiddenSections);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  
+
   const touchIndexRef = useRef<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +133,7 @@ export function CustomizeDashboardModal({
       setCurrentHidden(hiddenSections);
       setDraggedIndex(null);
       setDragOverIndex(null);
+      touchIndexRef.current = null;
     }
   }, [isOpen, sectionsOrder, hiddenSections]);
 
@@ -154,41 +155,46 @@ export function CustomizeDashboardModal({
     setCurrentOrder(newOrder);
   };
 
-  // ── Non-passive Touch Drag Listener for Mobile (prevents background and container scroll) ──
+  // ── Mobile Touch Drag Listeners: bound when modal is open ──
   useEffect(() => {
+    if (!isOpen) return;
     const listEl = listRef.current;
     if (!listEl) return;
 
     const onTouchMove = (e: TouchEvent) => {
       if (touchIndexRef.current === null) return;
-      // Prevent browser from scrolling behind the drag
       if (e.cancelable) {
         e.preventDefault();
       }
 
       const touch = e.touches[0];
-      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-      const itemEl = targetEl?.closest("[data-section-index]");
-      if (itemEl) {
-        const overIndex = Number(itemEl.getAttribute("data-section-index"));
-        if (!isNaN(overIndex) && overIndex !== touchIndexRef.current) {
-          // Tactile haptic feedback on mobile
-          if (typeof window !== "undefined" && window.navigator?.vibrate) {
-            try {
-              window.navigator.vibrate(12);
-            } catch {}
+      if (!touch) return;
+
+      const items = listEl.querySelectorAll("[data-section-index]");
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const rect = item.getBoundingClientRect();
+        if (touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+          const overIndex = Number(item.getAttribute("data-section-index"));
+          if (!isNaN(overIndex) && overIndex !== touchIndexRef.current) {
+            if (typeof window !== "undefined" && window.navigator?.vibrate) {
+              try {
+                window.navigator.vibrate(15);
+              } catch {}
+            }
+            const from = touchIndexRef.current;
+            const to = overIndex;
+            setCurrentOrder((prev) => {
+              const next = [...prev];
+              const [moved] = next.splice(from, 1);
+              next.splice(to, 0, moved);
+              return next;
+            });
+            touchIndexRef.current = overIndex;
+            setDraggedIndex(overIndex);
+            setDragOverIndex(overIndex);
           }
-          const from = touchIndexRef.current;
-          const to = overIndex;
-          setCurrentOrder((prev) => {
-            const next = [...prev];
-            const [moved] = next.splice(from, 1);
-            next.splice(to, 0, moved);
-            return next;
-          });
-          touchIndexRef.current = overIndex;
-          setDraggedIndex(overIndex);
-          setDragOverIndex(overIndex);
+          break;
         }
       }
     };
@@ -208,7 +214,7 @@ export function CustomizeDashboardModal({
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, []);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -272,9 +278,9 @@ export function CustomizeDashboardModal({
       aria-modal="true"
       aria-labelledby="customize-dashboard-title"
     >
-      <div className="w-full max-w-xl rounded-3xl border border-border bg-card p-6 shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-xl rounded-3xl border border-border bg-card p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-border">
+        <div className="flex items-start justify-between pb-4 border-b border-border shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xl">⚙️</span>
@@ -299,7 +305,7 @@ export function CustomizeDashboardModal({
         {/* Section List with Drag & Drop */}
         <div
           ref={listRef}
-          className="flex-1 overflow-y-auto py-4 space-y-2.5 pr-1 select-none"
+          className="flex-1 overflow-y-auto overflow-x-hidden py-3 space-y-2.5 px-0.5 select-none w-full"
         >
           {currentOrder.map((sectionId, index) => {
             const config = DASHBOARD_SECTIONS[sectionId];
@@ -317,11 +323,11 @@ export function CustomizeDashboardModal({
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
                 onDragEnd={handleDragEnd}
-                className={`group relative flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all duration-200 ${
+                className={`group relative flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all duration-200 box-border w-full ${
                   isBeingDragged
-                    ? "z-30 scale-[1.04] -translate-y-1 shadow-2xl ring-2 ring-primary border-primary bg-card/95 shadow-primary/25 cursor-grabbing"
+                    ? "z-30 -translate-y-1.5 shadow-2xl ring-2 ring-primary border-primary bg-card/98 shadow-primary/30 cursor-grabbing"
                     : isDropTarget
-                    ? "scale-[1.01] border-primary/90 ring-2 ring-primary/40 bg-primary/10 shadow-md"
+                    ? "border-primary ring-2 ring-primary/40 bg-primary/10 shadow-md"
                     : isHidden
                     ? "bg-muted/20 border-border/40 opacity-60 hover:opacity-80"
                     : "bg-muted/40 border-border hover:border-primary/40 shadow-xs"
@@ -407,7 +413,7 @@ export function CustomizeDashboardModal({
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
+        <div className="pt-4 border-t border-border flex items-center justify-between gap-3 shrink-0">
           <Button
             type="button"
             variant="ghost"
