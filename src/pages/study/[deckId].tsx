@@ -1167,27 +1167,6 @@ export default function StudySessionPage({
                 </span>
               </button>
             </div>
-
-            {/* Direct Graduation Option */}
-            <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground px-1">
-              {currentCardMastery ? (
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-block h-2 w-2 rounded-full ${currentCardMastery.colorClass}`} />
-                  <span className="font-semibold text-foreground">
-                    Progress: {currentCardMastery.percentage}% ({currentCardMastery.label})
-                  </span>
-                </div>
-              ) : <div />}
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleDirectMarkMastered}
-                className="text-xs text-primary hover:underline font-bold flex items-center gap-1 transition-colors"
-                title="Mark this card as 100% learned immediately so it stops repeating"
-              >
-                <span>✨ Already learned? Mark 100% Mastered</span>
-              </button>
-            </div>
           </div>
         )}
       </footer>

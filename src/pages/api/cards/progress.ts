@@ -247,6 +247,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           dueDate: nextDue,
           lastReview: existingReview?.lastReview ?? now,
         };
+      } else if (action === "set_mastery_level") {
+        const { level, daysUntilDue } = req.body;
+        // level: 0 (New/0%), 1 (Learning/25%), 2 (In Progress/50%), 3 (Advanced/75%), 4 (Mastered/100%)
+        const targetLevel = Number(level);
+        let reps = 0;
+        let intDays = 0;
+        let ef = 2.5;
+        let due = new Date(now);
+
+        if (targetLevel === 0) {
+          reps = 0;
+          intDays = 0;
+          due = now; // due immediately
+        } else if (targetLevel === 1) {
+          reps = 1;
+          intDays = daysUntilDue ? Math.max(1, Number(daysUntilDue)) : 1;
+          due.setDate(due.getDate() + intDays);
+          due.setHours(0, 0, 0, 0);
+        } else if (targetLevel === 2) {
+          reps = 2;
+          intDays = daysUntilDue ? Math.max(1, Number(daysUntilDue)) : 3;
+          due.setDate(due.getDate() + intDays);
+          due.setHours(0, 0, 0, 0);
+        } else if (targetLevel === 3) {
+          reps = 3;
+          intDays = daysUntilDue ? Math.max(1, Number(daysUntilDue)) : 7;
+          due.setDate(due.getDate() + intDays);
+          due.setHours(0, 0, 0, 0);
+        } else {
+          // targetLevel >= 4 -> 100% Mastered
+          reps = 5;
+          intDays = 180;
+          ef = 2.8;
+          due.setDate(due.getDate() + intDays);
+        }
+
+        updatedData = {
+          repetitions: reps,
+          interval: intDays,
+          easeFactor: ef,
+          dueDate: due,
+          lastReview: targetLevel === 0 ? null : (existingReview?.lastReview ?? now),
+        };
       } else {
         return res.status(400).json({ message: "Unknown action" });
       }

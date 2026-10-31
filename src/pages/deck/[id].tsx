@@ -493,6 +493,30 @@ export default function DeckDetail() {
               </div>
             </div>
 
+            {/* Learning Progress Highlight for this Deck */}
+            {cardCount > 0 && (
+              <div className="bg-gradient-to-r from-card via-card to-primary/5 border border-primary/20 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📈</span>
+                    <h3 className="text-base font-black text-foreground">Deck Learning Progress</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    View individual card mastery percentages, countdown timers to next reviews, and customize frequency.
+                  </p>
+                </div>
+                <Button
+                  href={`/progress?deckId=${deckId}`}
+                  as="link"
+                  size="md"
+                  className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+                >
+                  <span>📈</span>
+                  <span>View Cards in Progress →</span>
+                </Button>
+              </div>
+            )}
+
             {/* Spaced Repetition Testing Tool */}
             {cardCount > 0 && (
               <div className="flex items-center justify-between bg-card border border-dashed border-border rounded-xl p-4 text-xs text-muted-foreground">

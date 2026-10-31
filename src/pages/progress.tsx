@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
-import { EditCardModal } from "@/components/card/edit-card-modal";
+import { AdjustProgressModal } from "@/components/card/adjust-progress-modal";
 import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
 
@@ -75,7 +75,7 @@ export default function ProgressPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"due" | "mastery_asc" | "mastery_desc" | "alpha">("due");
 
-  const [editingCard, setEditingCard] = useState<any | null>(null);
+  const [adjustingCard, setAdjustingCard] = useState<CardProgressItem | null>(null);
   const [actingCardId, setActingCardId] = useState<string | null>(null);
 
   // Fetch decks for filtering dropdown
@@ -479,97 +479,43 @@ export default function ProgressPage() {
                       </span>
                     </div>
 
-                    {/* Quick Interval / Study Pace Action Buttons */}
-                    <div className="pt-2 border-t border-border/50 flex flex-wrap items-center gap-1.5">
-                      {/* Action 1: Review Now (Bring to today) */}
-                      {!item.review.isDue && (
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={() =>
-                            handleCardAction(
-                              item.id,
-                              "review_now",
-                              `⚡ "${item.front}" is now due for review today!`
-                            )
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                          title="Bring card to review immediately today"
-                        >
-                          ⚡ Review Now
-                        </button>
-                      )}
+                    {/* Action Controls */}
+                    <div className="pt-2.5 border-t border-border/50 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {!item.review.isDue && (
+                          <button
+                            type="button"
+                            disabled={isActing}
+                            onClick={() =>
+                              handleCardAction(
+                                item.id,
+                                "review_now",
+                                `⚡ "${item.front}" is now due for review today!`
+                              )
+                            }
+                            className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                            title="Bring card to review immediately today"
+                          >
+                            ⚡ Review Now
+                          </button>
+                        )}
 
-                      {/* Action 2: Review Tomorrow (Shorter interval) */}
-                      {!item.review.isDue && item.review.interval > 1 && (
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={() =>
-                            handleCardAction(
-                              item.id,
-                              "review_tomorrow",
-                              `⏳ "${item.front}" scheduled for tomorrow!`
-                            )
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/20 transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                          title="Schedule card for review tomorrow"
-                        >
-                          ⏳ Tomorrow
-                        </button>
-                      )}
+                        {isMastered && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                            ✨ Mastered
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Action 3: Mark Mastered (100% - don't show again) */}
-                      {!isMastered ? (
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={() =>
-                            handleCardAction(
-                              item.id,
-                              "mark_mastered",
-                              `✨ "${item.front}" marked 100% Mastered!`
-                            )
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                          title="I already learned this word completely, don't show it in daily practice"
-                        >
-                          ✨ Mastered (100%)
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={isActing}
-                          onClick={() =>
-                            handleCardAction(
-                              item.id,
-                              "reset",
-                              `🔄 "${item.front}" reset to 0% for practice!`
-                            )
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-500/20 transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                          title="Reset progress to 0% to re-learn"
-                        >
-                          🔄 Re-learn (0%)
-                        </button>
-                      )}
-
-                      {/* Action 4: Edit Card */}
+                      {/* Edit Learning Progress Modal Button */}
                       <button
                         type="button"
-                        onClick={() =>
-                          setEditingCard({
-                            id: item.id,
-                            front: item.front,
-                            back: item.back,
-                            tags: JSON.stringify(item.tags),
-                            media: item.media ? JSON.stringify(item.media) : null,
-                          })
-                        }
-                        className="ml-auto p-1 text-muted-foreground hover:text-foreground text-xs"
-                        title="Edit card content"
+                        onClick={() => setAdjustingCard(item)}
+                        className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all flex items-center gap-1 active:scale-95"
+                        title="Adjust mastery percentage, schedule frequency, or mark mastered"
                       >
-                        ✏️
+                        <span>⚙️</span>
+                        <span>Adjust Progress</span>
                       </button>
                     </div>
                   </div>
@@ -580,16 +526,17 @@ export default function ProgressPage() {
         )}
       </main>
 
-      {/* Edit Card Modal */}
-      {editingCard && (
-        <EditCardModal
-          isOpen={!!editingCard}
-          card={editingCard}
-          onClose={() => setEditingCard(null)}
-          onCardUpdated={async () => {
-            setEditingCard(null);
+      {/* Adjust Learning Progress Modal */}
+      {adjustingCard && (
+        <AdjustProgressModal
+          isOpen={!!adjustingCard}
+          card={adjustingCard}
+          onClose={() => setAdjustingCard(null)}
+          onUpdated={async () => {
+            setAdjustingCard(null);
             await invalidateAppCache();
             await mutate();
+            showToast("Learning progress updated successfully!", "success");
           }}
         />
       )}

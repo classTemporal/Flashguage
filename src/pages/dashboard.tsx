@@ -285,6 +285,16 @@ export default function Dashboard() {
     fetcher
   );
 
+  const { data: progressData } = useSWR<{
+    stats: {
+      totalCount: number;
+      dueCount: number;
+      inProgressCount: number;
+      masteredCount: number;
+      averageMastery: number;
+    };
+  }>(status === "authenticated" ? "/api/cards/progress" : null, fetcher);
+
   const pendingByDeck = useMemo(() => {
     if (!Array.isArray(dueReviews) || dueReviews.length === 0) return [];
     const map = new Map<string, { deckId: string; deckName: string; count: number }>();
@@ -412,6 +422,73 @@ export default function Dashboard() {
                   icon="⭐"
                   subtitle={`${stats.mastery.xp} / ${stats.mastery.nextLevelXp} XP`}
                 />
+              </div>
+
+              {/* Learning Progress Highlight Card (Primary element high on Dashboard) */}
+              <div className="rounded-3xl border border-primary/25 bg-gradient-to-r from-card via-card to-primary/5 p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📈</span>
+                      <h2 className="text-base sm:text-lg font-black tracking-tight text-foreground">
+                        Learning Progress & Retention
+                      </h2>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {progressData?.stats?.averageMastery ?? 0}% Average Mastery
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Track individual card progress %, view countdowns for next reviews, or adjust learning pace.
+                    </p>
+                  </div>
+
+                  <Button
+                    href="/progress"
+                    as="link"
+                    size="md"
+                    className="font-bold gap-2 text-xs shadow-xs bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+                  >
+                    <span>📈</span>
+                    <span>View All Progress →</span>
+                  </Button>
+                </div>
+
+                {/* Progress Quick Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/70">
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">In Progress</span>
+                    <p className="text-lg font-black text-blue-600 dark:text-blue-400 mt-0.5">
+                      {progressData?.stats?.inProgressCount ?? 0} cards
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">Active learning (1-99%)</span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ready to Review</span>
+                    <p className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                      {progressData?.stats?.dueCount ?? 0} cards
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">Due for review today</span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fully Mastered</span>
+                    <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {progressData?.stats?.masteredCount ?? 0} cards
+                    </p>
+                    <span className="text-[10px] text-muted-foreground">100% learned ✨</span>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 p-3 border border-border/50">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Mastery</span>
+                    <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                      {progressData?.stats?.averageMastery ?? 0}%
+                    </p>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                        style={{ width: `${progressData?.stats?.averageMastery ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">

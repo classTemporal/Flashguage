@@ -147,9 +147,21 @@ export default function DecksPage() {
         <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                My Decks
-              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  My Decks
+                </h1>
+                <Button
+                  href="/progress"
+                  as="link"
+                  variant="secondary"
+                  size="sm"
+                  className="font-bold text-xs gap-1 shadow-xs"
+                >
+                  <span>📈</span>
+                  <span>Learning Progress</span>
+                </Button>
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 Organize, study, and keep your custom vocabulary decks up to date.
               </p>
@@ -282,15 +294,28 @@ export default function DecksPage() {
                       </Button>
                     </div>
 
-                    <Button
-                      as="link"
-                      href={`/deck/${deck.id}`}
-                      size="sm"
-                      variant="primary"
-                      className="font-semibold"
-                    >
-                      Study →
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        as="link"
+                        href={`/progress?deckId=${deck.id}`}
+                        size="sm"
+                        variant="secondary"
+                        className="text-xs font-semibold px-2.5 gap-1"
+                        title="View learning progress for this deck"
+                      >
+                        <span>📈</span>
+                        <span>Progress</span>
+                      </Button>
+                      <Button
+                        as="link"
+                        href={`/deck/${deck.id}`}
+                        size="sm"
+                        variant="primary"
+                        className="font-semibold text-xs"
+                      >
+                        Study →
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
