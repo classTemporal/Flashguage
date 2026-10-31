@@ -400,12 +400,12 @@ export default function DeckDetail() {
         </div>
 
         {/* Tabbed Navigation Bar */}
-        <div className="mb-6 border-b border-border">
-          <nav className="-mb-px flex space-x-2 sm:space-x-8" aria-label="Deck sections">
+        <div className="mb-6 border-b border-border -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <nav className="-mb-px flex items-center space-x-1 sm:space-x-6 min-w-max sm:min-w-0" aria-label="Deck sections">
             {[
               { id: "overview", label: "Overview", icon: "📊" },
-              { id: "cards", label: `Cards (${cardCount})`, icon: "🗂️" },
-              { id: "study", label: "Study", icon: "🧠" },
+              { id: "cards", label: "Cards", icon: "🗂️", badge: cardCount },
+              { id: "study", label: "Study", icon: "🧠", badge: dueCount > 0 ? dueCount : undefined },
               { id: "settings", label: "Settings", icon: "⚙️" },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
@@ -414,18 +414,22 @@ export default function DeckDetail() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`group inline-flex items-center gap-2 border-b-2 py-3 px-3 text-sm font-medium transition-all ${
+                  className={`group inline-flex items-center gap-1.5 sm:gap-2 border-b-2 py-2.5 sm:py-3 px-2.5 sm:px-3 text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                     isActive
                       ? "border-primary text-primary font-semibold"
                       : "border-transparent text-muted-foreground hover:border-muted-foreground/30 hover:text-foreground"
                   }`}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <span className="text-base" aria-hidden="true">{tab.icon}</span>
+                  <span className="text-sm sm:text-base" aria-hidden="true">{tab.icon}</span>
                   <span>{tab.label}</span>
-                  {tab.id === "study" && dueCount > 0 && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
-                      {dueCount}
+                  {tab.badge !== undefined && (
+                    <span className={`rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold ${
+                      isActive
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground group-hover:text-foreground"
+                    }`}>
+                      {tab.badge}
                     </span>
                   )}
                 </button>
