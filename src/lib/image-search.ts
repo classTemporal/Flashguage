@@ -6,7 +6,9 @@ const STOP_WORDS = new Set([
   "so", "than", "too", "very", "can", "will", "just", "should", "now", "used", "relating",
   "someone", "something", "make", "made", "such", "term", "referring", "refers", "defined",
   "meaning", "means", "particular", "equal", "certain", "typically", "often", "especially",
-  "usually", "noun", "verb", "adjective", "adverb", "pronoun", "example", "definition"
+  "usually", "noun", "verb", "adjective", "adverb", "pronoun", "example", "definition",
+  "expressing", "expresses", "state", "manner", "quality", "act", "action", "feeling",
+  "formal", "informal", "slang", "phrase", "idiom", "interjection", "person", "people"
 ]);
 
 export function extractKeywords(text?: string): string[] {
@@ -20,7 +22,7 @@ export function extractKeywords(text?: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w));
   return Array.from(new Set(words));
 }
 
@@ -85,7 +87,11 @@ export interface ResolveImageResult {
 }
 
 const API_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
 };
 
 const CURATED_FALLBACK_IMAGES = [
@@ -98,75 +104,65 @@ const CURATED_FALLBACK_IMAGES = [
 ];
 
 /**
- * High-Speed Web Image Search using DuckDuckGo Images
- * Retrieves vibrant, realistic photographs and illustrations for any word, idiom, or phrase.
+ * High-Speed Web Image Search using Bing Image Search Engine
+ * Retrieves vibrant, realistic photographs, memes, illustrations, and contextual visuals for any word, idiom, or phrase.
  */
-async function searchWebImages(
+async function searchBingImages(
   query: string,
   targetTokens: Set<string>,
-  offset: number = 0
+  first: number = 1
 ): Promise<SemanticImageMatch[]> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 4500);
 
-    const tokenRes = await fetch(
-      `https://duckduckgo.com/?q=${encodeURIComponent(query)}&iax=images&ia=images`,
-      {
-        headers: API_HEADERS,
-        signal: controller.signal,
-      }
-    );
-    const html = await tokenRes.text();
+    const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&first=${first}&form=HDRSC2`;
+    const res = await fetch(url, {
+      headers: API_HEADERS,
+      signal: controller.signal,
+    });
     clearTimeout(timeout);
 
-    const vqdMatch = html.match(/vqd=["']([0-9-]+)["']/i) || html.match(/vqd=([0-9-]+)/i);
-    if (!vqdMatch) return [];
-    const vqd = vqdMatch[1];
+    if (!res.ok) return [];
+    const html = await res.text();
 
-    const imgController = new AbortController();
-    const imgTimeout = setTimeout(() => imgController.abort(), 4000);
-
-    const searchUrl = `https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(
-      query
-    )}&vqd=${vqd}&f=,,,type:photo,,&p=1`;
-
-    const imgRes = await fetch(searchUrl, {
-      headers: API_HEADERS,
-      signal: imgController.signal,
-    });
-    clearTimeout(imgTimeout);
-
-    if (!imgRes.ok) return [];
-    const data = await imgRes.json();
-    const results = (data.results || []) as Array<{ image: string; title: string }>;
+    const regex =
+      /\{&quot;sid&quot;:.*?&quot;murl&quot;:&quot;([^&]+)&quot;.*?&quot;turl&quot;:&quot;([^&]+(?:&amp;[^&]+)*)&quot;.*?&quot;t&quot;:&quot;([^&]*)&quot;.*?\}/g;
 
     const matches: SemanticImageMatch[] = [];
-    const slice = results.slice(offset, offset + 12);
+    const seen = new Set<string>();
+    let match;
 
-    for (let i = 0; i < slice.length; i++) {
-      const item = slice[i];
-      const url = item.image;
-      if (!url || typeof url !== "string") continue;
-      if (!/^https?:\/\//i.test(url)) continue;
-      if (/\.gif($|\?)/i.test(url)) continue;
-      if (isJunkImage(item.title || "", url)) continue;
+    while ((match = regex.exec(html)) !== null) {
+      let murl = match[1];
+      const title = match[3] || "";
 
-      const titleTokens = new Set(extractKeywords(item.title || ""));
+      if (!murl || typeof murl !== "string") continue;
+      murl = murl.replace(/\\/g, "");
+      if (!/^https?:\/\//i.test(murl)) continue;
+      if (isJunkImage(title, murl)) continue;
+
+      const canonicalKey = getMediaCanonicalKey(murl);
+      if (seen.has(canonicalKey)) continue;
+      seen.add(canonicalKey);
+
+      const titleTokens = new Set(extractKeywords(title));
       let overlap = 0;
       for (const t of targetTokens) {
         if (titleTokens.has(t)) overlap++;
       }
 
-      // Base score decrements slightly by search rank position
-      const score = 80 - i * 3 + overlap * 25;
+      // Base score with bonus for semantic overlap with definition/word
+      const score = 85 - matches.length * 2 + overlap * 20;
 
       matches.push({
-        imageUrl: url,
-        title: item.title,
-        source: "Web Photography",
+        imageUrl: murl,
+        title,
+        source: "Web Search",
         score,
       });
+
+      if (matches.length >= 24) break;
     }
 
     return matches;
@@ -344,7 +340,7 @@ async function searchWikimediaCommons(
 /**
  * Universal Multi-Source Semantic Image Resolver
  * Evaluates the word, definition, and visual queries to retrieve
- * high-quality photography from web search, Wikipedia, and Wikimedia without duplicates.
+ * high-quality photography, memes, and illustrations from web search, Wikipedia, and Wikimedia without duplicates.
  */
 export async function resolveSemanticImage(
   word: string,
@@ -362,7 +358,10 @@ export async function resolveSemanticImage(
   const allTargetTokens = new Set([...defTokens, ...visTokens]);
   const kwList = Array.from(allTargetTokens);
 
-  const offset = Math.max(0, page) * 4;
+  // Pagination indexing
+  const bingFirst = Math.floor((page * 3) / 20) * 20 + 1;
+  const sliceStart = (page * 3) % 20;
+
   const candidatesMap = new Map<string, SemanticImageMatch>();
 
   function addCandidate(match: SemanticImageMatch) {
@@ -385,9 +384,11 @@ export async function resolveSemanticImage(
     searchQueries.push(visualQuery.trim());
   }
 
-  // Priority 2: Word combined with key definition concept
+  // Priority 2: Word combined with key definition concept (e.g. "begone go away")
   if (cleanWord && kwList.length > 0) {
-    searchQueries.push(`${cleanWord} ${kwList.slice(0, 2).join(" ")}`);
+    const actionWords = kwList.filter((k) => !["desire", "command"].includes(k));
+    const conceptWords = actionWords.length > 0 ? actionWords.slice(-2) : kwList.slice(0, 2);
+    searchQueries.push(`${cleanWord} ${conceptWords.join(" ")}`);
   }
 
   // Priority 3: The exact word/expression
@@ -400,10 +401,10 @@ export async function resolveSemanticImage(
     searchQueries.push(kwList.slice(0, 3).join(" "));
   }
 
-  // Step 1: Web Photography Search (High quality, rich variety)
+  // Step 1: Web Photography & Visual Search via Bing (High quality, rich variety)
   for (const q of searchQueries) {
-    if (candidatesMap.size >= 6) break;
-    const webMatches = await searchWebImages(q, allTargetTokens, offset);
+    if (candidatesMap.size >= 24) break;
+    const webMatches = await searchBingImages(q, allTargetTokens, bingFirst);
     for (const match of webMatches) {
       addCandidate(match);
     }
@@ -419,15 +420,16 @@ export async function resolveSemanticImage(
 
   // Step 3: Wikipedia & Wikimedia Commons search
   if (candidatesMap.size < 4 && searchQueries.length > 0) {
+    const wikiOffset = page * 3;
     for (const q of searchQueries) {
-      if (candidatesMap.size >= 5) break;
-      const wikiResults = await searchWikipediaPages(q, cleanWord, allTargetTokens, offset);
+      if (candidatesMap.size >= 6) break;
+      const wikiResults = await searchWikipediaPages(q, cleanWord, allTargetTokens, wikiOffset);
       for (const match of wikiResults) {
         addCandidate(match);
       }
 
       if (candidatesMap.size < 4) {
-        const commonsResults = await searchWikimediaCommons(q, cleanWord, allTargetTokens, offset);
+        const commonsResults = await searchWikimediaCommons(q, cleanWord, allTargetTokens, wikiOffset);
         for (const match of commonsResults) {
           addCandidate(match);
         }
@@ -436,15 +438,18 @@ export async function resolveSemanticImage(
   }
 
   // Sort candidates by score descending
-  const sortedMatches = Array.from(candidatesMap.values()).sort((a, b) => b.score - a.score);
+  const allMatches = Array.from(candidatesMap.values()).sort((a, b) => b.score - a.score);
 
-  if (sortedMatches.length > 0) {
-    const selectedCandidates = sortedMatches.map((m) => m.imageUrl).slice(0, 3);
+  if (allMatches.length > 0) {
+    const pageSlice = allMatches.slice(sliceStart, sliceStart + 3);
+    const selectedMatches = pageSlice.length > 0 ? pageSlice : allMatches.slice(0, 3);
+    const selectedCandidates = selectedMatches.map((m) => m.imageUrl);
+
     return {
       imageUrl: selectedCandidates[0],
       candidates: selectedCandidates,
-      source: sortedMatches[0].source || "Visual Library",
-      title: sortedMatches[0].title,
+      source: selectedMatches[0].source || "Web Search",
+      title: selectedMatches[0].title,
     };
   }
 

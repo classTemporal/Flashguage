@@ -130,6 +130,7 @@ function CardImage({
     <img
       src={src}
       alt={alt}
+      referrerPolicy="no-referrer"
       className={`object-cover ${className}`}
       onError={() => setErrored(true)}
     />

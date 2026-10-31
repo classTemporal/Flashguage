@@ -319,6 +319,7 @@ export default function NewCard() {
                           <img
                             src={card.imageUrl}
                             alt={card.front}
+                            referrerPolicy="no-referrer"
                             className="w-16 h-16 rounded-xl object-cover border border-border shrink-0"
                           />
                         )}

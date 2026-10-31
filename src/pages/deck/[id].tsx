@@ -704,6 +704,7 @@ export default function DeckDetail() {
                             <img
                               src={mediaObj.imageUrl}
                               alt={card.front}
+                              referrerPolicy="no-referrer"
                               className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0 border border-border"
                             />
                           )}

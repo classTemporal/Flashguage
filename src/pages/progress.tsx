@@ -459,6 +459,7 @@ export default function ProgressPage() {
                         <img
                           src={item.media.imageUrl}
                           alt={item.front}
+                          referrerPolicy="no-referrer"
                           className="h-full w-full object-cover"
                           loading="lazy"
                         />

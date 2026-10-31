@@ -319,6 +319,7 @@ export function ImagePicker({
           <img
             src={value}
             alt="Preview"
+            referrerPolicy="no-referrer"
             className="w-full h-44 object-cover"
             onError={() => showToast("Failed to load image preview", "error")}
           />
@@ -388,6 +389,7 @@ export function ImagePicker({
                   <img
                     src={cand}
                     alt={`Option ${idx + 1}`}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                   {isSelected && (
