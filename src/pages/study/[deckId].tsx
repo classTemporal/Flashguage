@@ -286,7 +286,7 @@ function ProgressRing({
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const pct = max === 0 ? 0 : Math.min(value / max, 1);
+  const pct = max <= 0 ? 0 : Math.min(Math.max(value / max, 0), 1);
   const offset = circumference * (1 - pct);
 
   return (
@@ -303,7 +303,7 @@ function ProgressRing({
         r={radius}
         fill="none"
         strokeWidth={strokeWidth}
-        className="stroke-muted"
+        className="stroke-muted/30"
       />
       <circle
         cx={size / 2}
@@ -314,7 +314,7 @@ function ProgressRing({
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         strokeLinecap="round"
-        className="stroke-primary transition-all duration-500 ease-out"
+        className="stroke-primary transition-all duration-300 ease-out"
       />
     </svg>
   );
@@ -864,7 +864,6 @@ export default function StudySessionPage({
   const badgeLabel =
     media.partOfSpeech?.toUpperCase() || (tags[0] ? tags[0].toUpperCase() : null);
 
-  const initialTotal = Array.isArray(reviews) ? reviews.length : 0;
   const remainingInQueue = Math.max(0, queue.length - currentIndex);
 
   const hardIntervalPreview = currentReview
@@ -1072,7 +1071,7 @@ export default function StudySessionPage({
 
           {/* Center progress info */}
           <div className="flex items-center gap-3">
-            <ProgressRing value={Math.min(currentIndex, initialTotal)} max={initialTotal} />
+            <ProgressRing value={currentIndex} max={queue.length} />
             <div className="text-left">
               <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                 <span>{currentIndex + 1} of {queue.length}</span>
