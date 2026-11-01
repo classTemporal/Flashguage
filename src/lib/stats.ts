@@ -111,17 +111,26 @@ export async function getWeeklyActivity(
     const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
 
-    const count = await prisma.review.count({
-      where: {
-        userId,
-        lastReview: { gte: startOfDay, lt: endOfDay },
-        ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
-      },
-    });
+    const [logCount, reviewCount] = await Promise.all([
+      prisma.reviewLog.count({
+        where: {
+          userId,
+          createdAt: { gte: startOfDay, lt: endOfDay },
+          ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+        },
+      }),
+      prisma.review.count({
+        where: {
+          userId,
+          lastReview: { gte: startOfDay, lt: endOfDay },
+          ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+        },
+      }),
+    ]);
 
     days.push({
       day: d.toLocaleDateString("en-US", { weekday: "short" }),
-      count,
+      count: Math.max(logCount, reviewCount),
     });
   }
 
@@ -137,14 +146,24 @@ export async function getDailyGoalProgress(
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-  const current = await prisma.review.count({
-    where: {
-      userId,
-      lastReview: { gte: startOfDay, lt: endOfDay },
-      ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
-    },
-  });
+  const [logCount, reviewCount] = await Promise.all([
+    prisma.reviewLog.count({
+      where: {
+        userId,
+        createdAt: { gte: startOfDay, lt: endOfDay },
+        ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+      },
+    }),
+    prisma.review.count({
+      where: {
+        userId,
+        lastReview: { gte: startOfDay, lt: endOfDay },
+        ...(language && language !== "all" ? { card: { deck: { targetLanguage: language } } } : {}),
+      },
+    }),
+  ]);
 
+  const current = Math.max(logCount, reviewCount);
   const percentage = goal > 0 ? Math.min(Math.round((current / goal) * 100), 100) : 0;
 
   return { current, goal, percentage };

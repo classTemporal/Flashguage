@@ -313,6 +313,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         update: updatedData,
       });
 
+      if (action === "mark_mastered") {
+        await prisma.reviewLog.create({
+          data: {
+            userId,
+            cardId,
+            quality: 5,
+            createdAt: now,
+          },
+        }).catch(() => {});
+      }
+
       const mastery = calculateCardMastery(
         updatedReview.repetitions,
         updatedReview.interval,

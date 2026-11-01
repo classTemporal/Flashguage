@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { invalidateAppCache } from "@/lib/cache";
 import { getNextIntervalPreview, calculateCardMastery } from "@/lib/sm2";
 import { speakInLanguage, getSpeechVoice, getLanguage, SUPPORTED_LANGUAGES } from "@/lib/languages";
+import { getDailyGoalProgress } from "@/lib/stats";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -330,6 +331,8 @@ function CompletionScreen({
   againCount,
   reviewLimit = 20,
   sessionBreakMinutes = 5,
+  dailyGoalTarget = 20,
+  initialDailyGoalCurrent = 0,
   onAdvanceDay,
   isAdvancing,
   isCramMode,
@@ -342,12 +345,15 @@ function CompletionScreen({
   againCount: number;
   reviewLimit?: number;
   sessionBreakMinutes?: number;
+  dailyGoalTarget?: number;
+  initialDailyGoalCurrent?: number;
   onAdvanceDay: () => void;
   isAdvancing: boolean;
   isCramMode: boolean;
 }) {
   const currentLang = getLanguage(activeLanguage);
   const retainedPct = totalReviewed > 0 ? Math.round(((totalReviewed - againCount) / totalReviewed) * 100) : 100;
+  const isGoalReached = !isCramMode && initialDailyGoalCurrent + totalReviewed >= dailyGoalTarget;
   const backUrl = deckId === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deckId}`;
   const backLabel = deckId === "all" ? `Back to ${currentLang.name} Dashboard` : "Back to Deck";
 
@@ -389,18 +395,30 @@ function CompletionScreen({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
       <div className="relative mb-6">
-        <div className="text-7xl animate-bounce">🧠</div>
+        <div className="text-7xl animate-bounce">{isGoalReached ? "🏆" : "🧠"}</div>
       </div>
 
       <span className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-        {isCramMode ? "Free Practice Complete" : "Session Batch Completed 🎉"}
+        {isCramMode
+          ? "Free Practice Complete"
+          : isGoalReached
+          ? "🎉 Daily Goal Achieved (100%)"
+          : "Session Batch Completed 🎉"}
       </span>
 
       <h1 className="text-3xl sm:text-4xl font-black text-foreground mb-2 tracking-tight">
-        Great study session!
+        {isGoalReached ? "Daily Goal Completed! 🎉" : "Great study session!"}
       </h1>
       <p className="text-muted-foreground mb-6 max-w-md text-sm">
-        You reviewed <strong className="text-foreground">{totalReviewed}</strong> cards from <strong className="text-foreground">{deckName}</strong>.
+        {isGoalReached ? (
+          <>
+            You completed your daily target of <strong className="text-foreground">{dailyGoalTarget} cards</strong> today! Time to rest and let your memory consolidate.
+          </>
+        ) : (
+          <>
+            You reviewed <strong className="text-foreground">{totalReviewed}</strong> cards from <strong className="text-foreground">{deckName}</strong>.
+          </>
+        )}
       </p>
 
       {/* Brain Break Cooldown Card */}
@@ -573,7 +591,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { settings: true },
+    select: { settings: true, dailyGoal: true },
   });
 
   let reviewLimit = 20;
@@ -590,14 +608,25 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     } catch {}
   }
 
+  const targetDailyGoal = user?.dailyGoal ?? 20;
+  const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, effectiveLang);
+  const remainingToGoal = Math.max(0, goalProgress.goal - goalProgress.current);
+
+  const isCram = context.query.mode === "all";
+  const effectiveBatchLimit = !isCram && remainingToGoal > 0
+    ? Math.min(reviewLimit, remainingToGoal)
+    : reviewLimit;
+
   if (deckId === "all") {
     return {
       props: {
         session,
         deck: { id: "all", name: "All Decks (Daily Review)", targetLanguage: effectiveLang },
         lang: effectiveLang,
-        reviewLimit,
+        reviewLimit: effectiveBatchLimit,
         sessionBreakMinutes,
+        dailyGoalTarget: targetDailyGoal,
+        initialDailyGoalCurrent: goalProgress.current,
       },
     };
   }
@@ -613,8 +642,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       session,
       deck: { id: deck.id, name: deck.name, targetLanguage: deck.targetLanguage || effectiveLang },
       lang: deck.targetLanguage || effectiveLang,
-      reviewLimit,
+      reviewLimit: effectiveBatchLimit,
       sessionBreakMinutes,
+      dailyGoalTarget: targetDailyGoal,
+      initialDailyGoalCurrent: goalProgress.current,
     },
   };
 };
@@ -626,11 +657,15 @@ export default function StudySessionPage({
   lang: initialLang,
   reviewLimit = 20,
   sessionBreakMinutes = 5,
+  dailyGoalTarget = 20,
+  initialDailyGoalCurrent = 0,
 }: {
   deck: { id: string; name: string; targetLanguage?: string };
   lang?: string;
   reviewLimit?: number;
   sessionBreakMinutes?: number;
+  dailyGoalTarget?: number;
+  initialDailyGoalCurrent?: number;
 }) {
   const router = useRouter();
   const { deckId, mode, lang: queryLang } = router.query;
@@ -1010,6 +1045,8 @@ export default function StudySessionPage({
         againCount={againCount}
         reviewLimit={reviewLimit}
         sessionBreakMinutes={sessionBreakMinutes}
+        dailyGoalTarget={dailyGoalTarget}
+        initialDailyGoalCurrent={initialDailyGoalCurrent}
         onAdvanceDay={handleAdvanceDay}
         isAdvancing={isAdvancing}
         isCramMode={isCramMode}

@@ -4,6 +4,7 @@ import { authOptions } from "../auth/options";
 import { prisma } from "@/lib/prisma";
 import type { Card } from "@prisma/client";
 import { calculateNextReviewWithState } from "@/lib/sm2";
+import { getDailyGoalProgress } from "@/lib/stats";
 
 // ─── GET /api/reviews/due ─────────────────────────────────────────────────────
 // Returns cards that are due for review. Crucially, also includes cards that
@@ -146,11 +147,21 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
     // New cards come first, then due reviews ordered by due date
     const combined = [...newCardReviews, ...dueReviews];
 
-    if (req.query.limit) {
-      const limitNum = Number(req.query.limit);
-      if (limitNum > 0) {
-        return res.status(200).json(combined.slice(0, limitNum));
-      }
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { settings: true, dailyGoal: true },
+    });
+    const targetDailyGoal = user?.dailyGoal ?? 20;
+    const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, language);
+    const remainingToGoal = Math.max(0, goalProgress.goal - goalProgress.current);
+
+    let effectiveLimit = req.query.limit ? Number(req.query.limit) : undefined;
+    if (!isAllMode && remainingToGoal > 0) {
+      effectiveLimit = effectiveLimit ? Math.min(effectiveLimit, remainingToGoal) : remainingToGoal;
+    }
+
+    if (effectiveLimit !== undefined && effectiveLimit > 0) {
+      return res.status(200).json(combined.slice(0, effectiveLimit));
     }
 
     return res.status(200).json(combined);
@@ -235,6 +246,16 @@ export async function createReview(req: NextApiRequest, res: NextApiResponse) {
         },
       });
     }
+
+    // Record review action into ReviewLog for accurate daily goal and activity tracking
+    await prisma.reviewLog.create({
+      data: {
+        userId: session.user.id,
+        cardId: card.id,
+        quality,
+        createdAt: now,
+      },
+    });
 
     return res.status(201).json(review);
   } catch (error) {

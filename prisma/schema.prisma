@@ -20,6 +20,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   decks         Deck[]
   reviews       Review[]
+  reviewLogs    ReviewLog[]
 }
 
 model Deck {
@@ -47,6 +48,7 @@ model Card {
   updatedAt DateTime @updatedAt
   deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
   reviews   Review[]
+  reviewLogs ReviewLog[]
 }
 
 model Review {
@@ -63,4 +65,16 @@ model Review {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([cardId, userId])
+}
+
+model ReviewLog {
+  id        String   @id @default(uuid())
+  userId    String
+  cardId    String
+  quality   Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
