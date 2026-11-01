@@ -765,11 +765,9 @@ export default function StudySessionPage({
         setTotalReviewed((n) => n + 1);
 
         if (quality === 1) {
-          // Re-train: Reinsert card at the end of the queue for mastery
           setAgainCount((n) => n + 1);
           setStreak(0);
-          setQueue((prev) => [...prev, currentReview]);
-          showToast("🔄 Re-queued for repeat practice before finishing", "info");
+          showToast("Marked for review in next interval", "info");
         } else {
           setStreak((s) => {
             const next = s + 1;
@@ -1041,9 +1039,6 @@ export default function StudySessionPage({
             <div className="text-left">
               <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                 <span>{currentIndex + 1} of {queue.length}</span>
-                {queue.length > initialTotal && (
-                  <span className="text-[10px] text-amber-500 font-semibold">(+{queue.length - initialTotal} repeating)</span>
-                )}
               </div>
               <p className="text-[10px] text-muted-foreground font-medium">
                 {isCramMode ? "🎯 Free Practice" : "🧠 SM-2 Spaced Recall"}
