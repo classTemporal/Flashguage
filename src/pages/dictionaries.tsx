@@ -182,7 +182,10 @@ export default function DictionariesPage() {
     setCardBack(item.definition);
     setCardPhonetic(item.phonetic || "");
     setCardPartOfSpeech(item.partOfSpeech || "");
-    setCardExample(item.example || "");
+    const initialCloze = item.example
+      ? item.example.replace(new RegExp(`\\b${item.word.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "gi"), "______")
+      : "";
+    setCardExample(initialCloze);
     setCardImageUrl("");
     setModalImageCandidates([]);
     setCardTags(["dictionary", item.partOfSpeech?.toLowerCase()].filter(Boolean).join(", "));

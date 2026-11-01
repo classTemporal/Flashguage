@@ -198,17 +198,43 @@ function ExampleCarousel({
       <div className="text-sm text-foreground leading-relaxed">
         {revealed ? (
           <span>
-            {sentence
-              .split(new RegExp(`(${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"))
-              .map((part, i) =>
-                new RegExp(`^${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "gi").test(part) ? (
-                  <strong key={i} className="font-extrabold text-primary underline underline-offset-2">
-                    {part}
-                  </strong>
-                ) : (
-                  <span key={i}>{part}</span>
+            {sentence.includes("___") ? (
+              sentence.split(/_{3,}/).map((part, i, arr) => (
+                <span key={i}>
+                  {part}
+                  {i < arr.length - 1 && (
+                    <strong className="font-extrabold text-primary underline underline-offset-2 mx-1">
+                      {vocab}
+                    </strong>
+                  )}
+                </span>
+              ))
+            ) : (
+              sentence
+                .split(new RegExp(`(${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"))
+                .map((part, i) =>
+                  new RegExp(`^${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "gi").test(part) ? (
+                    <strong key={i} className="font-extrabold text-primary underline underline-offset-2">
+                      {part}
+                    </strong>
+                  ) : (
+                    <span key={i}>{part}</span>
+                  )
                 )
-              )}
+            )}
+          </span>
+        ) : sentence.includes("___") ? (
+          <span>
+            {sentence.split(/_{3,}/).map((part, i, arr) => (
+              <span key={i}>
+                {part}
+                {i < arr.length - 1 && (
+                  <span className="font-mono text-primary font-bold tracking-wider bg-primary/10 px-2 py-0.5 rounded mx-1">
+                    ______
+                  </span>
+                )}
+              </span>
+            ))}
           </span>
         ) : (
           blankOutVocab(sentence, vocab)

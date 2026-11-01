@@ -435,15 +435,23 @@ CRITICAL FLASHCARD PEDAGOGY RULES:
 2. definition: Explain the concept clearly, memorably, and concisely for language learners.
    STRICT ANTI-SPOILER RULE: NEVER include the target word "${word}" or direct inflections/derivatives of it in the definition. The learner looks at this definition during review to guess the word, so including it spoils the active recall practice! Define the meaning purely with synonyms and conceptual explanation.
 3. phonetic pronunciation or IPA if known
-4. example: A modern, authentic, and vivid example sentence in ${targetLanguage} illustrating how native speakers use "${word}" in everyday conversation, work, or culture (avoid bizarre, archaic, or stiff textbook sentences).
+4. example: A modern, authentic practice sentence in ${targetLanguage} for active recall.
+   STRICT CLOZE RULE: Replace the target word "${word}" (and any inflections/conjugations) with a blank "______" (six underscores) so the student can guess the missing word from context. NEVER include "${word}" in the example sentence. (e.g. for "name": "I'm sorry, I completely forgot your ______; could you remind me?").
 
 Format strictly as JSON with keys: partOfSpeech, definition, pronunciation, example. Do not include markdown code fences or any other text.`;
 }
 
 function buildExamplePrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are an expert language-learning teacher designing study flashcards. Generate a single modern, natural, and vivid example sentence in ${targetLanguage} using the word or phrase "${word}"${ctx}.
-The sentence must demonstrate authentic everyday or practical conversational usage (avoid bizarre, overly academic, or archaic sentences). It must clearly show how the word is used in context for a learner practicing active recall. Return only the sentence, no quotes or extra text.`;
+  return `You are an expert language-learning teacher designing study flashcards for active recall practice.
+Generate a single modern, natural, and vivid fill-in-the-blank practice sentence in ${targetLanguage} illustrating the concept of "${word}"${ctx}.
+
+CRITICAL CLOZE / PRACTICE RULE:
+Replace the target word "${word}" (and any inflections/conjugations) with a blank: "______" (six underscores).
+Do NOT write the word "${word}" in the sentence. The sentence must provide rich contextual clues so the learner can guess the missing word.
+Example for "name": "I'm sorry, I completely forgot your ______; could you remind me?"
+Example for "ubiquitous": "Smartphones have become ______ in modern daily life, found in almost every pocket."
+Return ONLY the cloze sentence with "______", no quotes or extra text.`;
 }
 
 function buildSuggestPrompt(word: string, targetLanguage = "the target language"): string {

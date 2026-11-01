@@ -221,11 +221,13 @@ export function QuickAddCardModal({
     wordToUse?: string,
     existingImageUrl?: string
   ) => {
-    setSelectedDefinition(def);
-    setCustomExample(def.example || "");
-    setIsFetchingImages(true);
-
     const term = wordToUse || wordHeader || aiPrompt.trim();
+    const initialCloze = def.example
+      ? def.example.replace(new RegExp(`\\b${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "gi"), "______")
+      : "";
+    setSelectedDefinition(def);
+    setCustomExample(initialCloze);
+    setIsFetchingImages(true);
 
     try {
       const imgRes = await fetch("/api/image-search", {

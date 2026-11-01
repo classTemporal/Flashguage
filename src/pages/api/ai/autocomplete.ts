@@ -19,24 +19,31 @@ function extractSentencesForWord(text: string, word: string): string[] {
   return matched;
 }
 
+// Convert sentence to cloze format by replacing the target word with a blank
+function ensureCloze(sentence: string, word: string): string {
+  if (!sentence || !word) return sentence;
+  if (sentence.includes("______")) return sentence;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return sentence.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "______");
+}
+
 // Fallback example sentence generator if nothing found
 function generateFallbackSentence(word: string, partOfSpeech: string = "word"): string {
-  const clean = word.trim();
   const pos = partOfSpeech.toLowerCase();
 
   if (pos.includes("verb")) {
-    return `In everyday situations, people often ${clean} when facing unexpected challenges.`;
+    return `In everyday situations, people often ______ when facing unexpected challenges.`;
   }
   if (pos.includes("adj")) {
-    return `The teacher gave a very ${clean} explanation that helped everyone understand.`;
+    return `The teacher gave a very ______ explanation that helped everyone understand.`;
   }
   if (pos.includes("adv")) {
-    return `She spoke ${clean} during the interview to make a strong impression.`;
+    return `She spoke ______ during the interview to make a strong impression.`;
   }
   if (pos.includes("idiom") || pos.includes("phrase")) {
-    return `When discussing the problem, they decided to ${clean} to resolve it quickly.`;
+    return `When discussing the problem, they decided to ______ to resolve it quickly.`;
   }
-  return `Understanding how to use "${clean}" in conversation will elevate your language fluency.`;
+  return `Understanding how to use ______ in conversation will elevate your language fluency.`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -102,8 +109,9 @@ ${context ? `Current definition/meaning context: "${context}"` : ""}
 CRITICAL FLASHCARD PEDAGOGY RULES:
 1. "definition": Explain the concept clearly, memorably, and concisely for language learners.
    STRICT ANTI-SPOILER RULE: NEVER include the target word "${cleanWord}" or its direct derivatives/roots in the definition. When testing oneself, seeing the word in the definition gives away the answer.
-2. "example": A modern, authentic, and vivid example sentence in ${targetLang} using "${cleanWord}" naturally in everyday, professional, cultural, or social conversation. Avoid stiff, archaic, bizarre, or religious quotes. It must clearly demonstrate natural collocation.
-3. "examples": An array of 2 distinct natural example sentences illustrating the word in different common contexts.
+2. "example": A modern, natural fill-in-the-blank practice sentence in ${targetLang} for active recall.
+   STRICT CLOZE RULE: Replace the target word "${cleanWord}" (and any inflections) with a blank "______" (six underscores) so the student can guess the missing word from context. Do NOT write the word "${cleanWord}" in the sentence! (e.g. for "name": "I'm sorry, I completely forgot your ______; could you remind me?").
+3. "examples": An array of 2 distinct natural practice sentences where "${cleanWord}" is replaced with "______".
 4. "phonetic": Accurate IPA transcription or reading.
 5. "partOfSpeech": Accurate category (noun | verb | adjective | adverb | idiom | phrasal verb).
 6. "imageSearchQuery": A concrete 2-4 word visual query in English describing what this looks like.
@@ -112,10 +120,10 @@ CRITICAL FLASHCARD PEDAGOGY RULES:
 Return ONLY a valid JSON object matching this schema:
 {
   "definition": "Clear pedagogical definition strictly avoiding the word '${cleanWord}'",
-  "example": "A modern, vivid, and memorable everyday sentence in ${targetLang} using '${cleanWord}'",
+  "example": "A modern practice sentence with '______' instead of '${cleanWord}'",
   "examples": [
-    "First natural example sentence in ${targetLang} containing '${cleanWord}'",
-    "Second natural example sentence showing another context with '${cleanWord}'"
+    "Practice sentence 1 with '______'",
+    "Practice sentence 2 with '______'"
   ],
   "phonetic": "/phonetic transcription or reading/",
   "partOfSpeech": "noun | verb | adjective | adverb | idiom",
@@ -145,10 +153,16 @@ Output raw JSON only without markdown fences or additional commentary.`;
       const parsed = JSON.parse(cleanJson);
       if (parsed.example || parsed.examples || parsed.definition) {
         const imageResult = await resolveSemanticImage(cleanWord, parsed.definition || context, parsed.imageSearchQuery);
+        const rawEx = parsed.example || parsed.examples?.[0] || "";
+        const clozeEx = ensureCloze(rawEx, cleanWord);
+        const clozeList = (parsed.examples || (parsed.example ? [parsed.example] : [])).map((s: string) =>
+          ensureCloze(s, cleanWord)
+        );
+
         return res.status(200).json({
           definition: parsed.definition || undefined,
-          example: parsed.example || parsed.examples?.[0],
-          examples: parsed.examples || (parsed.example ? [parsed.example] : []),
+          example: clozeEx,
+          examples: clozeList,
           phonetic: parsed.phonetic || "",
           partOfSpeech: parsed.partOfSpeech || "vocabulary",
           tags: parsed.tags || ["vocabulary"],
@@ -217,7 +231,9 @@ Output raw JSON only without markdown fences or additional commentary.`;
       foundExamples.push(generateFallbackSentence(cleanWord, partOfSpeech));
     }
 
-    const uniqueExamples = Array.from(new Set(foundExamples)).slice(0, 3);
+    const uniqueExamples = Array.from(new Set(foundExamples))
+      .slice(0, 3)
+      .map((s) => ensureCloze(s, cleanWord));
     const tags = [partOfSpeech, "vocabulary"].filter(Boolean);
     const imageResult = await resolveSemanticImage(cleanWord, context);
 

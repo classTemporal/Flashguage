@@ -16,6 +16,14 @@ export interface GeneratedFlashcard {
   tags?: string[];
 }
 
+// Convert sentence to cloze format by replacing the target word with a blank
+function ensureCloze(sentence: string, word: string): string {
+  if (!sentence || !word) return sentence;
+  if (sentence.includes("______")) return sentence;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return sentence.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "______");
+}
+
 // Extract clean sentences containing the word
 function extractSentencesForWord(text: string, word: string): string[] {
   if (!text || !word) return [];
@@ -98,7 +106,9 @@ async function lookupDictionaryWord(word: string): Promise<GeneratedFlashcard | 
       collectedExamples.push(generateFallbackSentence(word, partOfSpeech));
     }
 
-    const uniqueExamples = Array.from(new Set(collectedExamples)).slice(0, 3);
+    const uniqueExamples = Array.from(new Set(collectedExamples))
+      .slice(0, 3)
+      .map((s) => ensureCloze(s, entry.word || word));
     const imageResult = await resolveSemanticImage(entry.word || word, definition);
     const imageUrl = imageResult.imageUrl;
 
@@ -231,12 +241,14 @@ Do not include any conversational text or markdown formatting. Output raw valid 
 
       const parsed: GeneratedFlashcard[] = JSON.parse(cleanJson);
 
-      // Attach real illustrative images in parallel
+      // Attach real illustrative images and ensure cloze in parallel
       const enrichedCards = await Promise.all(
         parsed.map(async (card: any) => {
           const imageResult = await resolveSemanticImage(card.front, card.back, card.imageSearchQuery);
           return {
             ...card,
+            example: ensureCloze(card.example || "", card.front),
+            examples: card.examples ? card.examples.map((s: string) => ensureCloze(s, card.front)) : undefined,
             imageUrl: imageResult.imageUrl,
           };
         })
