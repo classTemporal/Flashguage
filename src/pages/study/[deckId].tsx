@@ -673,7 +673,6 @@ export default function StudySessionPage({
 
   // ── Auto-pronounce on reveal ──
   const [autoPronounce, setAutoPronounce] = useState<boolean>(true);
-  const hasAutoSpokenRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -736,8 +735,17 @@ export default function StudySessionPage({
     setTypedAnswer("");
     setTypingResult("unanswered");
     setRevealKey((k) => k + 1);
-    hasAutoSpokenRef.current = false;
   }, [currentIndex]);
+
+  const goToNextCard = useCallback(() => {
+    setPhase("question");
+    setShowExamples(false);
+    setIsSpeaking(false);
+    setTypedAnswer("");
+    setTypingResult("unanswered");
+    setRevealKey((k) => k + 1);
+    setCurrentIndex((prev) => prev + 1);
+  }, []);
 
   const handleRate = useCallback(
     async (quality: number) => {
@@ -770,14 +778,14 @@ export default function StudySessionPage({
           });
         }
 
-        setCurrentIndex((prev) => prev + 1);
+        goToNextCard();
       } catch {
         showToast("Error saving review. Please try again.", "error");
       } finally {
         setIsSubmitting(false);
       }
     },
-    [queue, currentIndex, isSubmitting, showToast]
+    [queue, currentIndex, isSubmitting, goToNextCard, showToast]
   );
 
   const currentReview = queue[currentIndex] || null;
@@ -809,25 +817,6 @@ export default function StudySessionPage({
       setIsAdvancing(false);
     }
   }, [deckId, activeLanguage, mutateReviews, showToast]);
-
-  // Keyboard shortcuts (Space = reveal, 1 = Again, 2 = Hard, 3 = Mastered)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
-      if (completed) return;
-
-      if (e.code === "Space" && phase === "question") {
-        e.preventDefault();
-        setPhase("answer");
-      } else if (phase === "answer" && !isSubmitting) {
-        if (e.key === "1") handleRate(1);
-        if (e.key === "2") handleRate(3);
-        if (e.key === "3") handleRate(5);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [phase, isSubmitting, completed, handleRate]);
 
   // All card-level derivations and hooks MUST run unconditionally before any early returns!
   const card = currentReview?.card || null;
@@ -871,13 +860,13 @@ export default function StudySessionPage({
       await invalidateAppCache();
       setTotalReviewed((n) => n + 1);
       showToast("✨ Card graduated to 100% Mastered!", "success");
-      setCurrentIndex((prev) => prev + 1);
+      goToNextCard();
     } catch {
       showToast("Error updating card", "error");
     } finally {
       setIsSubmitting(false);
     }
-  }, [queue, currentIndex, isSubmitting, showToast]);
+  }, [queue, currentIndex, isSubmitting, goToNextCard, showToast]);
 
   const [dynamicPhonetic, setDynamicPhonetic] = useState<string | null>(null);
 
@@ -910,14 +899,6 @@ export default function StudySessionPage({
 
   const activePhonetic = media.phonetic || dynamicPhonetic;
 
-  // Auto-pronounce word when answer phase is reached (via Show Answer, Spacebar, or correct spelling)
-  useEffect(() => {
-    if (phase === "answer" && card?.front && !hasAutoSpokenRef.current && autoPronounce) {
-      hasAutoSpokenRef.current = true;
-      handleSpeak(card.front);
-    }
-  }, [phase, card?.front, autoPronounce, handleSpeak]);
-
   // Interspersed spelling challenge:
   const isTypingCard = useMemo(() => {
     if (practiceFlavor === "recall") return false;
@@ -931,6 +912,18 @@ export default function StudySessionPage({
     return Math.abs(hash) % 2 === 1;
   }, [practiceFlavor, card]);
 
+  // Reveal answer handler (explicit user action: Show Answer / Reveal / Spacebar)
+  const revealAnswer = useCallback(() => {
+    if (phase === "answer") return;
+    if (isTypingCard && typingResult === "unanswered") {
+      setTypingResult("incorrect");
+    }
+    setPhase("answer");
+    if (autoPronounce && card?.front) {
+      handleSpeak(card.front);
+    }
+  }, [phase, isTypingCard, typingResult, autoPronounce, card?.front, handleSpeak]);
+
   const handleCheckSpelling = useCallback(() => {
     if (!card) return;
     const cleanTyped = typedAnswer.trim().toLowerCase();
@@ -939,8 +932,7 @@ export default function StudySessionPage({
     if (cleanTyped === cleanFront) {
       setTypingResult("correct");
       setPhase("answer");
-      if (!hasAutoSpokenRef.current && autoPronounce) {
-        hasAutoSpokenRef.current = true;
+      if (autoPronounce) {
         handleSpeak(card.front);
       }
       showToast("🎉 Perfect spelling!", "success");
@@ -949,6 +941,25 @@ export default function StudySessionPage({
       showToast("Incorrect spelling, check the answer below", "error");
     }
   }, [card, typedAnswer, autoPronounce, handleSpeak, showToast]);
+
+  // Keyboard shortcuts (Space = reveal, 1 = Again, 2 = Hard, 3 = Mastered)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+      if (completed) return;
+
+      if (e.code === "Space" && phase === "question") {
+        e.preventDefault();
+        revealAnswer();
+      } else if (phase === "answer" && !isSubmitting) {
+        if (e.key === "1") handleRate(1);
+        if (e.key === "2") handleRate(3);
+        if (e.key === "3") handleRate(5);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [phase, isSubmitting, completed, handleRate, revealAnswer]);
 
   // ── Loading state ──
   if (!reviews && !error) {
@@ -1314,12 +1325,7 @@ export default function StudySessionPage({
               </button>
             )}
             <button
-              onClick={() => {
-                if (isTypingCard && typingResult === "unanswered") {
-                  setTypingResult("incorrect");
-                }
-                setPhase("answer");
-              }}
+              onClick={revealAnswer}
               className={`${
                 isTypingCard && typingResult === "unanswered"
                   ? "w-1/3 rounded-2xl border border-border bg-card py-4 text-foreground font-bold text-sm hover:bg-muted"
