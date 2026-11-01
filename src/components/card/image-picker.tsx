@@ -318,15 +318,24 @@ export function ImagePicker({
 
       {/* Main Selected Preview */}
       {value ? (
-        <div className="relative rounded-xl overflow-hidden border border-border bg-card group">
+        <div className="relative rounded-xl overflow-hidden border border-border bg-neutral-950/50 group h-48 sm:h-56 flex items-center justify-center">
+          {/* Ambient blurred backdrop */}
+          <img
+            src={value}
+            alt=""
+            aria-hidden="true"
+            referrerPolicy="no-referrer"
+            className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-125 pointer-events-none select-none"
+          />
+          {/* Foreground uncropped image */}
           <img
             src={value}
             alt="Preview"
             referrerPolicy="no-referrer"
-            className="w-full h-44 object-cover"
+            className="relative max-h-full max-w-full object-contain z-10"
             onError={() => showToast("Failed to load image preview", "error")}
           />
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 z-20">
             <button
               type="button"
               onClick={() => {

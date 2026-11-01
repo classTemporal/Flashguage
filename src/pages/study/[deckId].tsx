@@ -127,13 +127,24 @@ function CardImage({
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      referrerPolicy="no-referrer"
-      className={`object-cover ${className}`}
-      onError={() => setErrored(true)}
-    />
+    <div className={`relative w-full overflow-hidden flex items-center justify-center bg-neutral-950/50 ${className}`}>
+      {/* Ambient background blur using the same image */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        referrerPolicy="no-referrer"
+        className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 scale-125 pointer-events-none select-none"
+      />
+      {/* Foreground sharp uncropped image */}
+      <img
+        src={src}
+        alt={alt}
+        referrerPolicy="no-referrer"
+        className="relative max-h-full max-w-full object-contain z-10 drop-shadow-md select-none transition-transform duration-300"
+        onError={() => setErrored(true)}
+      />
+    </div>
   );
 }
 
@@ -660,6 +671,19 @@ export default function StudySessionPage({
   const [totalReviewed, setTotalReviewed] = useState(0);
   const [revealKey, setRevealKey] = useState(0);
 
+  // ── Auto-pronounce on reveal ──
+  const [autoPronounce, setAutoPronounce] = useState<boolean>(true);
+  const hasAutoSpokenRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("flashguage_auto_pronounce");
+      if (stored !== null) {
+        setAutoPronounce(stored !== "false");
+      }
+    } catch {}
+  }, []);
+
   const effectiveDeckId = deck?.id || (typeof deckId === "string" ? deckId : "");
   const swrUrl = effectiveDeckId
     ? `/api/reviews/due?deckId=${effectiveDeckId}${isCramMode ? "&mode=all" : `&limit=${reviewLimit}`}${
@@ -712,6 +736,7 @@ export default function StudySessionPage({
     setTypedAnswer("");
     setTypingResult("unanswered");
     setRevealKey((k) => k + 1);
+    hasAutoSpokenRef.current = false;
   }, [currentIndex]);
 
   const handleRate = useCallback(
@@ -885,6 +910,14 @@ export default function StudySessionPage({
 
   const activePhonetic = media.phonetic || dynamicPhonetic;
 
+  // Auto-pronounce word when answer phase is reached (via Show Answer, Spacebar, or correct spelling)
+  useEffect(() => {
+    if (phase === "answer" && card?.front && !hasAutoSpokenRef.current && autoPronounce) {
+      hasAutoSpokenRef.current = true;
+      handleSpeak(card.front);
+    }
+  }, [phase, card?.front, autoPronounce, handleSpeak]);
+
   // Interspersed spelling challenge:
   const isTypingCard = useMemo(() => {
     if (practiceFlavor === "recall") return false;
@@ -906,13 +939,16 @@ export default function StudySessionPage({
     if (cleanTyped === cleanFront) {
       setTypingResult("correct");
       setPhase("answer");
-      handleSpeak(card.front);
+      if (!hasAutoSpokenRef.current && autoPronounce) {
+        hasAutoSpokenRef.current = true;
+        handleSpeak(card.front);
+      }
       showToast("🎉 Perfect spelling!", "success");
     } else {
       setTypingResult("incorrect");
       showToast("Incorrect spelling, check the answer below", "error");
     }
-  }, [card, typedAnswer, handleSpeak, showToast]);
+  }, [card, typedAnswer, autoPronounce, handleSpeak, showToast]);
 
   // ── Loading state ──
   if (!reviews && !error) {
@@ -1032,10 +1068,33 @@ export default function StudySessionPage({
             </button>
           </div>
 
-          {/* Streak indicator */}
-          <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1">
-            <span className="text-sm">🔥</span>
-            <span className="text-xs font-black text-amber-600 dark:text-amber-400">{streak}</span>
+          {/* Controls: Audio auto-pronounce & Streak */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const next = !autoPronounce;
+                setAutoPronounce(next);
+                try {
+                  localStorage.setItem("flashguage_auto_pronounce", String(next));
+                } catch {}
+                showToast(next ? "🔊 Auto-pronunciation ON" : "🔇 Auto-pronunciation OFF", "info");
+              }}
+              className={`flex items-center justify-center w-8 h-8 rounded-full border transition-colors ${
+                autoPronounce
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border bg-muted/60 text-muted-foreground"
+              }`}
+              title={autoPronounce ? "Auto-pronounce on reveal: ON" : "Auto-pronounce on reveal: OFF"}
+              aria-label="Toggle auto pronunciation"
+            >
+              <span className="text-xs">{autoPronounce ? "🔊" : "🔇"}</span>
+            </button>
+
+            <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1">
+              <span className="text-sm">🔥</span>
+              <span className="text-xs font-black text-amber-600 dark:text-amber-400">{streak}</span>
+            </div>
           </div>
         </div>
       </header>
@@ -1161,11 +1220,11 @@ export default function StudySessionPage({
           </div>
 
           {/* Visual reference image */}
-          <div className="border-t border-border/60">
+          <div className="border-t border-border/60 bg-muted/10">
             <CardImage
               src={displayImageUrl}
               alt={card.front}
-              className="w-full h-48 sm:h-56"
+              className="w-full h-56 sm:h-72"
             />
           </div>
 
