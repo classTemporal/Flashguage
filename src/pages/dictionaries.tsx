@@ -187,7 +187,27 @@ export default function DictionariesPage() {
     setModalImageCandidates([]);
     setCardTags(["dictionary", item.partOfSpeech?.toLowerCase()].filter(Boolean).join(", "));
 
-    // Pre-fetch 3 image options for this exact definition
+    // 1. Automatically enhance definition & practice example with AI by default
+    fetch("/api/ai/autocomplete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        word: item.word,
+        context: item.definition,
+        targetLanguage: selectedLanguage,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          if (data.definition) setCardBack(data.definition);
+          if (data.example) setCardExample(data.example);
+          if (data.partOfSpeech && !item.partOfSpeech) setCardPartOfSpeech(data.partOfSpeech);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Pre-fetch 3 image options for this exact definition
     try {
       const res = await fetch("/api/image-search", {
         method: "POST",
@@ -895,51 +915,54 @@ export default function DictionariesPage() {
                   {cardModalTab === "ai" ? (
                     /* ── AI & IMAGE SELECTION TAB ── */
                     <div className="space-y-4 pt-1 animate-in fade-in">
-                      <div className="p-4 rounded-2xl bg-muted/30 border border-border/80 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Word to Add</span>
+                      {/* Word & Definition Card */}
+                      <div className="p-4 rounded-2xl bg-muted/20 border border-border space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h4 className="text-xl font-bold text-foreground capitalize truncate">{cardFront}</h4>
                             {cardPhonetic && (
-                              <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">
+                              <span className="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-md shrink-0">
                                 {cardPhonetic}
                               </span>
                             )}
                             <button
                               type="button"
                               onClick={() => handlePlayAudio(cardFront)}
-                              className="text-xs text-primary hover:scale-110 transition-transform"
+                              className="text-sm text-primary hover:scale-110 transition-transform shrink-0"
                               title="Listen to pronunciation"
                             >
                               🔊
                             </button>
                           </div>
-                          <span className="text-xs text-primary font-mono font-semibold">{cardPartOfSpeech || "vocabulary"}</span>
-                        </div>
-                        <h4 className="text-xl font-black text-foreground capitalize">{cardFront}</h4>
-                        
-                        {/* Definition with AI Polish & Editable */}
-                        <div className="space-y-1.5 pt-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Definition for Practice (Back)
+                          {cardPartOfSpeech && (
+                            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
+                              {cardPartOfSpeech}
                             </span>
+                          )}
+                        </div>
+                        
+                        {/* Definition with clean label and subtle rephrase */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-semibold text-muted-foreground">
+                              Definition
+                            </label>
                             <button
                               type="button"
                               onClick={handleAiOptimizeDefinition}
-                              disabled={isPolishingDef}
-                              className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
-                              title="Rewrites definition to be pedagogical and spoiler-free for active recall"
+                              disabled={isPolishingDef || isGeneratingAI}
+                              className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                              title="Rephrase definition with AI"
                             >
-                              <span>✨</span>
-                              <span>{isPolishingDef ? "Polishing..." : "AI Polish (No Spoilers)"}</span>
+                              <span>{isPolishingDef ? "⏳ Rephrasing..." : "🔄 Rephrase"}</span>
                             </button>
                           </div>
                           <textarea
                             value={cardBack}
                             onChange={(e) => setCardBack(e.target.value)}
                             rows={2}
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium resize-none leading-relaxed"
-                            placeholder="Definition or meaning of the word..."
+                            className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium resize-none leading-relaxed"
+                            placeholder="Definition of the word..."
                           />
                         </div>
                       </div>
@@ -947,18 +970,17 @@ export default function DictionariesPage() {
                       {/* Example sentence field */}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Example Sentence (Practice-Ready)
+                          <label className="text-xs font-semibold text-muted-foreground">
+                            Example Sentence
                           </label>
                           <button
                             type="button"
                             onClick={handleGenerateAiExample}
                             disabled={isEnhancingExample}
-                            className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
-                            title="Generate a natural, contemporary example sentence for active recall"
+                            className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                            title="Generate another example with AI"
                           >
-                            <span>✨</span>
-                            <span>{isEnhancingExample ? "Generating..." : "Generate AI Example"}</span>
+                            <span>{isEnhancingExample ? "⏳ Generating..." : "🔄 New example"}</span>
                           </button>
                         </div>
                         <input
@@ -966,7 +988,7 @@ export default function DictionariesPage() {
                           value={cardExample}
                           onChange={(e) => setCardExample(e.target.value)}
                           placeholder="e.g. A natural everyday sentence using this word in context..."
-                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
                         />
                       </div>
 
