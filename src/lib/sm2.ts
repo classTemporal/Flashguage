@@ -58,17 +58,17 @@ export function calculateNextReviewWithState(
     repetitions++;
     easeFactor = Math.max(1.3, easeFactor - 0.15);
   } else {
-    // quality === 5 → Mastered / Clear recall — starts light and gradually scales
+    // quality === 5 → Mastered / Clear recall — confident recall with larger interval leap
     if (repetitions === 0) {
-      interval = 1; // 1 day
+      interval = 2; // 2 days (distinct from Hard: 1 day vs 2 days)
     } else if (repetitions === 1) {
-      interval = 2; // 2 days
+      interval = 4; // 4 days (distinct from Hard: 2 days vs 4 days)
     } else if (repetitions === 2) {
-      interval = 4; // 4 days
-    } else if (repetitions === 3) {
       interval = 7; // 1 week
-    } else if (repetitions === 4) {
+    } else if (repetitions === 3) {
       interval = 14; // 2 weeks
+    } else if (repetitions === 4) {
+      interval = 30; // 1 month
     } else {
       interval = Math.min(180, Math.round(interval * easeFactor));
     }
@@ -115,11 +115,11 @@ export function getNextIntervalPreview(
     return `~${Math.max(1, Math.round(interval * 1.2))}d`;
   }
   // quality === 5 (Mastered / Got it)
-  if (repetitions === 0) return "~1d";
-  if (repetitions === 1) return "~2d";
-  if (repetitions === 2) return "~4d";
-  if (repetitions === 3) return "~7d";
-  if (repetitions === 4) return "~14d";
+  if (repetitions === 0) return "~2d";
+  if (repetitions === 1) return "~4d";
+  if (repetitions === 2) return "~7d";
+  if (repetitions === 3) return "~14d";
+  if (repetitions === 4) return "~30d";
   return `~${Math.round(interval * easeFactor)}d+`;
 }
 
