@@ -57,6 +57,8 @@ export function QuickAddCardModal({
   const [selectedImageUrl, setSelectedImageUrl] = useState("");
   const [isFetchingImages, setIsFetchingImages] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingExample, setIsGeneratingExample] = useState(false);
+  const [isPolishingDef, setIsPolishingDef] = useState(false);
 
   // Manual Tab State
   const [front, setFront] = useState("");
@@ -255,6 +257,72 @@ export function QuickAddCardModal({
       }
     } finally {
       setIsFetchingImages(false);
+    }
+  };
+
+  const handleGenerateAiExample = async () => {
+    const term = wordHeader || aiPrompt.trim();
+    if (!term) return;
+    setIsGeneratingExample(true);
+    try {
+      const res = await fetch("/api/ai/autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: term,
+          context: selectedDefinition?.definition || "",
+          targetLanguage,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.example) {
+        setCustomExample(data.example);
+        if (data.requiresAiKey) {
+          showToast("Generated reference example. Configure your personal AI key in Settings for tailored practice examples.", "warning");
+        } else {
+          showToast("✨ Practice example generated!", "success");
+        }
+      } else if (data.requiresAiKey) {
+        showToast(data.message || "Configure your personal AI key in Settings to generate AI examples", "warning");
+      }
+    } catch {
+      showToast("Could not generate example sentence", "error");
+    } finally {
+      setIsGeneratingExample(false);
+    }
+  };
+
+  const handlePolishSelectedDefinition = async () => {
+    const term = wordHeader || aiPrompt.trim();
+    if (!term || !selectedDefinition) return;
+    setIsPolishingDef(true);
+    try {
+      const res = await fetch("/api/ai/autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: term,
+          context: selectedDefinition.definition,
+          targetLanguage,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.definition) {
+        setSelectedDefinition({
+          ...selectedDefinition,
+          definition: data.definition,
+        });
+        if (data.example && !customExample.trim()) {
+          setCustomExample(data.example);
+        }
+        showToast("✨ Definition polished for active recall practice (no spoilers)!", "success");
+      } else if (data.requiresAiKey) {
+        showToast("Configure your personal AI key in Settings to polish definitions with AI", "warning");
+      }
+    } catch {
+      showToast("Could not polish definition", "error");
+    } finally {
+      setIsPolishingDef(false);
     }
   };
 
@@ -658,19 +726,50 @@ export function QuickAddCardModal({
                     )}
                   </div>
 
-                  <p className="text-xs text-foreground font-semibold leading-relaxed">
-                    <span className="text-primary font-bold mr-1">
-                      [{selectedDefinition.partOfSpeech}]
-                    </span>
-                    {selectedDefinition.definition}
-                  </p>
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                        [{selectedDefinition.partOfSpeech}] Meaning (Practice Back)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handlePolishSelectedDefinition}
+                        disabled={isPolishingDef}
+                        className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                        title="Ensure definition is pedagogical and spoiler-free for active recall"
+                      >
+                        <span>✨</span>
+                        <span>{isPolishingDef ? "Polishing..." : "AI Polish (No Spoilers)"}</span>
+                      </button>
+                    </div>
+                    <textarea
+                      value={selectedDefinition.definition}
+                      onChange={(e) =>
+                        setSelectedDefinition({ ...selectedDefinition, definition: e.target.value })
+                      }
+                      rows={2}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground font-semibold leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
                 {/* Example sentence field */}
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Example Sentence (Editable)
-                  </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Example Sentence (Practice-Ready)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAiExample}
+                      disabled={isGeneratingExample}
+                      className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                      title="Generate a natural everyday example for active recall"
+                    >
+                      <span>✨</span>
+                      <span>{isGeneratingExample ? "Generating..." : "Generate AI Example"}</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={customExample}

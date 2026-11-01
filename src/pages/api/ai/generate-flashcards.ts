@@ -183,16 +183,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (hasApiKey) {
     try {
       const targetLang = req.body.targetLanguage || req.body.language || "English";
-      const systemPrompt = `You are an expert ${targetLang} language teacher. Generate ${numCards} complete, high-quality flashcard(s) for the topic, phrase, or vocabulary: "${cleanPrompt}".
-Even if the term is a compound metaphor, invented phrase, idiom, or slang, provide an insightful, educational definition and a realistic example sentence illustrating how it could be used.
+      const systemPrompt = `You are an expert ${targetLang} language teacher designing study flashcards for spaced-repetition active recall practice. Generate ${numCards} complete, high-quality flashcard(s) for the topic, phrase, or vocabulary: "${cleanPrompt}".
+Even if the term is a compound metaphor, invented phrase, idiom, or slang, provide an insightful, educational definition and a realistic example sentence illustrating how it is used.
+
+CRITICAL FLASHCARD RULES FOR ACTIVE RECALL PRACTICE:
+1. "front": Word or idiom in ${targetLang}.
+2. "back": Clear, insightful explanation of the meaning. ANTI-SPOILER RULE: NEVER include the front word "${cleanPrompt}" or its direct derivatives/roots in the back definition, so the user can test their recall without giving away the answer.
+3. "phonetic": Accurate phonetic transcription or IPA.
+4. "partOfSpeech": Grammatical category (noun, verb, adjective, idiom, phrasal verb, etc.).
+5. "example": A modern, authentic, and vivid example sentence in ${targetLang} showing natural everyday, conversational, or professional usage (avoid strange, archaic, or bizarre sentences).
+6. "imageSearchQuery": A concrete 2-4 word visual query in English describing what this concept looks like.
+7. "tags": Category tags.
+
 Format your response ONLY as a JSON array of objects with the exact schema:
 [
   {
     "front": "Word or idiom in ${targetLang}",
-    "back": "Clear, insightful definition and explanation (explained for language learners)",
+    "back": "Clear definition strictly avoiding the word '${cleanPrompt}'",
     "phonetic": "/phonetic transcription or reading/",
     "partOfSpeech": "noun | verb | adjective | idiom | phrasal verb | phrase",
-    "example": "A realistic example sentence in ${targetLang} illustrating how the phrase is used in context.",
+    "example": "A modern, natural example sentence in ${targetLang} showing how it is used in context.",
     "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this concept looks like",
     "tags": ["category"]
   }

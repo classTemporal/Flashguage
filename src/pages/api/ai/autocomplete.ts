@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { prisma } from "@/lib/prisma";
-import { AIConfig, callOpenAI, callAnthropic, callGemini, callOllama } from "@/lib/ai";
+import { AIConfig, callOpenAI, callAnthropic, callGemini, callOllama, callCustom } from "@/lib/ai";
 import { resolveSemanticImage } from "@/lib/image-search";
 
 // Extract clean sentences from text that mention the keyword
@@ -95,32 +95,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (hasApiKey) {
     try {
       const targetLang = req.body.targetLanguage || req.body.language || "English";
-      const prompt = `You are an expert ${targetLang} language teacher. Provide contextual enrichment for the vocabulary term "${cleanWord}" in ${targetLang}.
-${context ? `Known definition/context: "${context}"` : ""}
+      const prompt = `You are an expert ${targetLang} language teacher designing study flashcards for active recall practice.
+Target Word/Phrase: "${cleanWord}"
+${context ? `Current definition/meaning context: "${context}"` : ""}
+
+CRITICAL FLASHCARD PEDAGOGY RULES:
+1. "definition": Explain the concept clearly, memorably, and concisely for language learners.
+   STRICT ANTI-SPOILER RULE: NEVER include the target word "${cleanWord}" or its direct derivatives/roots in the definition. When testing oneself, seeing the word in the definition gives away the answer.
+2. "example": A modern, authentic, and vivid example sentence in ${targetLang} using "${cleanWord}" naturally in everyday, professional, cultural, or social conversation. Avoid stiff, archaic, bizarre, or religious quotes. It must clearly demonstrate natural collocation.
+3. "examples": An array of 2 distinct natural example sentences illustrating the word in different common contexts.
+4. "phonetic": Accurate IPA transcription or reading.
+5. "partOfSpeech": Accurate category (noun | verb | adjective | adverb | idiom | phrasal verb).
+6. "imageSearchQuery": A concrete 2-4 word visual query in English describing what this looks like.
+7. "tags": Relevant topic/category tags.
 
 Return ONLY a valid JSON object matching this schema:
 {
-  "example": "A single best natural example sentence in ${targetLang} containing '${cleanWord}'",
+  "definition": "Clear pedagogical definition strictly avoiding the word '${cleanWord}'",
+  "example": "A modern, vivid, and memorable everyday sentence in ${targetLang} using '${cleanWord}'",
   "examples": [
     "First natural example sentence in ${targetLang} containing '${cleanWord}'",
     "Second natural example sentence showing another context with '${cleanWord}'"
   ],
   "phonetic": "/phonetic transcription or reading/",
   "partOfSpeech": "noun | verb | adjective | adverb | idiom",
-  "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this meaning looks like (e.g. for cat: 'cat animal', for agree: 'handshake agreement')",
+  "imageSearchQuery": "A concrete 2-4 word visual query in English describing what this meaning looks like",
   "tags": ["category", "grammar-tag"]
 }
 Output raw JSON only without markdown fences or additional commentary.`;
 
       let rawResponse = "";
-      if (userConfig.provider === "anthropic") {
+      if (userConfig.provider === "anthropic" && userConfig.anthropicKey) {
         rawResponse = await callAnthropic(prompt, userConfig);
-      } else if (userConfig.provider === "gemini") {
-        rawResponse = await callGemini(prompt, userConfig);
+      } else if (userConfig.provider === "openai" && userConfig.openaiKey) {
+        rawResponse = await callOpenAI(prompt, userConfig);
       } else if (userConfig.provider === "ollama") {
         rawResponse = await callOllama(prompt, userConfig);
+      } else if (userConfig.provider === "custom" && userConfig.customBaseUrl) {
+        rawResponse = await callCustom(prompt, userConfig);
       } else {
-        rawResponse = await callOpenAI(prompt, userConfig);
+        rawResponse = await callGemini(prompt, userConfig);
       }
 
       const cleanJson = rawResponse
@@ -129,15 +143,17 @@ Output raw JSON only without markdown fences or additional commentary.`;
         .trim();
 
       const parsed = JSON.parse(cleanJson);
-      if (parsed.example || parsed.examples) {
-        const imageResult = await resolveSemanticImage(cleanWord, context, parsed.imageSearchQuery);
+      if (parsed.example || parsed.examples || parsed.definition) {
+        const imageResult = await resolveSemanticImage(cleanWord, parsed.definition || context, parsed.imageSearchQuery);
         return res.status(200).json({
+          definition: parsed.definition || undefined,
           example: parsed.example || parsed.examples?.[0],
           examples: parsed.examples || (parsed.example ? [parsed.example] : []),
           phonetic: parsed.phonetic || "",
           partOfSpeech: parsed.partOfSpeech || "vocabulary",
           tags: parsed.tags || ["vocabulary"],
           imageUrl: imageResult.imageUrl,
+          hasPersonalAiKey: true,
         });
       }
     } catch (err) {
@@ -212,6 +228,9 @@ Output raw JSON only without markdown fences or additional commentary.`;
       partOfSpeech,
       tags,
       imageUrl: imageResult.imageUrl,
+      hasPersonalAiKey: false,
+      requiresAiKey: true,
+      sourceNotice: "Generated from standard dictionary/reference text. Configure a personal AI API key in Settings for AI-crafted practice sentences.",
     });
   } catch (error) {
     console.error("Autocomplete fallback error:", error);

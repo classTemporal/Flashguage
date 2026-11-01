@@ -153,6 +153,8 @@ export default function DictionariesPage() {
   const [cardTags, setCardTags] = useState("");
   const [modalImageCandidates, setModalImageCandidates] = useState<string[]>([]);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isEnhancingExample, setIsEnhancingExample] = useState(false);
+  const [isPolishingDef, setIsPolishingDef] = useState(false);
   const [cardModalTab, setCardModalTab] = useState<"ai" | "manual">("ai");
 
   // Fetch user decks for 'Create Flashcard' target selection (scoped to current track)
@@ -207,6 +209,71 @@ export default function DictionariesPage() {
       }
     } catch {
       // ignore
+    }
+  };
+
+  const handleGenerateAiExample = async () => {
+    if (!cardFront.trim()) return;
+    setIsEnhancingExample(true);
+    try {
+      const res = await fetch("/api/ai/autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: cardFront.trim(),
+          context: cardBack.trim(),
+          targetLanguage: selectedLanguage,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to generate AI example");
+      }
+      if (data.example) {
+        setCardExample(data.example);
+        if (data.requiresAiKey) {
+          showToast("Generated reference example. Configure your personal AI key in Settings for tailored practice examples.", "warning");
+        } else {
+          showToast("✨ Fresh practice example generated!", "success");
+        }
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Error generating example", "error");
+    } finally {
+      setIsEnhancingExample(false);
+    }
+  };
+
+  const handleAiOptimizeDefinition = async () => {
+    if (!cardFront.trim()) return;
+    setIsPolishingDef(true);
+    try {
+      const res = await fetch("/api/ai/autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          word: cardFront.trim(),
+          context: cardBack.trim(),
+          targetLanguage: selectedLanguage,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to polish definition");
+      }
+      if (data.definition) {
+        setCardBack(data.definition);
+        if (data.example && !cardExample.trim()) {
+          setCardExample(data.example);
+        }
+        showToast("✨ Definition polished for active recall practice (no spoilers)!", "success");
+      } else {
+        showToast(data.message || "Configure your personal AI key in Settings to polish definitions with AI", "warning");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Error polishing definition", "error");
+    } finally {
+      setIsPolishingDef(false);
     }
   };
 
@@ -324,7 +391,7 @@ export default function DictionariesPage() {
     }
   };
 
-  const fetchDictionaryWord = useCallback(async (wordToFetch: string, lang = selectedLanguage) => {
+  const fetchDictionaryWord = useCallback(async (wordToFetch: string, lang = selectedLanguage, forceAi = false) => {
     const trimmed = wordToFetch.trim();
     if (!trimmed) {
       setResults([]);
@@ -336,27 +403,28 @@ export default function DictionariesPage() {
     setErrorMessage(null);
 
     try {
+      const aiParam = forceAi ? "&forceAi=true" : "";
       const res = await fetch(
-        `/api/dictionary-lookup?word=${encodeURIComponent(trimmed)}&lang=${lang}`
+        `/api/dictionary-lookup?word=${encodeURIComponent(trimmed)}&lang=${lang}${aiParam}`
       );
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
+        if (data.requiresAiKey) {
+          showToast(data.message || "A personal AI API key is required in Settings for novel or colloquial expressions", "warning");
+        }
         if (res.status === 404) {
-          setErrorMessage(`No definitions found for "${trimmed}". Please check the spelling or try another word.`);
+          setErrorMessage(data.message || `No definitions found for "${trimmed}". Please check the spelling or try another word.`);
         } else {
-          setErrorMessage(`Unable to look up "${trimmed}" right now. Please try again later.`);
+          setErrorMessage(data.message || `Unable to look up "${trimmed}" right now. Please try again later.`);
         }
         setResults([]);
         return;
       }
 
-      let data: any;
-      try {
-        data = await res.json();
-      } catch {
-        setErrorMessage(`No definitions found for "${trimmed}".`);
-        setResults([]);
-        return;
+      if (data.requiresAiKey || data.aiWarning) {
+        showToast(data.aiWarning || "Showing standard dictionary results. Configure your personal AI key in Settings for AI Explain.", "warning");
       }
 
       if (data.definitions && Array.isArray(data.definitions) && data.definitions.length > 0) {
@@ -593,6 +661,16 @@ export default function DictionariesPage() {
             <Button type="submit" disabled={isLoading} className="gap-2 shrink-0">
               {isLoading ? "Searching..." : "Lookup"}
             </Button>
+            <button
+              type="button"
+              disabled={isLoading || !searchTerm.trim()}
+              onClick={() => fetchDictionaryWord(searchTerm.trim(), selectedLanguage, true)}
+              className="rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary px-3 sm:px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 shrink-0 flex items-center justify-center gap-1.5 shadow-xs"
+              title="Explain expressions, idioms or modern slang with AI"
+            >
+              <span>✨</span>
+              <span>AI Explain</span>
+            </button>
           </div>
         </form>
 
@@ -838,19 +916,56 @@ export default function DictionariesPage() {
                           <span className="text-xs text-primary font-mono font-semibold">{cardPartOfSpeech || "vocabulary"}</span>
                         </div>
                         <h4 className="text-xl font-black text-foreground capitalize">{cardFront}</h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{cardBack}</p>
+                        
+                        {/* Definition with AI Polish & Editable */}
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Definition for Practice (Back)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleAiOptimizeDefinition}
+                              disabled={isPolishingDef}
+                              className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                              title="Rewrites definition to be pedagogical and spoiler-free for active recall"
+                            >
+                              <span>✨</span>
+                              <span>{isPolishingDef ? "Polishing..." : "AI Polish (No Spoilers)"}</span>
+                            </button>
+                          </div>
+                          <textarea
+                            value={cardBack}
+                            onChange={(e) => setCardBack(e.target.value)}
+                            rows={2}
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium resize-none leading-relaxed"
+                            placeholder="Definition or meaning of the word..."
+                          />
+                        </div>
                       </div>
 
                       {/* Example sentence field */}
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Example Sentence (Optional)
-                        </label>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Example Sentence (Practice-Ready)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleGenerateAiExample}
+                            disabled={isEnhancingExample}
+                            className="text-[11px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors disabled:opacity-50"
+                            title="Generate a natural, contemporary example sentence for active recall"
+                          >
+                            <span>✨</span>
+                            <span>{isEnhancingExample ? "Generating..." : "Generate AI Example"}</span>
+                          </button>
+                        </div>
                         <input
                           type="text"
                           value={cardExample}
                           onChange={(e) => setCardExample(e.target.value)}
-                          placeholder="e.g. An authentic sentence using this word..."
+                          placeholder="e.g. A natural everyday sentence using this word in context..."
                           className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
                         />
                       </div>

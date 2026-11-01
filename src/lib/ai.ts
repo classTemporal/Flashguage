@@ -426,20 +426,24 @@ async function tryProviders(
 
 function buildDefinitionPrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are an expert language-learning assistant. For the word, idiom, compound expression, or phrase "${word}" in ${targetLanguage}${ctx}:
+  return `You are an expert language-learning teacher creating active-recall study flashcards for spaced repetition.
+For the word, idiom, compound expression, or phrase "${word}" in ${targetLanguage}${ctx}:
 Even if the term is an invented phrase, metaphorical compound, slang, or colloquialism, analyze its elements thoughtfully and provide a meaningful, educational explanation.
-Provide:
+
+CRITICAL FLASHCARD PEDAGOGY RULES:
 1. part of speech (noun phrase, idiom, phrasal verb, adjective, etc.)
-2. a clear, insightful definition explaining what this concept or expression conveys (never reply with generic placeholders)
+2. definition: Explain the concept clearly, memorably, and concisely for language learners.
+   STRICT ANTI-SPOILER RULE: NEVER include the target word "${word}" or direct inflections/derivatives of it in the definition. The learner looks at this definition during review to guess the word, so including it spoils the active recall practice! Define the meaning purely with synonyms and conceptual explanation.
 3. phonetic pronunciation or IPA if known
-4. one natural, vivid example sentence using it in context
+4. example: A modern, authentic, and vivid example sentence in ${targetLanguage} illustrating how native speakers use "${word}" in everyday conversation, work, or culture (avoid bizarre, archaic, or stiff textbook sentences).
 
 Format strictly as JSON with keys: partOfSpeech, definition, pronunciation, example. Do not include markdown code fences or any other text.`;
 }
 
 function buildExamplePrompt(word: string, context?: string, targetLanguage = "the target language"): string {
   const ctx = context ? `\nContext: ${context}` : "";
-  return `You are an expert language-learning assistant. Generate a single natural example sentence in ${targetLanguage} using the word or phrase "${word}"${ctx}. Return only the sentence, no quotes or extra text.`;
+  return `You are an expert language-learning teacher designing study flashcards. Generate a single modern, natural, and vivid example sentence in ${targetLanguage} using the word or phrase "${word}"${ctx}.
+The sentence must demonstrate authentic everyday or practical conversational usage (avoid bizarre, overly academic, or archaic sentences). It must clearly show how the word is used in context for a learner practicing active recall. Return only the sentence, no quotes or extra text.`;
 }
 
 function buildSuggestPrompt(word: string, targetLanguage = "the target language"): string {
