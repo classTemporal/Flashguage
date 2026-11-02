@@ -37,6 +37,10 @@ yarn-error.log*
 prisma/*.db
 prisma/*.db-journal
 
+# Audio Cache
+public/audio-cache/*.mp3
+!public/audio-cache/.gitkeep
+
 # Documentation and internal markdown notes (whitelist repository docs)
 *.md
 !README.md

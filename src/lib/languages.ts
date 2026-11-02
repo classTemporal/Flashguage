@@ -102,22 +102,17 @@ export function getSpeechVoice(code?: string | null): string {
   return lang.speechVoice;
 }
 
+import { playCardSpeech, speakInLanguageNative } from "./speech";
+export { playCardSpeech, speakInLanguageNative };
+
 /**
- * Universal browser text-to-speech for any supported language.
+ * Universal text-to-speech for any supported language.
+ * Uses cached neural audio when enabled, falling back to browser SpeechSynthesis.
  */
 export function speakInLanguage(text: string, languageCode: string = "en"): void {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const lang = getLanguage(languageCode);
-    utterance.lang = lang.speechVoice;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.error("Speech synthesis error:", err);
-  }
+  playCardSpeech(text, languageCode).catch(() => {
+    speakInLanguageNative(text, languageCode);
+  });
 }
 
 export function getStoredActiveLanguage(): string {

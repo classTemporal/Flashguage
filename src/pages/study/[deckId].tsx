@@ -18,6 +18,8 @@ import { ExampleCarousel, blankOutVocab } from "@/components/study/study-example
 import { ProgressRing } from "@/components/study/study-progress-ring";
 import { CompletionScreen } from "@/components/study/study-completion-screen";
 import { NoDueCards } from "@/components/study/study-no-due-cards";
+import { PronunciationChecker } from "@/components/study/pronunciation-checker";
+import { playCardSpeech } from "@/lib/speech";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -316,8 +318,10 @@ export default function StudySessionPage({
 
   const handleSpeak = useCallback((text: string, customLang?: string) => {
     setIsSpeaking(true);
-    speakInLanguage(text, customLang || deckLang);
-    setTimeout(() => setIsSpeaking(false), 2000);
+    playCardSpeech(text, customLang || deckLang, {
+      onEnd: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
   }, [deckLang]);
 
   const handleAdvanceDay = useCallback(async () => {
@@ -797,8 +801,14 @@ export default function StudySessionPage({
                   title="Listen to pronunciation"
                 >
                   <span>🔊</span>
-                  <span>Pronounce Word</span>
+                  <span>{isSpeaking ? "Playing..." : "Pronounce Word"}</span>
                 </button>
+
+                <PronunciationChecker
+                  targetWord={card.front}
+                  langCode={deckLang}
+                  onListenAgain={() => handleSpeak(card.front)}
+                />
               </div>
 
               {tags.length > 0 && (

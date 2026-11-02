@@ -91,10 +91,11 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   hint?: string;
-  children: ReactNode;
+  options?: { value: string | number; label: string }[];
+  children?: ReactNode;
 }
 
-export function Select({ label, error, hint, id, className = "", children, ...props }: SelectProps) {
+export function Select({ label, error, hint, id, className = "", options, children, ...props }: SelectProps) {
   const selectId = id || props.name;
 
   return (
@@ -118,7 +119,13 @@ export function Select({ label, error, hint, id, className = "", children, ...pr
         aria-describedby={error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined}
         {...props}
       >
-        {children}
+        {options
+          ? options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))
+          : children}
       </select>
       {error && (
         <p id={`${selectId}-error`} className="mt-1 text-xs text-destructive" role="alert">

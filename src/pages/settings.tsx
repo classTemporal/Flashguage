@@ -14,8 +14,10 @@ import { Input, Select } from "@/components/ui/input";
 import { LoadingPage } from "@/components/ui/loading";
 import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
+import { playCardSpeech } from "@/lib/speech";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+export type SpeechProvider = "browser" | "openai" | "elevenlabs";
 
 interface SettingsData {
   name?: string;
@@ -45,6 +47,12 @@ interface SettingsData {
   weeklyEmail?: boolean;
   soundEffects?: boolean;
   plugins?: string[];
+  speechProvider?: SpeechProvider;
+  speechApiKey?: string;
+  speechVoice?: string;
+  speechSpeed?: number;
+  speechAutoPlay?: boolean;
+  speechModel?: string;
 }
 
 const fetcher = async (url: string): Promise<SettingsData> => {
@@ -142,6 +150,17 @@ export default function SettingsPage() {
   const [soundEffects, setSoundEffects] = useState<boolean>(true);
   const [savingNotifications, setSavingNotifications] = useState(false);
 
+  // Speech & Pronunciation Settings state
+  const [speechProvider, setSpeechProvider] = useState<SpeechProvider>("browser");
+  const [speechApiKey, setSpeechApiKey] = useState("");
+  const [showSpeechApiKey, setShowSpeechApiKey] = useState(false);
+  const [speechVoice, setSpeechVoice] = useState("nova");
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
+  const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(false);
+  const [speechModel, setSpeechModel] = useState("tts-1");
+  const [savingSpeech, setSavingSpeech] = useState(false);
+  const [testingSpeech, setTestingSpeech] = useState(false);
+
   // Keep state in sync with fetched settings or session
   useEffect(() => {
     if (apiSettings) {
@@ -201,6 +220,24 @@ export default function SettingsPage() {
       }
       if (typeof apiSettings.soundEffects === "boolean") {
         setSoundEffects(apiSettings.soundEffects);
+      }
+      if (apiSettings.speechProvider) {
+        setSpeechProvider(apiSettings.speechProvider);
+      }
+      if (apiSettings.speechApiKey !== undefined) {
+        setSpeechApiKey(apiSettings.speechApiKey);
+      }
+      if (apiSettings.speechVoice !== undefined) {
+        setSpeechVoice(apiSettings.speechVoice);
+      }
+      if (typeof apiSettings.speechSpeed === "number") {
+        setSpeechSpeed(apiSettings.speechSpeed);
+      }
+      if (typeof apiSettings.speechAutoPlay === "boolean") {
+        setSpeechAutoPlay(apiSettings.speechAutoPlay);
+      }
+      if (apiSettings.speechModel !== undefined) {
+        setSpeechModel(apiSettings.speechModel);
       }
     }
   }, [apiSettings]);
@@ -520,6 +557,69 @@ export default function SettingsPage() {
       );
     } finally {
       setSavingNotifications(false);
+    }
+  };
+
+  // Handler: Save Speech & Pronunciation Settings
+  const handleSaveSpeechSettings = async () => {
+    setSavingSpeech(true);
+    try {
+      const payload = {
+        speechProvider,
+        speechApiKey: speechApiKey.trim(),
+        speechVoice: speechVoice.trim(),
+        speechSpeed: Number(speechSpeed),
+        speechAutoPlay,
+        speechModel: speechModel.trim(),
+      };
+
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update speech settings");
+      }
+
+      const updated = await res.json();
+      await mutateSettings(updated, false);
+      try {
+        localStorage.setItem("flashguage_auto_pronounce", String(speechAutoPlay));
+      } catch {}
+      showToast("Speech & Pronunciation settings saved successfully!", "success");
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Failed to update speech settings. Please try again.",
+        "error"
+      );
+    } finally {
+      setSavingSpeech(false);
+    }
+  };
+
+  // Handler: Test Speech Output
+  const handleTestSpeech = async () => {
+    setTestingSpeech(true);
+    try {
+      const sampleSentence = "Hello! Welcome to Flashguage. This is a preview of your speech voice.";
+      showToast("Playing voice preview...", "info");
+      await playCardSpeech(sampleSentence, "en", {
+        provider: speechProvider,
+        apiKey: speechApiKey.trim(),
+        voice: speechVoice.trim(),
+        speed: Number(speechSpeed),
+        onEnd: () => setTestingSpeech(false),
+        onError: (err) => {
+          showToast(`Voice preview notice: ${err?.message || "Using fallback"}`, "info");
+          setTestingSpeech(false);
+        },
+      });
+      setTimeout(() => setTestingSpeech(false), 3500);
+    } catch (err) {
+      setTestingSpeech(false);
     }
   };
 
@@ -960,7 +1060,215 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* 3. Study Settings Section */}
+          {/* 3. Speech & Pronunciation (TTS) Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl" aria-hidden="true">🎙️</span>
+              <h2 className="text-lg font-semibold text-foreground">Speech & Pronunciation (TTS)</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure lifelike neural voices, dedicated speech API keys, playback speed, and auto-pronounce.
+            </p>
+
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground leading-relaxed flex items-start gap-2">
+                <span className="text-base" aria-hidden="true">💡</span>
+                <div>
+                  <strong>Audio caching enabled:</strong> Generated speech is cached on the server, so each word or sentence is synthesized only once, saving your API tokens and ensuring instant playback.
+                </div>
+              </div>
+
+              <div>
+                <Select
+                  id="speech-provider"
+                  label="Speech Engine Provider"
+                  value={speechProvider}
+                  onChange={(e) => setSpeechProvider(e.target.value as SpeechProvider)}
+                  options={[
+                    { value: "browser", label: "Browser Web Speech (Free / Offline / No API Key required)" },
+                    { value: "openai", label: "OpenAI TTS (Neural / High Fidelity Voices)" },
+                    { value: "elevenlabs", label: "ElevenLabs (Ultra-Realistic Generative Speech)" },
+                  ]}
+                  hint="Select which engine Flashguage should use to pronounce words and sentences."
+                />
+              </div>
+
+              {speechProvider === "openai" && (
+                <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <div>
+                    <label htmlFor="speech-api-key" className="block text-sm font-medium text-foreground mb-1">
+                      Dedicated OpenAI Speech API Key (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="speech-api-key"
+                        type={showSpeechApiKey ? "text" : "password"}
+                        value={speechApiKey}
+                        onChange={(e) => setSpeechApiKey(e.target.value)}
+                        placeholder="sk-... (Leave empty to reuse general OpenAI key)"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSpeechApiKey((s) => !s)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                      >
+                        {showSpeechApiKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      If left blank, Flashguage automatically reuses your primary OpenAI API key from AI Configuration.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Select
+                        id="speech-voice"
+                        label="Voice Persona"
+                        value={speechVoice}
+                        onChange={(e) => setSpeechVoice(e.target.value)}
+                        options={[
+                          { value: "nova", label: "Nova (Female • Energetic & natural — Recommended)" },
+                          { value: "alloy", label: "Alloy (Neutral • Balanced & versatile)" },
+                          { value: "echo", label: "Echo (Male • Warm, calm & confident)" },
+                          { value: "fable", label: "Fable (British Accent • Expressive)" },
+                          { value: "onyx", label: "Onyx (Male • Deep & authoritative)" },
+                          { value: "shimmer", label: "Shimmer (Female • Clear & resonant)" },
+                        ]}
+                        hint="Choose the voice persona that best suits your listening practice."
+                      />
+                    </div>
+
+                    <div>
+                      <Select
+                        id="speech-model"
+                        label="TTS Model Quality"
+                        value={speechModel}
+                        onChange={(e) => setSpeechModel(e.target.value)}
+                        options={[
+                          { value: "tts-1", label: "tts-1 (Standard • Fast & cost-effective)" },
+                          { value: "tts-1-hd", label: "tts-1-hd (High Definition • Studio quality)" },
+                        ]}
+                        hint="Standard is ideal for flashcards with fast latency."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {speechProvider === "elevenlabs" && (
+                <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <div>
+                    <label htmlFor="elevenlabs-speech-key" className="block text-sm font-medium text-foreground mb-1">
+                      ElevenLabs API Key *
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="elevenlabs-speech-key"
+                        type={showSpeechApiKey ? "text" : "password"}
+                        value={speechApiKey}
+                        onChange={(e) => setSpeechApiKey(e.target.value)}
+                        placeholder="xi-..."
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSpeechApiKey((s) => !s)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                      >
+                        {showSpeechApiKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Dedicated API key from your ElevenLabs dashboard.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Select
+                      id="elevenlabs-voice"
+                      label="Voice Persona"
+                      value={speechVoice}
+                      onChange={(e) => setSpeechVoice(e.target.value)}
+                      options={[
+                        { value: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (Female • Calm & natural)" },
+                        { value: "AZnzlk1XvdvUeBnXmlld", label: "Domi (Female • Strong & engaging)" },
+                        { value: "EXAVITQu4vr4xnSDxMaL", label: "Bella (Female • Soft & pleasant)" },
+                        { value: "ErXwobaYiN019PkySvjV", label: "Antoni (Male • Warm & friendly)" },
+                        { value: "MF3mGyEYCl7XYWbV9V6O", label: "Elli (Female • Clear & youthful)" },
+                        { value: "TxGEqnHWrfWFTfGW9XjX", label: "Josh (Male • Conversational)" },
+                      ]}
+                      hint="Choose an ElevenLabs premade voice or input a custom voice ID."
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Speech Speed Slider */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="speech-speed" className="text-sm font-medium text-foreground">
+                    Speech Playback Speed
+                  </label>
+                  <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                    {speechSpeed.toFixed(2)}x {speechSpeed < 1 ? "(Slower for comprehension)" : speechSpeed === 1 ? "(Normal)" : "(Fast)"}
+                  </span>
+                </div>
+                <input
+                  id="speech-speed"
+                  type="range"
+                  min="0.75"
+                  max="1.25"
+                  step="0.05"
+                  value={speechSpeed}
+                  onChange={(e) => setSpeechSpeed(parseFloat(e.target.value))}
+                  className="w-full accent-primary cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
+                  <span>0.75x (Careful)</span>
+                  <span>1.0x (Standard)</span>
+                  <span>1.25x (Native fluent)</span>
+                </div>
+              </div>
+
+              {/* Auto-play toggle */}
+              <div className="flex items-center gap-3 pt-1">
+                <input
+                  id="speech-autoplay"
+                  type="checkbox"
+                  checked={speechAutoPlay}
+                  onChange={(e) => setSpeechAutoPlay(e.target.checked)}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary accent-primary"
+                />
+                <label htmlFor="speech-autoplay" className="text-sm text-foreground cursor-pointer select-none">
+                  <strong>Auto-Pronounce on Reveal:</strong> Automatically speak the word when flipping to the answer during study.
+                </label>
+              </div>
+
+              {/* Actions: Test Voice & Save */}
+              <div className="flex flex-wrap items-center gap-3 pt-3">
+                <Button
+                  onClick={handleSaveSpeechSettings}
+                  disabled={savingSpeech}
+                  className="w-full sm:w-auto"
+                >
+                  {savingSpeech ? "Saving..." : "Save Speech Settings"}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={handleTestSpeech}
+                  disabled={testingSpeech}
+                  className="w-full sm:w-auto border border-border"
+                >
+                  {testingSpeech ? "🔊 Playing preview..." : "🔊 Test Voice"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* 4. Study Settings Section */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl" aria-hidden="true">📚</span>

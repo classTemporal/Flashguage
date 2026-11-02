@@ -37,6 +37,13 @@ export const settingsSchema = z.object({
   weeklyEmail: z.boolean().optional(),
   soundEffects: z.boolean().optional(),
   plugins: z.array(z.string()).optional(),
+  // Speech & Pronunciation settings
+  speechProvider: z.enum(["browser", "openai", "elevenlabs"]).optional(),
+  speechApiKey: z.string().optional(),
+  speechVoice: z.string().optional(),
+  speechSpeed: z.number().min(0.5).max(2.0).optional(),
+  speechAutoPlay: z.boolean().optional(),
+  speechModel: z.string().optional(),
 });
 
 export const pickSettings = (
@@ -114,6 +121,13 @@ export const pickSettings = (
     weeklyEmail: (data.weeklyEmail as boolean) ?? (data.emailNotifications as boolean) ?? false,
     soundEffects: (data.soundEffects as boolean) ?? true,
     plugins: (data.plugins as string[]) ?? [],
+    // Speech & Pronunciation Settings
+    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "openai" | "elevenlabs",
+    speechApiKey: ((data.speechApiKey as string) ?? "").trim(),
+    speechVoice: ((data.speechVoice as string) ?? "nova").trim(),
+    speechSpeed: typeof data.speechSpeed === "number" ? data.speechSpeed : 1.0,
+    speechAutoPlay: (data.speechAutoPlay as boolean) ?? false,
+    speechModel: ((data.speechModel as string) ?? "tts-1").trim(),
   };
 };
 
