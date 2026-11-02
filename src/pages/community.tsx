@@ -143,7 +143,7 @@ export default function CommunityPage() {
                   key={t}
                   type="button"
                   onClick={() => setSelectedTag(t)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                     selectedTag === t
                       ? "bg-primary text-primary-foreground shadow-xs"
                       : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"

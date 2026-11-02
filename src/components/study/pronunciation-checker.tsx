@@ -131,7 +131,7 @@ export function PronunciationChecker({
           setIsOpen(true);
           startListening();
         }}
-        className="inline-flex items-center gap-2 text-xs font-bold text-violet-300 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-500/40 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm"
+        className="inline-flex items-center gap-2 text-xs font-bold text-violet-300 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-500/40 px-3.5 py-1.5 rounded-xl transition-all active:scale-95 shadow-sm"
         title="Practice your pronunciation with the microphone"
       >
         <span className="text-sm">🎙️</span>
@@ -225,7 +225,7 @@ export function PronunciationChecker({
           <div className="flex items-center justify-center gap-2 pt-1">
             <button
               onClick={startListening}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-full hover:opacity-90 active:scale-95 transition-all"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
             >
               <span>🔄</span>
               <span>Try Again</span>
@@ -234,7 +234,7 @@ export function PronunciationChecker({
             {onListenAgain && (
               <button
                 onClick={onListenAgain}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-muted text-foreground px-3.5 py-1.5 rounded-full hover:bg-muted/80 active:scale-95 transition-all"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-muted text-foreground border border-border px-3.5 py-1.5 rounded-xl hover:bg-muted/80 active:scale-95 transition-all shadow-xs"
               >
                 <span>🔊</span>
                 <span>Listen Native</span>
@@ -251,7 +251,7 @@ export function PronunciationChecker({
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <button
               onClick={startListening}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-full hover:opacity-90 active:scale-95 transition-all"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
             >
               <span>🔄</span>
               <span>Retry</span>
@@ -263,7 +263,7 @@ export function PronunciationChecker({
                 href="/settings"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border px-3.5 py-1.5 rounded-full transition-all"
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border px-3.5 py-1.5 rounded-xl transition-all shadow-xs"
               >
                 <span>⚙️</span>
                 <span>Configure in Settings</span>
@@ -278,7 +278,7 @@ export function PronunciationChecker({
         <div className="text-center py-2">
           <button
             onClick={startListening}
-            className="inline-flex items-center gap-2 text-xs font-bold bg-primary text-primary-foreground px-4 py-2 rounded-full hover:opacity-90 active:scale-95 transition-all shadow-xs"
+            className="inline-flex items-center gap-2 text-xs font-bold bg-primary text-primary-foreground px-4 py-2 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
           >
             <span>🎙️</span>
             <span>Tap to Speak</span>

@@ -516,6 +516,24 @@ export default function Dashboard() {
     fetcher
   );
 
+  // Fetch settings to detect if brand new user needs to be guided to onboarding wizard
+  const { data: userSettings } = useSWR<{ onboarded?: boolean }>(
+    status === "authenticated" ? "/api/settings" : null,
+    fetcher
+  );
+
+  useEffect(() => {
+    if (
+      status === "authenticated" &&
+      userSettings &&
+      userSettings.onboarded === false &&
+      Array.isArray(allDecks) &&
+      allDecks.length === 0
+    ) {
+      router.replace("/onboarding");
+    }
+  }, [status, userSettings, allDecks, router]);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const q = router.query.lang as string;
@@ -1080,7 +1098,7 @@ export default function Dashboard() {
               <span className="hidden sm:inline">Customize Layout</span>
               <span className="sm:hidden">Customize</span>
             </Button>
-            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border flex items-center gap-1.5 shadow-xs">
+            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-xl border border-border flex items-center gap-1.5 shadow-xs">
               <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
               <span>{currentLang.name} Track</span>
               {(decks?.length || 0) === 0 ? (

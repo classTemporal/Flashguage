@@ -630,7 +630,7 @@ export default function DeckDetail() {
                         key={tag}
                         type="button"
                         onClick={() => setSelectedTag(tag)}
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           selectedTag === tag
                             ? "bg-primary text-primary-foreground font-semibold"
                             : "border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -846,7 +846,7 @@ export default function DeckDetail() {
                                   key={idx}
                                   type="button"
                                   onClick={() => setSelectedTag(tag)}
-                                  className="rounded-full bg-muted/80 hover:bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                  className="rounded-lg bg-muted/80 hover:bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                   #{tag}
                                 </button>
@@ -890,7 +890,7 @@ export default function DeckDetail() {
                                 <button
                                   type="button"
                                   onClick={() => handleSpeakCard(card.id, card.front)}
-                                  className={`text-xs p-1 rounded-full hover:bg-muted ${
+                                  className={`text-xs p-1 rounded-lg hover:bg-muted ${
                                     isSpeaking ? "text-primary animate-pulse" : "text-muted-foreground"
                                   }`}
                                   title="Listen"

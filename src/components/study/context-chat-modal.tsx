@@ -238,7 +238,7 @@ export function ContextChatModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             aria-label="Close practice in context modal"
           >
             ✕
@@ -365,7 +365,7 @@ export function ContextChatModal({
                     <button
                       type="button"
                       onClick={handleDictate}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                         isDictating
                           ? "bg-rose-500 text-white animate-pulse border-rose-500 shadow-sm"
                           : "bg-muted/80 hover:bg-muted text-foreground border-border"
@@ -380,7 +380,7 @@ export function ContextChatModal({
                       onClick={handleSendReply}
                       disabled={!userMessage.trim() || isSubmitting}
                       size="sm"
-                      className="rounded-full px-5 text-xs font-bold"
+                      className="px-5 text-xs font-bold shadow-xs"
                     >
                       {isSubmitting ? "Evaluating..." : "Send Reply ➤"}
                     </Button>
@@ -466,7 +466,7 @@ export function ContextChatModal({
                     variant="secondary"
                     size="sm"
                     onClick={loadScenario}
-                    className="text-xs rounded-full border border-border"
+                    className="text-xs border border-border shadow-xs"
                   >
                     🔄 Try Another Scenario
                   </Button>
@@ -474,7 +474,7 @@ export function ContextChatModal({
                   <Button
                     size="sm"
                     onClick={onClose}
-                    className="text-xs rounded-full px-5"
+                    className="text-xs px-5 shadow-xs"
                   >
                     ✓ Done
                   </Button>

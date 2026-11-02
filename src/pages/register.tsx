@@ -78,10 +78,10 @@ export default function Register() {
         });
 
         if (signResult?.ok) {
-          window.location.href = "/dashboard";
+          window.location.href = "/onboarding";
         } else {
           // Fallback: redirect to login with registered flag and prefilled email
-          router.push(`/login?registered=true&email=${encodeURIComponent(cleanEmail)}`);
+          router.push(`/login?registered=true&email=${encodeURIComponent(cleanEmail)}&onboarding=true`);
         }
       }
     } catch {

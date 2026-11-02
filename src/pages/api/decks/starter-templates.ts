@@ -25,9 +25,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const userDeckNames = new Set(userDecks.map((d) => d.name.toLowerCase().trim()));
 
-      const availableTemplates = STARTER_DECKS.filter(
+      let matchingTemplates = STARTER_DECKS.filter(
         (deck) => !deck.targetLanguage || deck.targetLanguage === lang || lang === "all"
-      ).map((deck) => ({
+      );
+
+      // If no language-specific starter decks exist for this track yet, provide universal starter kits
+      if (matchingTemplates.length === 0) {
+        matchingTemplates = STARTER_DECKS.slice(0, 2).map((d) => ({
+          ...d,
+          targetLanguage: lang,
+        }));
+      }
+
+      const availableTemplates = matchingTemplates.map((deck) => ({
         ...deck,
         isImported: userDeckNames.has(deck.name.toLowerCase().trim()),
         matchingUserDeckId: userDecks.find(

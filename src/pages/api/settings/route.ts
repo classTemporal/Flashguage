@@ -37,6 +37,8 @@ export const settingsSchema = z.object({
   weeklyEmail: z.boolean().optional(),
   soundEffects: z.boolean().optional(),
   plugins: z.array(z.string()).optional(),
+  onboarded: z.boolean().optional(),
+  initialLanguage: z.string().optional(),
   // Speech & Pronunciation settings
   speechProvider: z.enum(["browser", "openai", "gemini", "groq", "elevenlabs", "custom"]).optional(),
   speechApiKey: z.string().optional(),
@@ -122,6 +124,8 @@ export const pickSettings = (
     weeklyEmail: (data.weeklyEmail as boolean) ?? (data.emailNotifications as boolean) ?? false,
     soundEffects: (data.soundEffects as boolean) ?? true,
     plugins: (data.plugins as string[]) ?? [],
+    onboarded: typeof data.onboarded === "boolean" ? data.onboarded : false,
+    initialLanguage: ((data.initialLanguage as string) || "en").trim(),
     // Speech & Pronunciation Settings
     speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "openai" | "gemini" | "groq" | "elevenlabs" | "custom",
     speechApiKey: ((data.speechApiKey as string) ?? "").trim(),

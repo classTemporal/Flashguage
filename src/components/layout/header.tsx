@@ -343,13 +343,13 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                 <button
                   type="button"
                   onClick={() => setLangDropdownOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
                   aria-expanded={langDropdownOpen}
                   aria-label={`Active track: ${currentLang.name} (${activeCount} active)`}
                 >
                   <span className="text-sm">{currentLang.flag}</span>
                   <span className="hidden sm:inline">{currentLang.name}</span>
-                  <span className="hidden xl:inline text-[10px] font-bold text-muted-foreground bg-muted/80 px-1.5 py-0.5 rounded-full border border-border/60">
+                  <span className="hidden xl:inline text-[10px] font-bold text-muted-foreground bg-muted/80 px-1.5 py-0.5 rounded-lg border border-border/60">
                     {activeCount || 1} {activeCount === 1 ? "track" : "tracks"}
                   </span>
                   <svg
@@ -454,12 +454,12 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-border bg-background p-1 pr-1.5 xl:pr-2.5 text-sm font-medium text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all"
+                  className="flex items-center gap-1.5 sm:gap-2 rounded-xl border border-border bg-card/80 p-1 pr-1.5 xl:pr-2.5 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all shadow-xs"
                   aria-expanded={userDropdownOpen}
                   aria-haspopup="true"
                   aria-label="Open user menu"
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-indigo-600 text-white font-bold text-xs uppercase shadow-xs">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-primary to-indigo-600 text-white font-bold text-xs uppercase shadow-xs">
                     {session?.user?.name ? session.user.name.charAt(0) : session?.user?.email?.charAt(0) || "U"}
                   </div>
                   <span className="text-xs font-semibold text-foreground hidden xl:inline max-w-[130px] truncate">

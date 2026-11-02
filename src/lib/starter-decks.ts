@@ -1154,5 +1154,184 @@ export const STARTER_DECKS: StarterDeckTemplate[] = [
         ]
       }
     ]
+  },
+  {
+    "id": "es-everyday-essentials",
+    "name": "Spanish Everyday Essentials",
+    "description": "Essential high-frequency expressions and idioms to start speaking natural conversational Spanish.",
+    "targetLanguage": "es",
+    "category": "Conversational",
+    "icon": "🇪🇸",
+    "level": "Beginner",
+    "cards": [
+      {
+        "front": "Estar en las nubes",
+        "back": "To be daydreaming, distracted, or lost in thought.",
+        "phonetic": "/esˈtaɾ en las ˈnubes/",
+        "partOfSpeech": "idiom",
+        "example": "Hoy Juan está en las nubes y no presta atención a la clase.",
+        "imageUrl": "https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=600&q=80",
+        "tags": ["es", "idiom", "daily"]
+      },
+      {
+        "front": "Tomar el pelo",
+        "back": "To tease, joke with, or pull someone's leg.",
+        "phonetic": "/toˈmaɾ el ˈpelo/",
+        "partOfSpeech": "idiom",
+        "example": "No te enfades, solo te estaba tomando el pelo.",
+        "imageUrl": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80",
+        "tags": ["es", "humor", "slang"]
+      },
+      {
+        "front": "Dar en el clavo",
+        "back": "To hit the nail on the head; to get something exactly right.",
+        "phonetic": "/daɾ en el ˈklaβo/",
+        "partOfSpeech": "idiom",
+        "example": "Tu respuesta dio justo en el clavo.",
+        "imageUrl": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=600&q=80",
+        "tags": ["es", "idiom", "success"]
+      },
+      {
+        "front": "Cuesta un ojo de la cara",
+        "back": "To be extremely expensive (costs an arm and a leg).",
+        "phonetic": "/ˈkwesta un ˈoxo ðe la ˈkaɾa/",
+        "partOfSpeech": "idiom",
+        "example": "Ese coche nuevo cuesta un ojo de la cara.",
+        "imageUrl": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&q=80",
+        "tags": ["es", "daily", "money"]
+      },
+      {
+        "front": "Poco a poco",
+        "back": "Little by little; step by step; gradually.",
+        "phonetic": "/ˈpoko a ˈpoko/",
+        "partOfSpeech": "adverb phrase",
+        "example": "Poco a poco iremos mejorando la pronunciación.",
+        "imageUrl": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=600&q=80",
+        "tags": ["es", "progress", "mindset"]
+      }
+    ]
+  },
+  {
+    "id": "fr-foundations",
+    "name": "French Foundations & Daily Life",
+    "description": "Essential French conversational vocabulary and idioms to communicate with confidence.",
+    "targetLanguage": "fr",
+    "category": "Conversational",
+    "icon": "🇫🇷",
+    "level": "Beginner",
+    "cards": [
+      {
+        "front": "Poser un lapin",
+        "back": "To stand someone up; to fail to show up for a scheduled meeting.",
+        "phonetic": "/po.ze œ̃ la.pɛ̃/",
+        "partOfSpeech": "idiom",
+        "example": "J'ai attendu une heure au café, mais il m'a posé un lapin.",
+        "imageUrl": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80",
+        "tags": ["fr", "idiom", "relationships"]
+      },
+      {
+        "front": "Coup de foudre",
+        "back": "Love at first sight; sudden overwhelming infatuation or excitement.",
+        "phonetic": "/ku də fudʁ/",
+        "partOfSpeech": "idiom",
+        "example": "Quand ils se sont rencontrés à Paris, ce fut le coup de foudre.",
+        "imageUrl": "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&q=80",
+        "tags": ["fr", "romance", "daily"]
+      },
+      {
+        "front": "Avoir le cafard",
+        "back": "To feel down, melancholic, or blue.",
+        "phonetic": "/a.vwaʁ lə ka.faʁ/",
+        "partOfSpeech": "idiom",
+        "example": "Avec cette pluie continue, tout le monde a un peu le cafard.",
+        "imageUrl": "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=600&q=80",
+        "tags": ["fr", "emotions", "idiom"]
+      },
+      {
+        "front": "Ça marche",
+        "back": "That works; alright; sounds good (very common confirmation).",
+        "phonetic": "/sa maʁʃ/",
+        "partOfSpeech": "expression",
+        "example": "On se retrouve à huit heures ? - Oui, ça marche !",
+        "imageUrl": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=80",
+        "tags": ["fr", "slang", "daily"]
+      }
+    ]
+  },
+  {
+    "id": "de-core-expressions",
+    "name": "German Core Expressions",
+    "description": "High-yield German conversational phrases and idioms for everyday fluency.",
+    "targetLanguage": "de",
+    "category": "Conversational",
+    "icon": "🇩🇪",
+    "level": "Beginner",
+    "cards": [
+      {
+        "front": "Daumen drücken",
+        "back": "To cross one's fingers for good luck.",
+        "phonetic": "/ˈdaʊ̯mən ˈdʁʏkn̩/",
+        "partOfSpeech": "idiom",
+        "example": "Ich habe morgen eine Prüfung. Drück mir die Daumen!",
+        "imageUrl": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80",
+        "tags": ["de", "luck", "idiom"]
+      },
+      {
+        "front": "Schwein haben",
+        "back": "To have stroke of good fortune or pure luck.",
+        "phonetic": "/ʃvaɪ̯n ˈhaːbn̩/",
+        "partOfSpeech": "idiom",
+        "example": "Der Zug hatte Verspätung, da haben wir echt Schwein gehabt.",
+        "imageUrl": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=600&q=80",
+        "tags": ["de", "luck", "daily"]
+      },
+      {
+        "front": "Alles in Butter",
+        "back": "Everything is in order; everything is fine and under control.",
+        "phonetic": "/ˈaləs ɪn ˈbʊtɐ/",
+        "partOfSpeech": "idiom",
+        "example": "Keine Sorge, bei unserem Projekt ist alles in Butter.",
+        "imageUrl": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=80",
+        "tags": ["de", "daily", "workplace"]
+      }
+    ]
+  },
+  {
+    "id": "ja-essential-phrases",
+    "name": "Japanese Essential Expressions",
+    "description": "Fundamental conversational phrases and nuances for beginning Japanese learners.",
+    "targetLanguage": "ja",
+    "category": "Conversational",
+    "icon": "🇯🇵",
+    "level": "Beginner",
+    "cards": [
+      {
+        "front": "お疲れ様 (Otsukaresama)",
+        "back": "Thank you for your hard work; great job today (used when finishing work or greeting colleagues).",
+        "phonetic": "/o.tsɯ.ka.ɾe.sa.ma/",
+        "partOfSpeech": "expression",
+        "example": "今日も一日、お疲れ様でした！",
+        "imageUrl": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&q=80",
+        "tags": ["ja", "courtesy", "daily"]
+      },
+      {
+        "front": "いただきます (Itadakimasu)",
+        "back": "Humble gratitude spoken before eating a meal ('I gratefully receive').",
+        "phonetic": "/i.ta.da.ki.ma.sɯ/",
+        "partOfSpeech": "expression",
+        "example": "料理が美味しそうですね。いただきます！",
+        "imageUrl": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&q=80",
+        "tags": ["ja", "culture", "food"]
+      },
+      {
+        "front": "一期一会 (Ichigo Ichie)",
+        "back": "Once-in-a-lifetime encounter; treasuring the unrepeatable nature of a moment.",
+        "phonetic": "/i.tɕi.ɡo i.tɕi.e/",
+        "partOfSpeech": "idiom",
+        "example": "旅先での出会いは一期一会だから大切にしたい。",
+        "imageUrl": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80",
+        "tags": ["ja", "philosophy", "culture"]
+      }
+    ]
   }
 ];

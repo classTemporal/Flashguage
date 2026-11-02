@@ -66,7 +66,7 @@ export function DailyGoalDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             aria-label="Close dialog"
           >
             ✕

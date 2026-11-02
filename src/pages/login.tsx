@@ -50,7 +50,11 @@ export default function Login() {
         setError("Invalid email or password");
         setLoading(false);
       } else if (res?.ok) {
-        window.location.href = "/dashboard";
+        if (router.query.onboarding === "true") {
+          window.location.href = "/onboarding";
+        } else {
+          window.location.href = "/dashboard";
+        }
       }
     } catch {
       setError("Something went wrong. Please try again.");

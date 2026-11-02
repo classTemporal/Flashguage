@@ -263,7 +263,7 @@ export default function DecksPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BackButton href={activeLanguage ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : "/dashboard"} label="Back to Dashboard" />
-            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-full border border-border flex items-center gap-1.5">
+            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1 rounded-xl border border-border flex items-center gap-1.5 shadow-xs">
               <span>{currentLang.flag}</span>
               <span>{currentLang.name}</span>
             </span>
