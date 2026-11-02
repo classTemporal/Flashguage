@@ -59,13 +59,15 @@ export function EditCardModal({
       try {
         if (card.media) {
           const media = JSON.parse(card.media);
-          setImageUrl(media.imageUrl || "");
+          setImageUrl(media.imageUrl || media.image || "");
           setPhonetic(media.phonetic || "");
           setPartOfSpeech(media.partOfSpeech || "");
           if (Array.isArray(media.examples)) {
             setExamples(media.examples.join("\n"));
           } else if (typeof media.examples === "string") {
             setExamples(media.examples);
+          } else if (typeof media.example === "string") {
+            setExamples(media.example);
           }
         } else {
           setImageUrl("");

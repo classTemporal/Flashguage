@@ -83,8 +83,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           cards: {
             create: template.cards.map((card) => {
               const mediaObj = {
+                imageUrl: card.imageUrl || null,
                 image: card.imageUrl || null,
-                example: card.example,
+                phonetic: card.phonetic || null,
+                partOfSpeech: card.partOfSpeech || null,
+                examples: card.example ? [card.example] : [],
+                example: card.example || null,
                 source: "starter-pack",
               };
 
@@ -103,6 +107,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           _count: { select: { cards: true } },
         },
       });
+
+      // Create initial reviews for each card so they are ready for immediate study
+      if (newDeck.cards.length > 0) {
+        await prisma.review.createMany({
+          data: newDeck.cards.map((c) => ({
+            cardId: c.id,
+            userId,
+            easeFactor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            dueDate: new Date(),
+            lastReview: null,
+          })),
+        });
+      }
 
       return res.status(201).json({
         message: `Successfully imported "${template.name}" with ${newDeck.cards.length} cards!`,

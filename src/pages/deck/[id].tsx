@@ -704,9 +704,9 @@ export default function DeckDetail() {
                       >
                         <div className="flex flex-col sm:flex-row gap-4 items-start flex-1 w-full">
                           {/* Thumbnail image if available */}
-                          {mediaObj.imageUrl && (
+                          {(mediaObj.imageUrl || mediaObj.image) && (
                             <img
-                              src={mediaObj.imageUrl}
+                              src={mediaObj.imageUrl || mediaObj.image}
                               alt={card.front}
                               referrerPolicy="no-referrer"
                               className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0 border border-border"

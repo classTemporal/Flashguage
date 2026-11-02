@@ -57,7 +57,13 @@ type StudyPhase = "question" | "answer";
 function parseMedia(mediaStr?: string | null): CardMedia {
   if (!mediaStr) return {};
   try {
-    return JSON.parse(mediaStr);
+    const raw = JSON.parse(mediaStr);
+    return {
+      imageUrl: raw.imageUrl || raw.image,
+      examples: Array.isArray(raw.examples) ? raw.examples : (typeof raw.example === "string" ? [raw.example] : []),
+      phonetic: raw.phonetic,
+      partOfSpeech: raw.partOfSpeech,
+    };
   } catch {
     return {};
   }
