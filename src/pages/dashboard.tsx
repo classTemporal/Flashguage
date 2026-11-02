@@ -1083,40 +1083,41 @@ export default function Dashboard() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Top Navigation: Switch Language & Active Indicator */}
-        <div className="flex items-center justify-between -mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 -mb-2">
           <BackButton href="/tracks" label="Switch Language Track" />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={() => setIsCustomizeOpen(true)}
-              className="text-xs h-7 px-2.5 font-semibold gap-1.5 shadow-xs"
+              className="font-semibold gap-1.5 shadow-xs"
               aria-label="Customize dashboard sections"
             >
               <span>⚙️</span>
               <span className="hidden sm:inline">Customize Layout</span>
               <span className="sm:hidden">Customize</span>
             </Button>
-            <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-xl border border-border flex items-center gap-1.5 shadow-xs">
-              <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
-              <span>{currentLang.name} Track</span>
+            <div className="h-8 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-3 rounded-xl border border-border shadow-xs">
+              <span role="img" aria-label={currentLang.name} className="text-sm shrink-0">{currentLang.flag}</span>
+              <span className="font-bold text-foreground">{currentLang.name} Track</span>
+              <span className="text-muted-foreground/40">•</span>
               {(decks?.length || 0) === 0 ? (
-                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 shrink-0">
                   Inactive • 0 Decks
                 </span>
               ) : (
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
                   Active Track
                 </span>
               )}
-            </span>
+            </div>
             <Button
               href="/tracks"
               as="link"
               variant="ghost"
               size="sm"
-              className="hidden sm:inline-flex text-xs h-7 px-2.5 font-semibold text-primary"
+              className="font-semibold text-primary"
             >
               All Tracks →
             </Button>
