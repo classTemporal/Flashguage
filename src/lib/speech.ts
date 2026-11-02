@@ -242,7 +242,11 @@ export class UniversalSpeechRecognizer {
               }
               onResult(data.text || "");
             } catch (fetchErr: any) {
-              onError(fetchErr?.message || "Transcription network error.");
+              if (typeof navigator !== "undefined" && !navigator.onLine) {
+                onError("Sin conexión a internet. Conéctate para transcribir voz.");
+              } else {
+                onError(fetchErr?.message || "Transcription network error.");
+              }
             }
           };
           reader.readAsDataURL(blob);

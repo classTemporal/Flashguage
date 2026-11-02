@@ -371,6 +371,17 @@ function getFallbackChain(config?: AIConfig): AIProvider[] {
   return chain;
 }
 
+export function isAIConfigured(config?: AIConfig): boolean {
+  if (!config) return false;
+  const p = config.provider || "gemini";
+  if (p === "openai") return Boolean(config.apiKey || config.openaiKey);
+  if (p === "gemini") return Boolean(config.apiKey || config.geminiKey);
+  if (p === "anthropic") return Boolean(config.apiKey || config.anthropicKey);
+  if (p === "ollama") return true; // ollama runs locally
+  if (p === "custom") return Boolean(config.customBaseUrl || config.baseUrl);
+  return Boolean(config.apiKey || config.geminiKey || config.openaiKey);
+}
+
 export async function callAI(
   prompt: string,
   config?: AIConfig,

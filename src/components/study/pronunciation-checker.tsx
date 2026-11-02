@@ -246,15 +246,31 @@ export function PronunciationChecker({
 
       {/* Error state */}
       {!isListening && errorMsg && (
-        <div className="text-center py-2 space-y-2">
-          <p className="text-xs text-rose-500 font-medium">{errorMsg}</p>
-          <button
-            onClick={startListening}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3 py-1 rounded-full hover:opacity-90 transition-all"
-          >
-            <span>🔄</span>
-            <span>Retry Microphone</span>
-          </button>
+        <div className="text-center py-2 space-y-2.5">
+          <p className="text-xs text-rose-500 font-medium px-2">{errorMsg}</p>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <button
+              onClick={startListening}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-full hover:opacity-90 active:scale-95 transition-all"
+            >
+              <span>🔄</span>
+              <span>Reintentar</span>
+            </button>
+            {(errorMsg.includes("Ajustes") ||
+              errorMsg.includes("Settings") ||
+              errorMsg.includes("API Key") ||
+              errorMsg.includes("Speech")) && (
+              <a
+                href="/settings"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border px-3.5 py-1.5 rounded-full transition-all"
+              >
+                <span>⚙️</span>
+                <span>Configurar en Ajustes</span>
+              </a>
+            )}
+          </div>
         </div>
       )}
 

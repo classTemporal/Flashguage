@@ -14,6 +14,11 @@ interface ScenarioData {
   scenario: string;
   question: string;
   tip: string;
+  isAIPowered?: boolean;
+  hasConfiguredAI?: boolean;
+  provider?: string;
+  sourceNotice?: string;
+  isOffline?: boolean;
 }
 
 interface EvaluationResult {
@@ -22,6 +27,9 @@ interface EvaluationResult {
   feedback: string;
   correctedSentence: string;
   aiReply: string;
+  isAIPowered?: boolean;
+  hasConfiguredAI?: boolean;
+  sourceNotice?: string;
 }
 
 export function ContextChatModal({
@@ -38,12 +46,42 @@ export function ContextChatModal({
   const [isDictating, setIsDictating] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+
+  // Track browser online/offline status
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Fetch or generate scenario when modal opens with a new word
   const loadScenario = async () => {
     setLoadingScenario(true);
     setEvaluation(null);
     setUserMessage("");
+
+    // If offline, provide instant fallback scenario without waiting for network failure
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setScenarioData({
+        scenario: `A friend asks you about a situation involving "${word}".`,
+        question: `Could you tell me how you would use "${word}" in a sentence?`,
+        tip: `Try answering in a complete sentence using "${word}".`,
+        isAIPowered: false,
+        hasConfiguredAI: false,
+        isOffline: true,
+      });
+      setLoadingScenario(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/ai/context-chat", {
         method: "POST",
@@ -61,6 +99,15 @@ export function ContextChatModal({
       }
     } catch (err) {
       console.error("Failed to load scenario:", err);
+      // Fallback on network error
+      setScenarioData({
+        scenario: `A friend asks you about a situation involving "${word}".`,
+        question: `Could you tell me about a time you experienced or used "${word}"?`,
+        tip: `Answer in a complete sentence incorporating "${word}".`,
+        isAIPowered: false,
+        hasConfiguredAI: false,
+        isOffline: true,
+      });
     } finally {
       setLoadingScenario(false);
     }
@@ -75,6 +122,26 @@ export function ContextChatModal({
   const handleSendReply = async () => {
     if (!userMessage.trim() || isSubmitting || !scenarioData) return;
     setIsSubmitting(true);
+
+    // If offline, evaluate locally
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const containsWord = userMessage.toLowerCase().includes(word.toLowerCase());
+      setEvaluation({
+        rating: containsWord ? "great" : "good",
+        usedTargetWord: containsWord,
+        feedback: containsWord
+          ? `Great job incorporating "${word}" into your answer while offline!`
+          : `Good sentence! Remember to explicitly include the word "${word}".`,
+        correctedSentence: "",
+        aiReply: "Thanks for sharing! Keep practicing everyday expressions.",
+        isAIPowered: false,
+        hasConfiguredAI: false,
+        sourceNotice: "Evaluación local sin conexión. Conéctate para feedback con IA.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/ai/context-chat", {
         method: "POST",
@@ -95,6 +162,19 @@ export function ContextChatModal({
       }
     } catch (err) {
       console.error("Failed to evaluate reply:", err);
+      const containsWord = userMessage.toLowerCase().includes(word.toLowerCase());
+      setEvaluation({
+        rating: containsWord ? "great" : "good",
+        usedTargetWord: containsWord,
+        feedback: containsWord
+          ? `Great job using "${word}" in your response!`
+          : `Good sentence! Next time try to explicitly include "${word}".`,
+        correctedSentence: "",
+        aiReply: "That's a very natural response! Keep practicing everyday expressions.",
+        isAIPowered: false,
+        hasConfiguredAI: false,
+        sourceNotice: "Verificación de respaldo por error de red.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -178,12 +258,62 @@ export function ContextChatModal({
         {/* Loaded Scenario */}
         {!loadingScenario && scenarioData && (
           <div className="space-y-4">
+            {/* Status Feedback Banners */}
+            {(!isOnline || scenarioData.isOffline) && (
+              <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-500">
+                <span className="text-base leading-none">📶</span>
+                <div className="space-y-0.5">
+                  <p className="font-bold">Modo sin conexión a internet</p>
+                  <p className="text-[11px] text-amber-500/90 leading-relaxed">
+                    Estás practicando con un escenario estándar de respaldo. Conéctate a internet para desbloquear escenarios dinámicos y evaluación por IA.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isOnline && !scenarioData.isOffline && !scenarioData.hasConfiguredAI && (
+              <div className="flex items-start gap-2.5 rounded-2xl bg-sky-500/10 border border-sky-500/30 p-3 text-xs text-sky-400">
+                <span className="text-base leading-none">💡</span>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sky-300">Modo de práctica estándar (Sin API Key)</span>
+                    <span className="rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300">
+                      Plantilla
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sky-200/80 leading-relaxed">
+                    Para desbloquear escenarios conversacionales únicos y correcciones inteligentes de gramática y fluidez, configura una clave gratuita (Gemini, Groq u OpenAI) en Ajustes.
+                  </p>
+                  <a
+                    href="/settings"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-xs text-sky-300 hover:text-white underline pt-0.5"
+                  >
+                    ⚙️ Configurar API Key en Ajustes &rarr;
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Scenario Box */}
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
-                  Real Scenario
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                    Real Scenario
+                  </span>
+                  {scenarioData.isAIPowered ? (
+                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>✨ IA ({scenarioData.provider?.toUpperCase() || "GEMINI"})</span>
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      Básico
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handlePlayQuestionAudio}
@@ -312,6 +442,21 @@ export function ContextChatModal({
                     <p className="text-sm font-medium text-foreground leading-relaxed">
                       &ldquo;{evaluation.aiReply}&rdquo;
                     </p>
+                  </div>
+                )}
+
+                {/* Evaluation Source / Fallback Notice */}
+                {!evaluation.isAIPowered && (
+                  <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+                    <span>💡 Evaluación básica. Configura tu API key para análisis de tono, fluidez y corrección.</span>
+                    <a
+                      href="/settings"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary hover:underline font-semibold whitespace-nowrap"
+                    >
+                      Ajustes &rarr;
+                    </a>
                   </div>
                 )}
 

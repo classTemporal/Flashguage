@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { prisma } from "@/lib/prisma";
-import { callAI, AIConfig } from "@/lib/ai";
+import { callAI, isAIConfigured, AIConfig } from "@/lib/ai";
 
 function cleanJsonString(str: string): string {
   return str
@@ -44,8 +44,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const userSettings: AIConfig = user?.settings ? JSON.parse(user.settings as string) : {};
+    const hasAI = isAIConfigured(userSettings);
+    const providerName = userSettings.provider || "gemini";
 
     if (action === "scenario") {
+      if (!hasAI) {
+        // Return standard template scenario with clear indication that AI key is missing
+        return res.status(200).json({
+          scenario: `A friend asks you about a situation involving "${word}".`,
+          question: `Could you tell me about a time you experienced or used "${word}"?`,
+          tip: `Answer in a complete sentence incorporating "${word}".`,
+          isAIPowered: false,
+          hasConfiguredAI: false,
+          provider: providerName,
+          sourceNotice:
+            "Estás en modo básico sin IA. Configura tu API Key en Ajustes para generar escenarios personalizados y correcciones inteligentes.",
+        });
+      }
+
       const prompt = `You are an expert language teacher helping a student practice using the vocabulary word or idiom "${word}" (meaning: "${definition}") in active conversation (Target Language: ${language}).
 Generate a realistic, relatable micro-scenario and an opening conversational question that naturally invites the student to use "${word}" in their response.
 
@@ -63,14 +79,21 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
           scenario: parsed.scenario || `Practicing conversation with "${word}"`,
           question: parsed.question || `How would you use "${word}" in a sentence today?`,
           tip: parsed.tip || `Try using "${word}" in your response.`,
+          isAIPowered: true,
+          hasConfiguredAI: true,
+          provider: providerName,
         });
       } catch (err: any) {
         console.warn("[Context-Chat Scenario Fallback]:", err?.message);
-        // Fallback default scenario if AI is offline or busy
+        // Fallback default scenario if AI is busy or rate limited
         return res.status(200).json({
           scenario: `A friend asks you about a situation involving "${word}".`,
           question: `Could you tell me about a time you experienced or used "${word}"?`,
           tip: `Answer in a complete sentence incorporating "${word}".`,
+          isAIPowered: false,
+          hasConfiguredAI: true,
+          provider: providerName,
+          sourceNotice: "La IA tardó en responder. Mostrando escenario estándar de respaldo.",
         });
       }
     }
@@ -78,6 +101,24 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
     if (action === "evaluate") {
       if (!userMessage || typeof userMessage !== "string" || !userMessage.trim()) {
         return res.status(400).json({ message: "User message is required for evaluation" });
+      }
+
+      if (!hasAI) {
+        const containsWord = userMessage.toLowerCase().includes(word.toLowerCase());
+        return res.status(200).json({
+          rating: containsWord ? "great" : "good",
+          usedTargetWord: containsWord,
+          feedback: containsWord
+            ? `Great job incorporating "${word}" into your answer!`
+            : `Good response! Remember to explicitly include the target word "${word}".`,
+          correctedSentence: "",
+          aiReply: "Thanks for sharing! Keep practicing everyday expressions.",
+          isAIPowered: false,
+          hasConfiguredAI: false,
+          provider: providerName,
+          sourceNotice:
+            "Evaluación básica por concordancia de texto. Configura tu API Key en Ajustes para corrección gramatical y réplica completa con IA.",
+        });
       }
 
       const prompt = `You are a supportive native language coach evaluating a student's conversational response.
@@ -110,6 +151,9 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
           feedback: parsed.feedback || "Good effort using the vocabulary word in context!",
           correctedSentence: parsed.correctedSentence || "",
           aiReply: parsed.aiReply || "Thanks for sharing! That makes complete sense.",
+          isAIPowered: true,
+          hasConfiguredAI: true,
+          provider: providerName,
         });
       } catch (err: any) {
         console.warn("[Context-Chat Evaluate Fallback]:", err?.message);
@@ -122,6 +166,10 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
             : `Good sentence! Next time try to explicitly include "${word}".`,
           correctedSentence: "",
           aiReply: "That's a very natural response! Keep practicing everyday expressions.",
+          isAIPowered: false,
+          hasConfiguredAI: true,
+          provider: providerName,
+          sourceNotice: "Verificación básica de respaldo. La IA no pudo devolver el análisis detallado.",
         });
       }
     }
