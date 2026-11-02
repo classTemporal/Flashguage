@@ -158,7 +158,7 @@ export default function SettingsPage() {
   const [showSpeechApiKey, setShowSpeechApiKey] = useState(false);
   const [speechVoice, setSpeechVoice] = useState("nova");
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
-  const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(false);
+  const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(true);
   const [speechModel, setSpeechModel] = useState("tts-1");
   const [detectedSpeechModels, setDetectedSpeechModels] = useState<string[]>([]);
   const [detectingSpeechModels, setDetectingSpeechModels] = useState(false);

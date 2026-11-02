@@ -128,7 +128,7 @@ export const pickSettings = (
     speechBaseUrl: ((data.speechBaseUrl as string) ?? "").trim(),
     speechVoice: ((data.speechVoice as string) ?? "nova").trim(),
     speechSpeed: typeof data.speechSpeed === "number" ? data.speechSpeed : 1.0,
-    speechAutoPlay: (data.speechAutoPlay as boolean) ?? false,
+    speechAutoPlay: typeof data.speechAutoPlay === "boolean" ? data.speechAutoPlay : true,
     speechModel: ((data.speechModel as string) ?? "").trim(),
   };
 };
