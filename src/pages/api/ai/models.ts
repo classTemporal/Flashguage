@@ -58,9 +58,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (!r.ok) throw new Error(`Gemini error ${r.status}`);
         const data = await r.json();
         models = (data.models || [])
-          .filter((m: any) => m.name && m.name.includes("gemini"))
+          .filter((m: any) => {
+            const name = (m.name || "").toLowerCase();
+            return (
+              m.supportedGenerationMethods?.includes("generateContent") &&
+              name.includes("gemini") &&
+              !name.includes("tts") &&
+              !name.includes("image") &&
+              !name.includes("robotics") &&
+              !name.includes("computer-use") &&
+              !name.includes("preview-10")
+            );
+          })
           .map((m: any) => m.name.replace("models/", ""))
           .sort();
+        break;
+      }
+      case "groq": {
+        if (!apiKey || typeof apiKey !== "string") {
+          return res.status(400).json({ message: "API key required" });
+        }
+        const r = await fetch("https://api.groq.com/openai/v1/models", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!r.ok) throw new Error(`Groq error ${r.status}`);
+        const data = await r.json();
+        models = (data.data || [])
+          .filter((m: any) => m.id && (m.id.includes("llama") || m.id.includes("mixtral") || m.id.includes("gemma")))
+          .map((m: any) => m.id)
+          .sort();
+        if (models.length === 0) {
+          models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+        }
         break;
       }
       case "ollama": {

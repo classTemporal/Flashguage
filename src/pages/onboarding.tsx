@@ -82,6 +82,9 @@ export default function OnboardingPage() {
   const [aiModel, setAiModel] = useState<string>("gemini-1.5-flash");
   const [aiBaseUrl, setAiBaseUrl] = useState<string>("");
   const [showAiKey, setShowAiKey] = useState<boolean>(false);
+  const [detectedAiModels, setDetectedAiModels] = useState<string[]>([]);
+  const [detectingAiModels, setDetectingAiModels] = useState<boolean>(false);
+  const [testingAi, setTestingAi] = useState<boolean>(false);
 
   // Step 3: Text-to-Speech (TTS) Key (OPTIONAL)
   const [speechProvider, setSpeechProvider] = useState<string>("browser");
@@ -153,6 +156,77 @@ export default function OnboardingPage() {
     const langInfo = getLanguage(selectedLanguage);
     setCustomDeckName(`${langInfo.name} Core Vocabulary`);
   }, [selectedLanguage]);
+
+  // Handler: Test AI Connection in Step 2
+  const handleTestAiConnection = async () => {
+    if (aiProvider === "custom" && !aiBaseUrl.trim()) {
+      showToast("Please enter a Base URL first", "error");
+      return;
+    }
+    if (aiProvider !== "custom" && !aiApiKey.trim()) {
+      showToast(`Please enter an API key for ${aiProvider.toUpperCase()} first`, "error");
+      return;
+    }
+
+    setTestingAi(true);
+    try {
+      const params = new URLSearchParams({ provider: aiProvider });
+      if (aiApiKey.trim()) params.set("apiKey", aiApiKey.trim());
+      if (aiBaseUrl.trim()) params.set("baseUrl", aiBaseUrl.trim());
+
+      const res = await fetch(`/api/ai/models?${params.toString()}`);
+      if (res.ok) {
+        showToast(`${aiProvider.toUpperCase()} connection successful!`, "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(`Connection failed: ${data.message || res.statusText}`, "error");
+      }
+    } catch (err: any) {
+      showToast(`Connection error: ${err.message || "Network error"}`, "error");
+    } finally {
+      setTestingAi(false);
+    }
+  };
+
+  // Handler: Detect AI Models in Step 2
+  const detectAiModels = async () => {
+    if (aiProvider === "custom" && !aiBaseUrl.trim()) {
+      showToast("Please enter a Base URL for your custom AI server first", "error");
+      return;
+    }
+    if (aiProvider !== "custom" && !aiApiKey.trim()) {
+      showToast(`Please enter an API key for ${aiProvider.toUpperCase()} first`, "error");
+      return;
+    }
+
+    setDetectingAiModels(true);
+    try {
+      const params = new URLSearchParams({ provider: aiProvider });
+      if (aiApiKey.trim()) params.set("apiKey", aiApiKey.trim());
+      if (aiBaseUrl.trim()) params.set("baseUrl", aiBaseUrl.trim());
+
+      const res = await fetch(`/api/ai/models?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Failed to detect AI models (${res.status})`);
+      }
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        setDetectedAiModels(data.models);
+        if (!aiModel || !data.models.includes(aiModel)) {
+          setAiModel(data.models[0]);
+        }
+        showToast(`Found ${data.models.length} AI models`, "success");
+      } else {
+        setDetectedAiModels([]);
+        showToast("No models found for this provider", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to detect AI models", "error");
+    } finally {
+      setDetectingAiModels(false);
+    }
+  };
 
   // Handler: Test Speech Output in Wizard
   const handleTestSpeech = async () => {
@@ -313,6 +387,8 @@ export default function OnboardingPage() {
         if (aiBaseUrl.trim()) settingsPayload.customBaseUrl = aiBaseUrl.trim();
         if (aiProvider === "gemini" && aiApiKey.trim()) settingsPayload.geminiKey = aiApiKey.trim();
         if (aiProvider === "openai" && aiApiKey.trim()) settingsPayload.openaiKey = aiApiKey.trim();
+        if (aiProvider === "anthropic" && aiApiKey.trim()) settingsPayload.anthropicKey = aiApiKey.trim();
+        if (aiProvider === "groq" && aiApiKey.trim()) settingsPayload.groqKey = aiApiKey.trim();
       }
 
       if (speechApiKey.trim()) {
@@ -491,28 +567,42 @@ export default function OnboardingPage() {
           {/* ──────────────── STEP 2: AI Card Generation Key (OPTIONAL) ──────────────── */}
           {step === 2 && (
             <div className="space-y-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs">
-                  <span>✨ Step 2 of 5 (Optional)</span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                    <span>✨ Step 2 of 5 (Optional)</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                    Connect AI for Smart Generation
+                  </h1>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                  Connect AI for Smart Generation
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Add an AI API key to generate flashcards from text, get context scenarios, and smart definitions. You can skip this and configure it anytime in Settings.
-                </p>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleTestAiConnection}
+                  disabled={testingAi || (aiProvider === "custom" ? !aiBaseUrl.trim() : !aiApiKey.trim())}
+                  className="text-xs h-8 px-3 border border-border flex items-center gap-1.5 self-start sm:self-center shadow-xs"
+                >
+                  <span>{testingAi ? "Testing..." : "⚡ Test Connection"}</span>
+                </Button>
               </div>
+
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                Add an AI API key to generate flashcards from text, get context scenarios, and smart definitions. You can skip this and configure it anytime in Settings.
+              </p>
 
               {/* Provider Selection: Clean buttons without subtitles */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
                   Select AI Provider
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {[
                     { id: "gemini", name: "Gemini" },
-                    { id: "groq", name: "Groq" },
                     { id: "openai", name: "OpenAI" },
+                    { id: "groq", name: "Groq" },
+                    { id: "anthropic", name: "Anthropic" },
                     { id: "custom", name: "Custom" },
                   ].map((p) => (
                     <button
@@ -520,11 +610,14 @@ export default function OnboardingPage() {
                       type="button"
                       onClick={() => {
                         setAiProvider(p.id);
+                        setDetectedAiModels([]);
                         if (p.id === "gemini") setAiModel("gemini-1.5-flash");
-                        if (p.id === "groq") setAiModel("llama-3.3-70b-versatile");
-                        if (p.id === "openai") setAiModel("gpt-4o-mini");
+                        else if (p.id === "groq") setAiModel("llama-3.3-70b-versatile");
+                        else if (p.id === "openai") setAiModel("gpt-4o-mini");
+                        else if (p.id === "anthropic") setAiModel("claude-3-5-sonnet-20241022");
+                        else if (p.id === "custom") setAiModel("gpt-4o-mini");
                       }}
-                      className={`h-11 px-4 rounded-xl border text-center font-bold text-sm transition-all flex items-center justify-center ${
+                      className={`h-11 px-3 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all flex items-center justify-center ${
                         aiProvider === p.id
                           ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
                           : "border-border/80 bg-card hover:bg-muted text-foreground"
@@ -596,6 +689,59 @@ export default function OnboardingPage() {
                       {showAiKey ? "Hide" : "Show"}
                     </button>
                   </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={detectAiModels}
+                    disabled={
+                      detectingAiModels ||
+                      (aiProvider === "custom" ? !aiBaseUrl.trim() : !aiApiKey.trim())
+                    }
+                    className="text-xs h-8 px-3 border border-border"
+                  >
+                    {detectingAiModels ? "Detecting AI models..." : "🔍 Detect AI Models"}
+                  </Button>
+                </div>
+
+                {detectedAiModels.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[11px] font-medium text-muted-foreground">Available AI models from your key:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detectedAiModels.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setAiModel(m)}
+                          className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                            aiModel === m
+                              ? "border-primary bg-primary/10 text-primary font-bold"
+                              : "border-border bg-background text-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground">
+                    AI Model
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. gemini-1.5-flash, gpt-4o-mini, llama-3.3-70b-versatile, claude-3-5-sonnet-20241022"
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="text-xs rounded-xl font-mono"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Model used for generating flashcards, example sentences, and explanations.
+                  </p>
                 </div>
               </div>
 
