@@ -11,9 +11,9 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-8.5 px-3 text-xs sm:text-sm rounded-xl",
-  md: "h-10 px-4 py-2 text-sm rounded-xl",
-  lg: "h-11 px-6 text-base rounded-xl",
+  sm: "h-9 px-3.5 py-1.5 text-xs sm:text-sm rounded-xl",
+  md: "h-11 px-5 py-2.5 text-sm rounded-xl",
+  lg: "h-12 px-7 py-3 text-base rounded-xl",
 };
 
 interface ButtonProps {

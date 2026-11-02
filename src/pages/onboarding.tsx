@@ -3,9 +3,8 @@
 import { GetServerSideProps } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,30 +30,40 @@ interface StarterTemplate {
   totalCards: number;
 }
 
-const COMMON_TIMEZONES = [
+// Comprehensive fallback list of global IANA timezones in case Intl is unavailable
+const FALLBACK_TIMEZONES = [
   "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Mexico_City",
-  "America/Bogota",
-  "America/Lima",
-  "America/Santiago",
-  "America/Argentina/Buenos_Aires",
-  "America/Sao_Paulo",
-  "Europe/London",
-  "Europe/Madrid",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Rome",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Seoul",
-  "Asia/Dubai",
-  "Asia/Singapore",
-  "Australia/Sydney",
+  "Africa/Cairo", "Africa/Casablanca", "Africa/Johannesburg", "Africa/Lagos", "Africa/Nairobi",
+  "America/Anchorage", "America/Argentina/Buenos_Aires", "America/Asuncion", "America/Bogota",
+  "America/Caracas", "America/Chicago", "America/Denver", "America/Guatemala", "America/Guayaquil",
+  "America/Halifax", "America/Havana", "America/La_Paz", "America/Lima", "America/Los_Angeles",
+  "America/Manaus", "America/Mexico_City", "America/Montevideo", "America/New_York", "America/Panama",
+  "America/Phoenix", "America/Santiago", "America/Santo_Domingo", "America/Sao_Paulo", "America/Tegucigalpa",
+  "America/Toronto", "America/Vancouver",
+  "Asia/Almaty", "Asia/Amman", "Asia/Baghdad", "Asia/Baku", "Asia/Bangkok", "Asia/Beirut", "Asia/Colombo",
+  "Asia/Dhaka", "Asia/Dubai", "Asia/Hong_Kong", "Asia/Jakarta", "Asia/Jerusalem", "Asia/Karachi",
+  "Asia/Kathmandu", "Asia/Kolkata", "Asia/Kuala_Lumpur", "Asia/Kuwait", "Asia/Manila", "Asia/Muscat",
+  "Asia/Riyadh", "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Asia/Taipei", "Asia/Tashkent",
+  "Asia/Tehran", "Asia/Tokyo",
+  "Atlantic/Bermuda", "Atlantic/Canary", "Atlantic/Reykjavik",
+  "Australia/Adelaide", "Australia/Brisbane", "Australia/Melbourne", "Australia/Perth", "Australia/Sydney",
+  "Europe/Amsterdam", "Europe/Athens", "Europe/Belgrade", "Europe/Berlin", "Europe/Brussels",
+  "Europe/Bucharest", "Europe/Budapest", "Europe/Copenhagen", "Europe/Dublin", "Europe/Helsinki",
+  "Europe/Istanbul", "Europe/Kiev", "Europe/Lisbon", "Europe/London", "Europe/Madrid", "Europe/Moscow",
+  "Europe/Oslo", "Europe/Paris", "Europe/Prague", "Europe/Rome", "Europe/Stockholm", "Europe/Vienna",
+  "Europe/Warsaw", "Europe/Zurich",
+  "Pacific/Auckland", "Pacific/Fiji", "Pacific/Guam", "Pacific/Honolulu"
 ];
+
+function getAllAvailableTimezones(): string[] {
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function") {
+      const zones = Intl.supportedValuesOf("timeZone");
+      if (Array.isArray(zones) && zones.length > 0) return zones;
+    }
+  } catch {}
+  return FALLBACK_TIMEZONES;
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -70,17 +79,22 @@ export default function OnboardingPage() {
   const [aiProvider, setAiProvider] = useState<string>("gemini");
   const [aiApiKey, setAiApiKey] = useState<string>("");
   const [aiModel, setAiModel] = useState<string>("gemini-1.5-flash");
+  const [aiBaseUrl, setAiBaseUrl] = useState<string>("");
   const [showAiKey, setShowAiKey] = useState<boolean>(false);
 
   // Step 3: Speech & Pronunciation Key (OPTIONAL)
   const [speechProvider, setSpeechProvider] = useState<string>("browser");
   const [useSameAiKey, setUseSameAiKey] = useState<boolean>(false);
   const [speechApiKey, setSpeechApiKey] = useState<string>("");
+  const [speechBaseUrl, setSpeechBaseUrl] = useState<string>("");
+  const [speechModel, setSpeechModel] = useState<string>("");
   const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(true);
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [showSpeechKey, setShowSpeechKey] = useState<boolean>(false);
 
   // Step 4: Timezone & Habits (OPTIONAL)
+  const [allTimezones, setAllTimezones] = useState<string[]>([]);
+  const [timezoneSearch, setTimezoneSearch] = useState<string>("");
   const [timezone, setTimezone] = useState<string>("UTC");
   const [dailyGoal, setDailyGoal] = useState<number>(20);
   const [reviewLimit, setReviewLimit] = useState<number>(50);
@@ -91,13 +105,22 @@ export default function OnboardingPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [customDeckName, setCustomDeckName] = useState<string>("");
 
-  // Auto-detect timezone
+  // Load complete global list of timezones and detect device timezone
   useEffect(() => {
+    const list = getAllAvailableTimezones();
+    setAllTimezones(list);
+
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz) setTimezone(tz);
     } catch {}
   }, []);
+
+  const filteredTimezones = useMemo(() => {
+    if (!timezoneSearch.trim()) return allTimezones;
+    const query = timezoneSearch.toLowerCase().trim();
+    return allTimezones.filter((z) => z.toLowerCase().includes(query));
+  }, [allTimezones, timezoneSearch]);
 
   // Fetch starter templates for the chosen language in step 5
   const { data: starterTemplates } = useSWR<StarterTemplate[]>(
@@ -163,17 +186,22 @@ export default function OnboardingPage() {
         speechProvider,
       };
 
-      if (aiApiKey.trim()) {
+      if (aiApiKey.trim() || aiProvider === "custom") {
         settingsPayload.aiProvider = aiProvider;
-        settingsPayload.aiApiKey = aiApiKey.trim();
-        settingsPayload.aiModel = aiModel;
-        if (aiProvider === "gemini") settingsPayload.geminiKey = aiApiKey.trim();
-        if (aiProvider === "openai") settingsPayload.openaiKey = aiApiKey.trim();
+        if (aiApiKey.trim()) settingsPayload.aiApiKey = aiApiKey.trim();
+        if (aiModel.trim()) settingsPayload.aiModel = aiModel.trim();
+        if (aiBaseUrl.trim()) settingsPayload.customBaseUrl = aiBaseUrl.trim();
+        if (aiProvider === "gemini" && aiApiKey.trim()) settingsPayload.geminiKey = aiApiKey.trim();
+        if (aiProvider === "openai" && aiApiKey.trim()) settingsPayload.openaiKey = aiApiKey.trim();
       }
 
       const effectiveSpeechKey = useSameAiKey ? aiApiKey.trim() : speechApiKey.trim();
       if (effectiveSpeechKey) {
         settingsPayload.speechApiKey = effectiveSpeechKey;
+      }
+      if (speechProvider === "custom") {
+        if (speechBaseUrl.trim()) settingsPayload.speechBaseUrl = speechBaseUrl.trim();
+        if (speechModel.trim()) settingsPayload.speechModel = speechModel.trim();
       }
 
       await fetch("/api/settings", {
@@ -234,27 +262,29 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
       {/* Top Brand Bar */}
-      <header className="border-b border-border/80 bg-background/80 backdrop-blur-md px-4 py-4 sm:px-8">
+      <header className="border-b border-border/80 bg-background/80 backdrop-blur-md px-4 py-4 sm:px-8 sticky top-0 z-20">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white font-black shadow-xs">
-              <span className="text-xs">FG</span>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white font-black shadow-sm">
+              <span className="text-sm">FG</span>
             </div>
             <div>
-              <span className="text-sm font-black tracking-tight text-foreground block">
+              <span className="text-base font-black tracking-tight text-foreground block">
                 Flashguage Assistant
               </span>
-              <span className="text-[10px] text-muted-foreground font-medium block -mt-0.5">
+              <span className="text-xs text-muted-foreground font-medium block -mt-0.5">
                 Quick Setup Wizard
               </span>
             </div>
           </div>
 
-          <div className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
-            <span>Step {step} of 5</span>
-            <div className="w-24 sm:w-32 h-2 rounded-full bg-muted overflow-hidden">
+          <div className="flex items-center gap-3">
+            <span className="text-xs sm:text-sm font-bold text-muted-foreground">
+              Step {step} of 5
+            </span>
+            <div className="w-20 sm:w-36 h-2.5 rounded-full bg-muted overflow-hidden border border-border/60">
               <div
-                className="h-full bg-primary transition-all duration-300"
+                className="h-full bg-gradient-to-r from-primary to-indigo-600 transition-all duration-300"
                 style={{ width: `${(step / 5) * 100}%` }}
               />
             </div>
@@ -314,8 +344,9 @@ export default function OnboardingPage() {
                 })}
               </div>
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground font-medium">
+              {/* Wizard Footer for Step 1 */}
+              <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">
                   Selected track: <strong className="text-foreground">{selectedLangInfo.flag} {selectedLangInfo.name}</strong>
                 </span>
 
@@ -323,7 +354,7 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={handleNextStep}
                   size="md"
-                  className="font-bold text-xs gap-1.5 shadow-xs"
+                  className="px-6 py-2.5 text-sm font-bold shadow-sm shadow-primary/25 bg-gradient-to-r from-primary to-indigo-600 hover:opacity-95 text-white gap-2"
                 >
                   <span>Continue to AI Setup</span>
                   <span>→</span>
@@ -347,17 +378,17 @@ export default function OnboardingPage() {
                 </p>
               </div>
 
-              {/* Provider Selection */}
+              {/* Provider Selection: Clean buttons without subtitles */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
                   Select AI Provider
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { id: "gemini", name: "Gemini", badge: "Free Tier", rec: true },
-                    { id: "groq", name: "Groq", badge: "Ultra Fast", rec: false },
-                    { id: "openai", name: "OpenAI", badge: "GPT-4o", rec: false },
-                    { id: "custom", name: "Custom", badge: "Ollama / Self", rec: false },
+                    { id: "gemini", name: "Gemini" },
+                    { id: "groq", name: "Groq" },
+                    { id: "openai", name: "OpenAI" },
+                    { id: "custom", name: "Custom" },
                   ].map((p) => (
                     <button
                       key={p.id}
@@ -368,99 +399,116 @@ export default function OnboardingPage() {
                         if (p.id === "groq") setAiModel("llama-3.3-70b-versatile");
                         if (p.id === "openai") setAiModel("gpt-4o-mini");
                       }}
-                      className={`p-3 rounded-2xl border text-center transition-all ${
+                      className={`h-11 px-4 rounded-xl border text-center font-bold text-sm transition-all flex items-center justify-center ${
                         aiProvider === p.id
-                          ? "border-primary bg-primary/10 shadow-xs ring-2 ring-primary/20 font-bold text-foreground"
-                          : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
+                          : "border-border/80 bg-card hover:bg-muted text-foreground"
                       }`}
                     >
-                      <p className="text-xs sm:text-sm font-bold">{p.name}</p>
-                      <span className="text-[10px] font-semibold opacity-75">{p.badge}</span>
+                      {p.name}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* API Key Input */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-foreground">
-                    {aiProvider.toUpperCase()} API Key
-                  </label>
-                  {aiProvider === "gemini" && (
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-bold text-primary hover:underline"
-                    >
-                      Get free Gemini Key →
-                    </a>
-                  )}
-                  {aiProvider === "groq" && (
-                    <a
-                      href="https://console.groq.com/keys"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-bold text-primary hover:underline"
-                    >
-                      Get free Groq Key →
-                    </a>
-                  )}
-                </div>
+              {/* Inputs based on selected provider */}
+              <div className="space-y-3">
+                {aiProvider === "custom" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Custom AI Base URL
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. http://localhost:11434/v1 or https://api.your-ai.com/v1"
+                      value={aiBaseUrl}
+                      onChange={(e) => setAiBaseUrl(e.target.value)}
+                      className="text-xs sm:text-sm rounded-xl font-mono"
+                    />
+                  </div>
+                )}
 
-                <div className="relative">
-                  <Input
-                    type={showAiKey ? "text" : "password"}
-                    placeholder={`Paste your ${aiProvider} API key... (or leave empty to skip)`}
-                    value={aiApiKey}
-                    onChange={(e) => setAiApiKey(e.target.value)}
-                    className="pr-12 text-xs sm:text-sm rounded-xl font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAiKey(!showAiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-semibold"
-                  >
-                    {showAiKey ? "Hide" : "Show"}
-                  </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-foreground">
+                      {aiProvider.toUpperCase()} API Key
+                    </label>
+                    {aiProvider === "gemini" && (
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-bold text-primary hover:underline"
+                      >
+                        Get free Gemini Key →
+                      </a>
+                    )}
+                    {aiProvider === "groq" && (
+                      <a
+                        href="https://console.groq.com/keys"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-bold text-primary hover:underline"
+                      >
+                        Get free Groq Key →
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <Input
+                      type={showAiKey ? "text" : "password"}
+                      placeholder={`Paste your ${aiProvider} API key... (or leave empty to skip)`}
+                      value={aiApiKey}
+                      onChange={(e) => setAiApiKey(e.target.value)}
+                      className="pr-14 text-xs sm:text-sm rounded-xl font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAiKey(!showAiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-semibold px-1 py-0.5"
+                    >
+                      {showAiKey ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Helpful Tip Box */}
-              <div className="rounded-2xl border border-border/80 bg-muted/40 p-3.5 text-xs text-muted-foreground space-y-1">
+              <div className="rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs text-muted-foreground space-y-1">
                 <p className="font-bold text-foreground">💡 Don&apos;t have an API key right now?</p>
                 <p>
                   No problem! You can skip this step and start practicing immediately. All built-in starter decks work 100% offline without any API key.
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+              {/* Wizard Footer for Step 2 */}
+              <div className="pt-6 border-t border-border/70 flex items-center justify-between gap-3">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={handlePrevStep}
-                  size="sm"
-                  className="font-bold text-xs"
+                  size="md"
+                  className="px-5 text-sm font-bold text-muted-foreground hover:text-foreground"
                 >
                   ← Back
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={handleSkipStep}
-                    size="sm"
-                    className="font-bold text-xs"
+                    size="md"
+                    className="px-5 text-sm font-bold border-border bg-card hover:bg-muted text-foreground shadow-xs"
                   >
                     Skip for Now
                   </Button>
                   <Button
                     type="button"
                     onClick={handleNextStep}
-                    size="sm"
-                    className="font-bold text-xs shadow-xs"
+                    size="md"
+                    className="px-6 text-sm font-bold shadow-sm shadow-primary/25 bg-gradient-to-r from-primary to-indigo-600 hover:opacity-95 text-white"
                   >
                     Continue →
                   </Button>
@@ -484,57 +532,70 @@ export default function OnboardingPage() {
                 </p>
               </div>
 
-              {/* Speech Provider Choice */}
+              {/* Speech Provider Choice: Clean buttons without subtitles */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
                   Audio & TTS Engine
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {[
-                    { id: "browser", name: "Browser Speech", desc: "100% Free & Built-in (No key needed)" },
-                    { id: "openai", name: "OpenAI TTS", desc: "Studio-quality neural voices" },
-                    { id: "groq", name: "Groq Whisper", desc: "Ultra-fast speech recognition" },
+                    { id: "browser", name: "Browser Speech" },
+                    { id: "openai", name: "OpenAI" },
+                    { id: "gemini", name: "Gemini" },
+                    { id: "groq", name: "Groq" },
+                    { id: "elevenlabs", name: "ElevenLabs" },
+                    { id: "custom", name: "Custom" },
                   ].map((p) => (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => setSpeechProvider(p.id)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all ${
+                      className={`h-11 px-3 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all flex items-center justify-center ${
                         speechProvider === p.id
-                          ? "border-primary bg-primary/10 shadow-xs ring-2 ring-primary/20"
-                          : "border-border/70 hover:bg-muted/40"
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
+                          : "border-border/80 bg-card hover:bg-muted text-foreground"
                       }`}
                     >
-                      <p className={`text-xs sm:text-sm font-bold ${speechProvider === p.id ? "text-primary" : "text-foreground"}`}>
-                        {p.name}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                        {p.desc}
-                      </p>
+                      {p.name}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Dedicated Speech API key if not browser */}
+              {/* Inputs based on Speech Provider */}
               {speechProvider !== "browser" && (
                 <div className="space-y-3 pt-2">
-                  {aiApiKey.trim() && (
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground">
+                  {speechProvider === "custom" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-foreground">
+                        Custom Speech Base URL
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. http://localhost:8000/v1 or https://api.your-tts.com/v1"
+                        value={speechBaseUrl}
+                        onChange={(e) => setSpeechBaseUrl(e.target.value)}
+                        className="text-xs sm:text-sm rounded-xl font-mono"
+                      />
+                    </div>
+                  )}
+
+                  {aiApiKey.trim() && speechProvider !== "custom" && (
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground p-1">
                       <input
                         type="checkbox"
                         checked={useSameAiKey}
                         onChange={(e) => setUseSameAiKey(e.target.checked)}
-                        className="rounded border-border text-primary focus:ring-primary"
+                        className="rounded border-border text-primary focus:ring-primary h-4 w-4"
                       />
                       <span>Use the same API key configured in Step 2</span>
                     </label>
                   )}
 
-                  {!useSameAiKey && (
+                  {(!useSameAiKey || speechProvider === "custom") && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-foreground">
-                        Dedicated Speech API Key
+                        {speechProvider.toUpperCase()} Speech API Key {speechProvider === "custom" ? "(Optional)" : ""}
                       </label>
                       <div className="relative">
                         <Input
@@ -542,12 +603,12 @@ export default function OnboardingPage() {
                           placeholder="Paste speech / audio API key..."
                           value={speechApiKey}
                           onChange={(e) => setSpeechApiKey(e.target.value)}
-                          className="pr-12 text-xs sm:text-sm rounded-xl font-mono"
+                          className="pr-14 text-xs sm:text-sm rounded-xl font-mono"
                         />
                         <button
                           type="button"
                           onClick={() => setShowSpeechKey(!showSpeechKey)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-semibold"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-semibold px-1 py-0.5"
                         >
                           {showSpeechKey ? "Hide" : "Show"}
                         </button>
@@ -557,14 +618,14 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {/* Preferences */}
+              {/* Auto-pronounce toggle */}
               <div className="space-y-3 pt-2 border-t border-border/50">
-                <label className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 cursor-pointer">
+                <label className="flex items-center justify-between p-3.5 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 cursor-pointer">
                   <div>
                     <p className="text-xs sm:text-sm font-bold text-foreground">
                       Auto-Pronounce on Reveal
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
                       Automatically speak card pronunciations when flipping flashcards during study.
                     </p>
                   </div>
@@ -577,32 +638,33 @@ export default function OnboardingPage() {
                 </label>
               </div>
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+              {/* Wizard Footer for Step 3 */}
+              <div className="pt-6 border-t border-border/70 flex items-center justify-between gap-3">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={handlePrevStep}
-                  size="sm"
-                  className="font-bold text-xs"
+                  size="md"
+                  className="px-5 text-sm font-bold text-muted-foreground hover:text-foreground"
                 >
                   ← Back
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={handleSkipStep}
-                    size="sm"
-                    className="font-bold text-xs"
+                    size="md"
+                    className="px-5 text-sm font-bold border-border bg-card hover:bg-muted text-foreground shadow-xs"
                   >
                     Skip for Now
                   </Button>
                   <Button
                     type="button"
                     onClick={handleNextStep}
-                    size="sm"
-                    className="font-bold text-xs shadow-xs"
+                    size="md"
+                    className="px-6 text-sm font-bold shadow-sm shadow-primary/25 bg-gradient-to-r from-primary to-indigo-600 hover:opacity-95 text-white"
                   >
                     Continue →
                   </Button>
@@ -622,62 +684,77 @@ export default function OnboardingPage() {
                   Personalize Your Study Routine
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Tailor your daily goals and time settings so Flashguage calculates optimal spaced repetition intervals.
+                  Tailor your daily goals and time settings so Flashguage calculates accurate spaced repetition intervals.
                 </p>
               </div>
 
-              {/* Timezone Selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                  Your Timezone (for Daily Goals & Midnight Resets)
-                </label>
-                <Select
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="rounded-xl text-xs sm:text-sm font-semibold"
-                >
-                  {COMMON_TIMEZONES.includes(timezone) ? null : (
-                    <option value={timezone}>{timezone} (Detected)</option>
-                  )}
-                  {COMMON_TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </Select>
+              {/* Timezone Selector with Search and Complete IANA List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
+                    Your Timezone ({allTimezones.length} Available)
+                  </label>
+                  <span className="text-[11px] font-semibold text-primary">
+                    Current: {timezone}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Input
+                    type="text"
+                    placeholder="Search timezone (e.g. Madrid, Mexico_City, Tokyo, Bogota)..."
+                    value={timezoneSearch}
+                    onChange={(e) => setTimezoneSearch(e.target.value)}
+                    className="rounded-xl text-xs sm:text-sm"
+                  />
+
+                  <Select
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="rounded-xl text-xs sm:text-sm font-semibold max-h-48"
+                  >
+                    {!allTimezones.includes(timezone) && (
+                      <option value={timezone}>{timezone} (Detected)</option>
+                    )}
+                    {filteredTimezones.map((tz) => (
+                      <option key={tz} value={tz}>
+                        {tz}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               {/* Daily Goal Cards */}
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
                   Daily Recall Goal
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { value: 10, label: "10 cards", pace: "Casual • ~5m" },
-                    { value: 20, label: "20 cards", pace: "Balanced • Rec", rec: true },
-                    { value: 30, label: "30 cards", pace: "Intensive • ~15m" },
-                    { value: 50, label: "50 cards", pace: "Immersion • ~25m" },
+                    { value: 10, label: "10 cards" },
+                    { value: 20, label: "20 cards" },
+                    { value: 30, label: "30 cards" },
+                    { value: 50, label: "50 cards" },
                   ].map((g) => (
                     <button
                       key={g.value}
                       type="button"
                       onClick={() => setDailyGoal(g.value)}
-                      className={`p-3 rounded-2xl border text-center transition-all ${
+                      className={`h-11 px-3 rounded-xl border text-center font-bold text-sm transition-all flex items-center justify-center ${
                         dailyGoal === g.value
-                          ? "border-primary bg-primary/10 shadow-xs ring-2 ring-primary/20 font-bold text-foreground"
-                          : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
+                          : "border-border/80 bg-card hover:bg-muted text-foreground"
                       }`}
                     >
-                      <p className="text-sm font-black">{g.label}</p>
-                      <span className="text-[10px] font-semibold opacity-75">{g.pace}</span>
+                      {g.label}
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Review limit and session break */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-foreground">
                     Max Due Reviews Per Session
@@ -695,7 +772,7 @@ export default function OnboardingPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-foreground">
-                    Pomodoro Study Interval
+                    Study Interval / Break
                   </label>
                   <Select
                     value={sessionBreakMinutes}
@@ -709,32 +786,33 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+              {/* Wizard Footer for Step 4 */}
+              <div className="pt-6 border-t border-border/70 flex items-center justify-between gap-3">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={handlePrevStep}
-                  size="sm"
-                  className="font-bold text-xs"
+                  size="md"
+                  className="px-5 text-sm font-bold text-muted-foreground hover:text-foreground"
                 >
                   ← Back
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={handleSkipStep}
-                    size="sm"
-                    className="font-bold text-xs"
+                    size="md"
+                    className="px-5 text-sm font-bold border-border bg-card hover:bg-muted text-foreground shadow-xs"
                   >
                     Skip for Now
                   </Button>
                   <Button
                     type="button"
                     onClick={handleNextStep}
-                    size="sm"
-                    className="font-bold text-xs shadow-xs"
+                    size="md"
+                    className="px-6 text-sm font-bold shadow-sm shadow-primary/25 bg-gradient-to-r from-primary to-indigo-600 hover:opacity-95 text-white"
                   >
                     Continue →
                   </Button>
@@ -764,21 +842,18 @@ export default function OnboardingPage() {
                   {
                     id: "starter-pack",
                     title: "Curated Starter Kit",
-                    badge: "Recommended",
                     desc: "Import verified high-yield vocabulary ready to study right now.",
                     icon: "📦",
                   },
                   {
                     id: "blank-deck",
                     title: "Create Blank Deck",
-                    badge: "Custom",
                     desc: "Create an empty deck and add your own custom flashcards.",
                     icon: "✏️",
                   },
                   {
                     id: "skip",
                     title: "Explore Dashboard",
-                    badge: "Later",
                     desc: "Jump straight into the app; create or import decks later.",
                     icon: "🚀",
                   },
@@ -796,9 +871,6 @@ export default function OnboardingPage() {
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-2xl">{opt.icon}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg bg-muted text-muted-foreground">
-                          {opt.badge}
-                        </span>
                       </div>
                       <p className={`text-sm font-bold ${startingOption === opt.id ? "text-primary" : "text-foreground"}`}>
                         {opt.title}
@@ -878,13 +950,14 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
+              {/* Wizard Footer for Step 5 */}
+              <div className="pt-6 border-t border-border/70 flex items-center justify-between gap-3">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={handlePrevStep}
-                  size="sm"
-                  className="font-bold text-xs"
+                  size="md"
+                  className="px-5 text-sm font-bold text-muted-foreground hover:text-foreground"
                 >
                   ← Back
                 </Button>
@@ -894,7 +967,7 @@ export default function OnboardingPage() {
                   onClick={handleFinishOnboarding}
                   disabled={isSubmitting}
                   size="md"
-                  className="font-bold text-xs sm:text-sm gap-2 shadow-xs bg-gradient-to-tr from-primary to-indigo-600 text-white hover:opacity-95"
+                  className="px-7 py-2.5 text-sm font-bold shadow-sm shadow-primary/25 bg-gradient-to-r from-primary to-indigo-600 hover:opacity-95 text-white gap-2"
                 >
                   {isSubmitting ? "Finishing Setup..." : "Launch Flashguage 🎉"}
                 </Button>
