@@ -151,11 +151,11 @@ export function PronunciationChecker({
           setIsOpen(true);
           startListening();
         }}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-3.5 py-1.5 rounded-full transition-all active:scale-95 border border-border/50"
+        className="inline-flex items-center gap-2 text-xs font-bold text-violet-300 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-500/40 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm"
         title="Practice your pronunciation with the microphone"
       >
-        <span>🎙️</span>
-        <span>Practice Pronouncing</span>
+        <span className="text-sm">🎙️</span>
+        <span>Evaluate Pronunciation</span>
       </button>
     );
   }

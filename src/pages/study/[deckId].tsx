@@ -186,6 +186,7 @@ export default function StudySessionPage({
   const [practiceFlavor, setPracticeFlavor] = useState<"mixed" | "recall" | "spelling">("mixed");
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingResult, setTypingResult] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
+  const [isDictating, setIsDictating] = useState(false);
 
   // ── Queue state (supports re-appending failed cards for in-session mastery) ──
   const [queue, setQueue] = useState<Review[]>([]);
@@ -468,6 +469,35 @@ export default function StudySessionPage({
     }
   }, [card, typedAnswer, autoPronounce, handleSpeak, showToast]);
 
+  const handleDictateAnswer = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      showToast("Speech recognition not supported in this browser. Try Chrome.", "error");
+      return;
+    }
+    try {
+      const rec = new SpeechRec();
+      rec.lang = getSpeechVoice(deckLang) || "en-US";
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.onstart = () => setIsDictating(true);
+      rec.onresult = (e: any) => {
+        const text = e.results[0]?.[0]?.transcript || "";
+        if (text) {
+          setTypedAnswer(text);
+          showToast(`Captured: "${text}"`, "info");
+        }
+        setIsDictating(false);
+      };
+      rec.onerror = () => setIsDictating(false);
+      rec.onend = () => setIsDictating(false);
+      rec.start();
+    } catch {
+      setIsDictating(false);
+    }
+  }, [deckLang, showToast]);
+
   // Keyboard shortcuts (Space = reveal, 1 = Again, 2 = Hard, 3 = Mastered)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -724,14 +754,28 @@ export default function StudySessionPage({
                     spellCheck="false"
                   />
                   {typingResult !== "correct" && (
-                    <button
-                      type="button"
-                      onClick={handleCheckSpelling}
-                      disabled={!typedAnswer.trim()}
-                      className="rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:opacity-90 disabled:opacity-50"
-                    >
-                      Check
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleDictateAnswer}
+                        className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition-all ${
+                          isDictating
+                            ? "bg-rose-500 text-white animate-pulse border-rose-500 shadow-md"
+                            : "bg-muted/80 hover:bg-muted text-foreground border-border/80"
+                        }`}
+                        title="Dictate with voice"
+                      >
+                        🎙️ {isDictating ? "..." : "Speak"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCheckSpelling}
+                        disabled={!typedAnswer.trim()}
+                        className="rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:opacity-90 disabled:opacity-50"
+                      >
+                        Check
+                      </button>
+                    </>
                   )}
                 </div>
 
