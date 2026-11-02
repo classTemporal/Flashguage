@@ -854,9 +854,6 @@ export default function SettingsPage() {
             <div className="border-t border-border pt-4 space-y-5">
               {/* Provider Selector Dropdown */}
               <div>
-                <label htmlFor="ai-provider" className="block text-sm font-medium text-foreground mb-1">
-                  AI Provider
-                </label>
                 <Select
                   id="ai-provider"
                   label="AI Provider"
