@@ -203,14 +203,23 @@ export async function callGemini(prompt: string, config?: AIConfig): Promise<str
   const apiKey = getGeminiKey(config);
   if (!apiKey) throw new Error("Missing Google Gemini API Key");
 
-  const requestedModel =
+  let requestedModel =
     (config?.provider === "gemini" && (config.geminiModel || config.model)) ||
     "gemini-3.5-flash-lite";
+
+  if (
+    requestedModel === "gemini-2.5-flash" ||
+    requestedModel === "gemini-2.0-flash" ||
+    requestedModel === "gemini-2.0-flash-exp"
+  ) {
+    requestedModel = "gemini-3.5-flash-lite";
+  }
 
   const modelsToTry = [
     requestedModel,
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
     "gemini-3.5-flash",
   ].filter((m, i, arr) => Boolean(m) && arr.indexOf(m) === i);
 

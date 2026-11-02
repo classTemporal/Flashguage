@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PhoneticSentence } from "@/components/study/phonetic-sentence";
 
 export function blankOutVocab(sentence: string, vocab: string): React.ReactNode[] {
   if (!vocab.trim()) return [sentence];
@@ -41,6 +42,7 @@ export function ExampleCarousel({
   onSpeakSentence,
 }: ExampleCarouselProps) {
   const [idx, setIdx] = useState(0);
+  const [listenedIndices, setListenedIndices] = useState<Record<number, boolean>>({});
 
   if (!examples || examples.length === 0) return null;
 
@@ -48,6 +50,11 @@ export function ExampleCarousel({
   const next = () => setIdx((i) => (i + 1) % examples.length);
 
   const sentence = examples[idx] || "";
+
+  const handleListen = (s: string) => {
+    setListenedIndices((prevMap) => ({ ...prevMap, [idx]: true }));
+    onSpeakSentence?.(s);
+  };
 
   return (
     <div className="relative rounded-2xl overflow-hidden border border-border/80 bg-card/60 backdrop-blur shadow-sm p-4 space-y-2.5">
@@ -58,8 +65,8 @@ export function ExampleCarousel({
         <div className="flex items-center gap-2">
           {revealed && onSpeakSentence && sentence && (
             <button
-              onClick={() => onSpeakSentence(sentence)}
-              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full"
+              onClick={() => handleListen(sentence)}
+              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full cursor-pointer"
               title="Listen to full sentence"
             >
               <span>🔊</span>
@@ -89,32 +96,40 @@ export function ExampleCarousel({
 
       <div className="text-sm text-foreground leading-relaxed">
         {revealed ? (
-          <span>
-            {sentence.includes("___") ? (
-              sentence.split(/_{3,}/).map((part, i, arr) => (
-                <span key={i}>
-                  {part}
-                  {i < arr.length - 1 && (
-                    <strong className="font-extrabold text-primary underline underline-offset-2 mx-1">
-                      {vocab}
-                    </strong>
-                  )}
-                </span>
-              ))
-            ) : (
-              sentence
-                .split(new RegExp(`(${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"))
-                .map((part, i) =>
-                  new RegExp(`^${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "gi").test(part) ? (
-                    <strong key={i} className="font-extrabold text-primary underline underline-offset-2">
-                      {part}
-                    </strong>
-                  ) : (
-                    <span key={i}>{part}</span>
+          listenedIndices[idx] ? (
+            <PhoneticSentence
+              text={sentence.includes("___") ? sentence.replace(/_{3,}/g, vocab) : sentence}
+              isRevealed={true}
+              className="text-sm text-foreground leading-relaxed"
+            />
+          ) : (
+            <span>
+              {sentence.includes("___") ? (
+                sentence.split(/_{3,}/).map((part, i, arr) => (
+                  <span key={i}>
+                    {part}
+                    {i < arr.length - 1 && (
+                      <strong className="font-extrabold text-primary underline underline-offset-2 mx-1">
+                        {vocab}
+                      </strong>
+                    )}
+                  </span>
+                ))
+              ) : (
+                sentence
+                  .split(new RegExp(`(${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"))
+                  .map((part, i) =>
+                    new RegExp(`^${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "gi").test(part) ? (
+                      <strong key={i} className="font-extrabold text-primary underline underline-offset-2">
+                        {part}
+                      </strong>
+                    ) : (
+                      <span key={i}>{part}</span>
+                    )
                   )
-                )
-            )}
-          </span>
+              )}
+            </span>
+          )
         ) : sentence.includes("___") ? (
           <span>
             {sentence.split(/_{3,}/).map((part, i, arr) => (

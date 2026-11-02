@@ -21,6 +21,7 @@ import { CompletionScreen } from "@/components/study/study-completion-screen";
 import { NoDueCards } from "@/components/study/study-no-due-cards";
 import { PronunciationChecker } from "@/components/study/pronunciation-checker";
 import { ContextChatModal } from "@/components/study/context-chat-modal";
+import { PhoneticSentence } from "@/components/study/phonetic-sentence";
 import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
 import { prefetchStudyQueueMedia, PreloadProgress } from "@/lib/offline-media";
 import { useSync } from "@/hooks/use-sync";
@@ -184,6 +185,7 @@ export default function StudySessionPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [hasListenedDefinition, setHasListenedDefinition] = useState(false);
   const [isAdvancing, setIsAdvancing] = useState(false);
 
   // ── Practice flavor state (Mixed, Recall Only, Spelling / Typing Only) ──
@@ -316,6 +318,7 @@ export default function StudySessionPage({
     setPhase("question");
     setShowExamples(false);
     setIsSpeaking(false);
+    setHasListenedDefinition(false);
     setIsChatModalOpen(false);
     setTypedAnswer("");
     setTypingResult("unanswered");
@@ -819,17 +822,23 @@ export default function StudySessionPage({
             </div>
 
             {/* Definition */}
-            <p className="text-lg sm:text-xl font-medium text-foreground leading-snug">
-              {card.back}
-            </p>
+            <PhoneticSentence
+              text={card.back}
+              lang={deckLang}
+              isRevealed={hasListenedDefinition}
+              className="text-lg sm:text-xl font-medium text-foreground leading-snug"
+            />
 
             {/* Audio button for question phase: reads definition, NEVER the target word! */}
             <div className="flex items-center gap-3 pt-1">
               <Button
                 variant={isSpeaking ? "primary" : "secondary"}
                 size="sm"
-                onClick={() => handleSpeak(card.back)}
-                className="gap-2 font-bold shadow-xs"
+                onClick={() => {
+                  setHasListenedDefinition(true);
+                  handleSpeak(card.back);
+                }}
+                className="gap-2 font-bold shadow-xs cursor-pointer"
                 aria-label="Listen to definition"
               >
                 <span>🔊</span>

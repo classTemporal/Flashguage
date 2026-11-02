@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { PhoneticSentence } from "@/components/study/phonetic-sentence";
 import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
 
 interface ContextChatModalProps {
@@ -46,6 +47,11 @@ export function ContextChatModal({
   const [isDictating, setIsDictating] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isQuestionListened, setIsQuestionListened] = useState(false);
+  const [isPartnerListened, setIsPartnerListened] = useState(false);
+  const [isPlayingPartnerAudio, setIsPlayingPartnerAudio] = useState(false);
+  const [isAlternativeListened, setIsAlternativeListened] = useState(false);
+  const [isPlayingAlternativeAudio, setIsPlayingAlternativeAudio] = useState(false);
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   // Track browser online/offline status
@@ -67,6 +73,9 @@ export function ContextChatModal({
     setLoadingScenario(true);
     setEvaluation(null);
     setUserMessage("");
+    setIsQuestionListened(false);
+    setIsPartnerListened(false);
+    setIsAlternativeListened(false);
 
     // If offline, provide instant fallback scenario without waiting for network failure
     if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -208,9 +217,30 @@ export function ContextChatModal({
   const handlePlayQuestionAudio = () => {
     if (!scenarioData?.question) return;
     setIsPlayingAudio(true);
+    setIsQuestionListened(true);
     playCardSpeech(scenarioData.question, "en", {
       onEnd: () => setIsPlayingAudio(false),
       onError: () => setIsPlayingAudio(false),
+    });
+  };
+
+  const handlePlayPartnerAudio = () => {
+    if (!evaluation?.aiReply) return;
+    setIsPlayingPartnerAudio(true);
+    setIsPartnerListened(true);
+    playCardSpeech(evaluation.aiReply, "en", {
+      onEnd: () => setIsPlayingPartnerAudio(false),
+      onError: () => setIsPlayingPartnerAudio(false),
+    });
+  };
+
+  const handlePlayAlternativeAudio = () => {
+    if (!evaluation?.correctedSentence) return;
+    setIsPlayingAlternativeAudio(true);
+    setIsAlternativeListened(true);
+    playCardSpeech(evaluation.correctedSentence, "en", {
+      onEnd: () => setIsPlayingAlternativeAudio(false),
+      onError: () => setIsPlayingAlternativeAudio(false),
     });
   };
 
@@ -330,9 +360,12 @@ export function ContextChatModal({
               </p>
 
               <div className="pt-1">
-                <p className="text-sm sm:text-base font-semibold text-foreground">
-                  &ldquo;{scenarioData.question}&rdquo;
-                </p>
+                <PhoneticSentence
+                  text={scenarioData.question}
+                  lang="en"
+                  isRevealed={isQuestionListened}
+                  className="text-sm sm:text-base font-semibold text-foreground"
+                />
               </div>
 
               {scenarioData.tip && (
@@ -428,20 +461,54 @@ export function ContextChatModal({
                 {/* Suggested correction if any */}
                 {evaluation.correctedSentence && (
                   <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs space-y-1">
-                    <span className="font-bold text-primary uppercase text-[10px]">Natural alternative:</span>
-                    <p className="font-semibold text-foreground">&ldquo;{evaluation.correctedSentence}&rdquo;</p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary uppercase text-[10px]">Natural alternative:</span>
+                      <button
+                        type="button"
+                        onClick={handlePlayAlternativeAudio}
+                        disabled={isPlayingAlternativeAudio}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                        title="Listen to natural alternative"
+                      >
+                        <span>{isPlayingAlternativeAudio ? "🔊 Playing..." : "🔊 Listen"}</span>
+                      </button>
+                    </div>
+                    <div className="pt-0.5">
+                      <PhoneticSentence
+                        text={evaluation.correctedSentence}
+                        lang="en"
+                        isRevealed={isAlternativeListened}
+                        className="font-semibold text-foreground text-xs"
+                      />
+                    </div>
                   </div>
                 )}
 
                 {/* Conversation Partner Reaction */}
                 {evaluation.aiReply && (
                   <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs text-xs space-y-1.5">
-                    <span className="font-bold text-primary uppercase text-[10px] flex items-center gap-1">
-                      <span>🗣️</span> Partner&apos;s reply:
-                    </span>
-                    <p className="text-sm font-medium text-foreground leading-relaxed">
-                      &ldquo;{evaluation.aiReply}&rdquo;
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary uppercase text-[10px] flex items-center gap-1">
+                        <span>🗣️</span> Partner&apos;s reply:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handlePlayPartnerAudio}
+                        disabled={isPlayingPartnerAudio}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                        title="Listen to partner's reply"
+                      >
+                        <span>{isPlayingPartnerAudio ? "🔊 Playing..." : "🔊 Listen"}</span>
+                      </button>
+                    </div>
+                    <div className="pt-1">
+                      <PhoneticSentence
+                        text={evaluation.aiReply}
+                        lang="en"
+                        isRevealed={isPartnerListened}
+                        className="text-sm font-medium text-foreground leading-relaxed"
+                      />
+                    </div>
                   </div>
                 )}
 
