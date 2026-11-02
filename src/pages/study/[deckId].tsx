@@ -19,6 +19,7 @@ import { ProgressRing } from "@/components/study/study-progress-ring";
 import { CompletionScreen } from "@/components/study/study-completion-screen";
 import { NoDueCards } from "@/components/study/study-no-due-cards";
 import { PronunciationChecker } from "@/components/study/pronunciation-checker";
+import { ContextChatModal } from "@/components/study/context-chat-modal";
 import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
 
 const fetcher = async (url: string) => {
@@ -187,6 +188,7 @@ export default function StudySessionPage({
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingResult, setTypingResult] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
   const [isDictating, setIsDictating] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   // ── Queue state (supports re-appending failed cards for in-session mastery) ──
   const [queue, setQueue] = useState<Review[]>([]);
@@ -269,6 +271,7 @@ export default function StudySessionPage({
     setPhase("question");
     setShowExamples(false);
     setIsSpeaking(false);
+    setIsChatModalOpen(false);
     setTypedAnswer("");
     setTypingResult("unanswered");
     setRevealKey((k) => k + 1);
@@ -852,6 +855,16 @@ export default function StudySessionPage({
                   langCode={deckLang}
                   onListenAgain={() => handleSpeak(card.front)}
                 />
+
+                <button
+                  type="button"
+                  onClick={() => setIsChatModalOpen(true)}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-sky-400 bg-sky-950/40 hover:bg-sky-900/50 border border-sky-500/40 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm"
+                  title="Practice conversing with this word in a real scenario"
+                >
+                  <span className="text-sm">💬</span>
+                  <span>Practice in Context</span>
+                </button>
               </div>
 
               {tags.length > 0 && (
@@ -978,6 +991,16 @@ export default function StudySessionPage({
           </div>
         )}
       </footer>
+
+      {card && (
+        <ContextChatModal
+          isOpen={isChatModalOpen}
+          onClose={() => setIsChatModalOpen(false)}
+          word={card.front}
+          definition={card.back}
+          targetLanguage={deckLang === "es" ? "Spanish" : "English"}
+        />
+      )}
     </div>
   );
 }

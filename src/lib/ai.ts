@@ -198,12 +198,12 @@ export async function callGemini(prompt: string, config?: AIConfig): Promise<str
 
   const requestedModel =
     (config?.provider === "gemini" && (config.geminiModel || config.model)) ||
-    "gemini-3.1-flash-lite";
+    "gemini-3.5-flash-lite";
 
   const modelsToTry = [
     requestedModel,
-    "gemini-3.1-flash-lite",
     "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
     "gemini-3.5-flash",
   ].filter((m, i, arr) => Boolean(m) && arr.indexOf(m) === i);
 
@@ -371,7 +371,17 @@ function getFallbackChain(config?: AIConfig): AIProvider[] {
   return chain;
 }
 
-async function tryProviders(
+export async function callAI(
+  prompt: string,
+  config?: AIConfig,
+  action = "general",
+  word = "",
+  context = ""
+): Promise<string> {
+  return tryProviders(prompt, action, word, context, config);
+}
+
+export async function tryProviders(
   prompt: string,
   action: string,
   word: string,
