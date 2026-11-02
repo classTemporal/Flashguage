@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import { invalidateAppCache } from "@/lib/cache";
@@ -819,18 +820,16 @@ export default function StudySessionPage({
 
             {/* Audio button for question phase: reads definition, NEVER the target word! */}
             <div className="flex items-center gap-3 pt-1">
-              <button
+              <Button
+                variant={isSpeaking ? "primary" : "secondary"}
+                size="sm"
                 onClick={() => handleSpeak(card.back)}
-                className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-                  isSpeaking
-                    ? "bg-primary text-primary-foreground scale-105 shadow-md"
-                    : "bg-muted hover:bg-muted/80 text-foreground"
-                }`}
+                className="gap-2 font-bold shadow-xs"
                 aria-label="Listen to definition"
               >
                 <span>🔊</span>
                 <span>{isSpeaking ? "Playing..." : "Listen Definition"}</span>
-              </button>
+              </Button>
             </div>
 
             {/* Interactive Spelling Input Box */}
@@ -949,14 +948,16 @@ export default function StudySessionPage({
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                <button
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={() => handleSpeak(card.front)}
-                  className="flex items-center gap-2 text-xs font-bold text-primary-foreground bg-primary px-4 py-2 rounded-full shadow-xs hover:opacity-90 active:scale-95 transition-all"
+                  className="gap-2 font-bold shadow-xs"
                   title="Listen to pronunciation"
                 >
                   <span>🔊</span>
                   <span>{isSpeaking ? "Playing..." : "Pronounce Word"}</span>
-                </button>
+                </Button>
 
                 <PronunciationChecker
                   targetWord={card.front}
@@ -964,15 +965,17 @@ export default function StudySessionPage({
                   onListenAgain={() => handleSpeak(card.front)}
                 />
 
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   type="button"
                   onClick={() => setIsChatModalOpen(true)}
-                  className="inline-flex items-center gap-2 text-xs font-bold text-sky-400 bg-sky-950/40 hover:bg-sky-900/50 border border-sky-500/40 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm"
+                  className="gap-2 font-bold text-sky-600 dark:text-sky-400 border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 shadow-xs"
                   title="Practice conversing with this word in a real scenario"
                 >
                   <span className="text-sm">💬</span>
                   <span>Practice in Context</span>
-                </button>
+                </Button>
               </div>
 
               {tags.length > 0 && (

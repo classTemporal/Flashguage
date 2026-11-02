@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getSpeechVoice } from "@/lib/languages";
 import { UniversalSpeechRecognizer } from "@/lib/speech";
+import { Button } from "@/components/ui/button";
 
 interface PronunciationCheckerProps {
   targetWord: string;
@@ -126,17 +127,19 @@ export function PronunciationChecker({
 
   if (!isOpen) {
     return (
-      <button
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => {
           setIsOpen(true);
           startListening();
         }}
-        className="inline-flex items-center gap-2 text-xs font-bold text-violet-300 bg-violet-950/40 hover:bg-violet-900/50 border border-violet-500/40 px-3.5 py-1.5 rounded-xl transition-all active:scale-95 shadow-sm"
+        className="gap-2 font-bold text-violet-600 dark:text-violet-400 border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 shadow-xs"
         title="Practice your pronunciation with the microphone"
       >
         <span className="text-sm">🎙️</span>
         <span>Evaluate Pronunciation</span>
-      </button>
+      </Button>
     );
   }
 
@@ -223,22 +226,26 @@ export function PronunciationChecker({
           )}
 
           <div className="flex items-center justify-center gap-2 pt-1">
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={startListening}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
+              className="gap-1.5 shadow-xs"
             >
               <span>🔄</span>
               <span>Try Again</span>
-            </button>
+            </Button>
 
             {onListenAgain && (
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={onListenAgain}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-muted text-foreground border border-border px-3.5 py-1.5 rounded-xl hover:bg-muted/80 active:scale-95 transition-all shadow-xs"
+                className="gap-1.5 shadow-xs"
               >
                 <span>🔊</span>
                 <span>Listen Native</span>
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -249,25 +256,30 @@ export function PronunciationChecker({
         <div className="text-center py-2 space-y-2.5">
           <p className="text-xs text-rose-500 font-medium px-2">{errorMsg}</p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={startListening}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
+              className="gap-1.5 shadow-xs"
             >
               <span>🔄</span>
               <span>Retry</span>
-            </button>
+            </Button>
             {(errorMsg.includes("Settings") ||
               errorMsg.includes("API Key") ||
               errorMsg.includes("Speech")) && (
-              <a
+              <Button
+                variant="secondary"
+                size="sm"
+                as="link"
                 href="/settings"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border px-3.5 py-1.5 rounded-xl transition-all shadow-xs"
+                className="gap-1 shadow-xs"
               >
                 <span>⚙️</span>
                 <span>Configure in Settings</span>
-              </a>
+              </Button>
             )}
           </div>
         </div>
@@ -276,13 +288,15 @@ export function PronunciationChecker({
       {/* Idle start state (when opened without active recognition) */}
       {!isListening && score === null && !errorMsg && (
         <div className="text-center py-2">
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             onClick={startListening}
-            className="inline-flex items-center gap-2 text-xs font-bold bg-primary text-primary-foreground px-4 py-2 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-xs"
+            className="gap-2 shadow-xs"
           >
             <span>🎙️</span>
             <span>Tap to Speak</span>
-          </button>
+          </Button>
         </div>
       )}
     </div>
