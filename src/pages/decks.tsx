@@ -16,6 +16,7 @@ import { DeckCardSkeleton, EmptyState } from "@/components/ui/loading";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { QuickAddDeckModal } from "@/components/deck/quick-add-deck-modal";
+import { ExploreStarterDeckModal } from "@/components/deck/explore-starter-deck-modal";
 import { getLanguage, getStoredActiveLanguage } from "@/lib/languages";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -73,6 +74,7 @@ export default function DecksPage() {
   // Tab & search state
   const [activeTab, setActiveTab] = useState<"my-decks" | "starter-kits">("my-decks");
   const [isImportingId, setIsImportingId] = useState<string | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -566,12 +568,15 @@ export default function DecksPage() {
                       key={template.id}
                       className="bg-card border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-primary/50 hover:shadow-lg transition-all"
                     >
-                      <div className="space-y-3.5">
+                      <div
+                        className="space-y-3.5 cursor-pointer"
+                        onClick={() => setPreviewTemplate(template)}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
                             <span className="text-2xl">{template.icon}</span>
                             <div>
-                              <h3 className="font-bold text-base text-foreground leading-snug">
+                              <h3 className="font-bold text-base text-foreground leading-snug hover:text-primary transition-colors">
                                 {template.name}
                               </h3>
                               <span className="text-[11px] font-semibold text-muted-foreground">
@@ -598,9 +603,14 @@ export default function DecksPage() {
 
                         {/* Words Sample Chips */}
                         <div className="space-y-1.5 pt-2 border-t border-border/50">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Sample words included:
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              Sample words included:
+                            </p>
+                            <span className="text-[10px] font-bold text-primary hover:underline">
+                              Explore all {template.totalCards} cards →
+                            </span>
+                          </div>
                           <div className="flex flex-wrap gap-1">
                             {template.cards.slice(0, 4).map((c, i) => (
                               <span
@@ -619,10 +629,16 @@ export default function DecksPage() {
                         </div>
                       </div>
 
-                      <div className="mt-5 pt-3 border-t border-border flex items-center justify-between gap-3">
-                        <span className="text-xs font-bold text-muted-foreground">
-                          {template.totalCards} cards
-                        </span>
+                      <div className="mt-5 pt-3 border-t border-border flex items-center justify-between gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewTemplate(template)}
+                          className="font-bold text-xs gap-1 text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/80"
+                        >
+                          <span>👁️</span> Explore Cards ({template.totalCards})
+                        </Button>
 
                         {template.isImported ? (
                           <Button
@@ -643,7 +659,7 @@ export default function DecksPage() {
                             className="font-bold text-xs gap-1.5 bg-gradient-to-r from-primary to-indigo-600 text-white shadow-xs"
                           >
                             <span>{isImporting ? "⏳" : "⚡"}</span>
-                            <span>{isImporting ? "Importing..." : "Add to My Decks"}</span>
+                            <span>{isImporting ? "Adding..." : "Add to Decks"}</span>
                           </Button>
                         )}
                       </div>
@@ -719,6 +735,18 @@ export default function DecksPage() {
           isLoading={isDeleting}
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeletingDeck(null)}
+        />
+
+        {/* Explore Starter Deck Modal */}
+        <ExploreStarterDeckModal
+          isOpen={!!previewTemplate}
+          template={previewTemplate}
+          onClose={() => setPreviewTemplate(null)}
+          onImport={async (id, name) => {
+            await handleImportStarter(id, name);
+            setPreviewTemplate(null);
+          }}
+          isImporting={isImportingId === previewTemplate?.id}
         />
       </main>
 

@@ -588,285 +588,285 @@ export const STARTER_DECKS: StarterDeckTemplate[] = [
     ]
   },
   {
-    "id": "manga-anime-expressions",
-    "name": "Words Found in Manga & Fiction",
-    "description": "Vivid verbs, dramatic descriptors, and expressive vocabulary frequently encountered in manga and novels.",
+    "id": "travel-airport-essentials",
+    "name": "Travel & Airport Essentials",
+    "description": "Crucial vocabulary for navigating airports, flights, hotels, and international journeys with confidence.",
     "targetLanguage": "en",
-    "category": "Storytelling & Fiction",
-    "icon": "📖",
+    "category": "Travel & Daily Life",
+    "icon": "✈️",
     "level": "Intermediate",
     "cards": [
       {
-        "front": "Fend",
-        "back": "To defend oneself against a physical attack, challenge, or difficulty; to push away.",
-        "phonetic": "/fend/",
-        "partOfSpeech": "verb",
-        "example": "Armed only with a wooden shield, the scout had to fend off three wolves in the dark forest.",
-        "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80",
-        "tags": [
-          "verb",
-          "fiction",
-          "combat"
-        ]
-      },
-      {
-        "front": "Budge",
-        "back": "To move slightly, or to yield and change an opinion under pressure.",
-        "phonetic": "/bʌdʒ/",
-        "partOfSpeech": "verb",
-        "example": "I pushed against the massive temple door with all my strength, but it wouldn't budge an inch.",
-        "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
-        "tags": [
-          "verb",
-          "action",
-          "fiction"
-        ]
-      },
-      {
-        "front": "Perched",
-        "back": "Situated or balanced safely on an elevated, precarious, or narrow edge.",
-        "phonetic": "/pɜːtʃt/",
-        "partOfSpeech": "adjective",
-        "example": "A solitary black falcon perched silently on the castle parapet as the blood moon rose.",
-        "imageUrl": "https://images.unsplash.com/photo-1549608276-5786777e6587?w=600&q=80",
-        "tags": [
-          "adjective",
-          "scenery",
-          "manga"
-        ]
-      },
-      {
-        "front": "Rabble",
-        "back": "A disorderly crowd, unruly mob, or group viewed as chaotic and unrefined.",
-        "phonetic": "/ˈræb.əl/",
+        "front": "Boarding pass",
+        "back": "An official document or digital barcode showing your flight details and granting permission to board an airplane.",
+        "phonetic": "/ˈbɔː.dɪŋ ˌpɑːs/",
         "partOfSpeech": "noun",
-        "example": "The elite palace guards struggled to hold the courtyard against the surging rabble.",
+        "example": "Please keep your passport and boarding pass ready when approaching the gate.",
+        "imageUrl": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80",
+        "tags": [
+          "travel",
+          "airport",
+          "transport"
+        ]
+      },
+      {
+        "front": "Layover",
+        "back": "A temporary stop or period of waiting between connecting flights or travel legs.",
+        "phonetic": "/ˈleɪˌəʊ.vər/",
+        "partOfSpeech": "noun",
+        "example": "We had a four-hour layover in Frankfurt before our onward flight to Tokyo.",
+        "imageUrl": "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?w=600&q=80",
+        "tags": [
+          "travel",
+          "flights",
+          "transit"
+        ]
+      },
+      {
+        "front": "Customs",
+        "back": "The official government checkpoint where travelers' baggage is inspected for duties or prohibited items.",
+        "phonetic": "/ˈkʌs.təmz/",
+        "partOfSpeech": "noun",
+        "example": "After collecting our baggage, we proceeded through customs to declare the purchased electronics.",
+        "imageUrl": "https://images.unsplash.com/photo-1517400508447-f8dd518b86db?w=600&q=80",
+        "tags": [
+          "travel",
+          "security",
+          "border"
+        ]
+      },
+      {
+        "front": "Itinerary",
+        "back": "A detailed schedule, route, or planned list of activities for a trip or journey.",
+        "phonetic": "/aɪˈtɪn.ər.ər.i/",
+        "partOfSpeech": "noun",
+        "example": "Our travel agency provided a comprehensive day-by-day itinerary for our trip through Italy.",
+        "imageUrl": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&q=80",
+        "tags": [
+          "travel",
+          "planning",
+          "organization"
+        ]
+      },
+      {
+        "front": "Baggage claim",
+        "back": "The airport designated area with conveyor carousels where passengers collect their checked luggage after arrival.",
+        "phonetic": "/ˈbæɡ.ɪdʒ kleɪm/",
+        "partOfSpeech": "noun",
+        "example": "Follow the arrival signs down to the lower level to reach baggage claim carousel number four.",
+        "imageUrl": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80",
+        "tags": [
+          "airport",
+          "luggage",
+          "travel"
+        ]
+      },
+      {
+        "front": "Delay",
+        "back": "A period of time by which a scheduled flight, train, or event is postponed or made late.",
+        "phonetic": "/dɪˈleɪ/",
+        "partOfSpeech": "noun",
+        "example": "The heavy fog over London caused a two-hour flight delay across all outbound departures.",
+        "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?w=600&q=80",
+        "tags": [
+          "travel",
+          "time",
+          "schedules"
+        ]
+      },
+      {
+        "front": "Carry-on",
+        "back": "A small suitcase or bag that a passenger is permitted to bring into the passenger cabin of an airplane.",
+        "phonetic": "/ˈkær.i.ɒn/",
+        "partOfSpeech": "noun",
+        "example": "Ensure your carry-on luggage complies with the airline overhead bin size restrictions.",
+        "imageUrl": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&q=80",
+        "tags": [
+          "airport",
+          "luggage",
+          "packing"
+        ]
+      },
+      {
+        "front": "Departure",
+        "back": "The act of leaving a place, especially the scheduled leaving of an airplane, bus, or train.",
+        "phonetic": "/dɪˈpɑː.tʃər/",
+        "partOfSpeech": "noun",
+        "example": "All international departures are scheduled from Terminal 3 on the third concourse.",
         "imageUrl": "https://images.unsplash.com/photo-1508873696983-2df5293cbdaf?w=600&q=80",
         "tags": [
-          "noun",
-          "narrative",
-          "fiction"
+          "airport",
+          "flights",
+          "schedule"
         ]
       },
       {
-        "front": "Biding",
-        "back": "Waiting patiently for a favorable opportunity or ideal moment to take action.",
-        "phonetic": "/ˈbaɪ.dɪŋ/",
-        "partOfSpeech": "verb",
-        "example": "The masked assassin remained motionless in the rafters, biding his time until the banquet ended.",
-        "imageUrl": "https://images.unsplash.com/photo-1501139083538-0139583c060f?w=600&q=80",
-        "tags": [
-          "verb",
-          "stealth",
-          "fiction"
-        ]
-      },
-      {
-        "front": "Brunt",
-        "back": "The main force, primary shock, or worst part of a violent impact or catastrophe.",
-        "phonetic": "/brʌnt/",
+        "front": "Jet lag",
+        "back": "Tiredness and disorientation caused by traveling rapidly across multiple time zones by airplane.",
+        "phonetic": "/ˈdʒet ˌlæɡ/",
         "partOfSpeech": "noun",
-        "example": "The heavy armored vanguard bore the full brunt of the dragon's devastating blast.",
-        "imageUrl": "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&q=80",
+        "example": "Drinking plenty of water and walking in sunlight helps minimize the symptoms of jet lag.",
+        "imageUrl": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=80",
         "tags": [
-          "noun",
-          "battle",
-          "fiction"
+          "travel",
+          "health",
+          "time"
         ]
       },
       {
-        "front": "Strides",
-        "back": "To walk with long, decisive, and confident paces.",
-        "phonetic": "/straɪdz/",
+        "front": "Shuttle",
+        "back": "A bus, train, or van that travels regularly back and forth between two fixed points, like an airport and city center.",
+        "phonetic": "/ˈʃʌt.əl/",
         "partOfSpeech": "noun",
-        "example": "With long, purposeful strides, the supreme commander walked into the throne room without fear.",
-        "imageUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80",
+        "example": "The hotel offers a complimentary 24-hour shuttle service connecting guests to the main terminal.",
+        "imageUrl": "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80",
         "tags": [
-          "noun",
-          "movement",
-          "character"
+          "transport",
+          "travel",
+          "city"
         ]
       },
       {
-        "front": "Chieftain",
-        "back": "The leader or supreme head of a clan, nomadic tribe, or warrior band.",
-        "phonetic": "/ˈtʃiːf.tən/",
+        "front": "Reservation",
+        "back": "An arrangement by which a hotel room, flight seat, or restaurant table is kept for a specific guest.",
+        "phonetic": "/ˌrez.əˈveɪ.ʃən/",
         "partOfSpeech": "noun",
-        "example": "The mountain chieftain raised his glowing battleaxe and roared to rally his clan.",
-        "imageUrl": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&q=80",
+        "example": "I called the front desk to confirm our reservation for a quiet ocean-view suite.",
+        "imageUrl": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=80",
         "tags": [
-          "noun",
-          "leadership",
-          "fantasy"
+          "hospitality",
+          "hotel",
+          "planning"
         ]
       },
       {
-        "front": "Clench",
-        "back": "To close or press tightly together, such as the hands into fists or the teeth in anger.",
-        "phonetic": "/klentʃ/",
-        "partOfSpeech": "verb",
-        "example": "Hearing the villain mock his fallen companions, Hiro clenched his fists until his knuckles turned white.",
-        "imageUrl": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80",
+        "front": "Sightseeing",
+        "back": "The activity of visiting famous landmarks, monuments, and places of interest as a tourist.",
+        "phonetic": "/ˈsaɪtˌsiː.ɪŋ/",
+        "partOfSpeech": "noun",
+        "example": "We spent our first afternoon in Paris sightseeing around the historical Latin Quarter.",
+        "imageUrl": "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80",
         "tags": [
-          "verb",
-          "emotion",
-          "manga"
+          "tourism",
+          "vacation",
+          "culture"
         ]
       },
       {
-        "front": "Glower",
-        "back": "To look or stare with sullen dislike, hostility, or intense silent anger.",
-        "phonetic": "/ˈɡlaʊ.ər/",
-        "partOfSpeech": "verb",
-        "example": "The defeated rival glowered at the champion from the shadowy corner of the arena.",
-        "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80",
+        "front": "Currency",
+        "back": "The system of money in common use within a particular country or economic zone.",
+        "phonetic": "/ˈkʌr.ən.si/",
+        "partOfSpeech": "noun",
+        "example": "You can exchange foreign currency at the bank counter near the airport arrivals hall.",
+        "imageUrl": "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&q=80",
         "tags": [
-          "verb",
-          "expression",
-          "fiction"
+          "money",
+          "travel",
+          "finance"
         ]
       },
       {
-        "front": "Looming",
-        "back": "Appearing as a shadowy, threatening, or towering form in the near distance.",
-        "phonetic": "/ˈluː.mɪŋ/",
+        "front": "Duty-free",
+        "back": "Exempt from national tax or customs import tariffs, typical of goods sold in international departure lounges.",
+        "phonetic": "/ˌdʒuː.tiˈfriː/",
         "partOfSpeech": "adjective",
-        "example": "The shadowy colossus was looming over the destroyed citadel, blotting out the daylight.",
-        "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80",
+        "example": "She purchased perfume and confectionery at the duty-free boutique before boarding.",
+        "imageUrl": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&q=80",
         "tags": [
-          "adjective",
-          "atmosphere",
-          "fiction"
+          "shopping",
+          "airport",
+          "goods"
         ]
       },
       {
-        "front": "Tremor",
-        "back": "An involuntary trembling motion, vibration, or slight earthquake shaking the ground.",
-        "phonetic": "/ˈtrem.ər/",
+        "front": "Terminal",
+        "back": "A major airport building containing check-in desks, security, and gates for passenger arrivals and departures.",
+        "phonetic": "/ˈtɜː.mɪ.nəl/",
         "partOfSpeech": "noun",
-        "example": "A deep subterranean tremor shook the fortress foundations as the ancient beast awoke.",
-        "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
+        "example": "Please check your boarding ticket carefully to ensure your taxi drops you off at the correct terminal.",
+        "imageUrl": "https://images.unsplash.com/photo-1542296332-2e4473faf563?w=600&q=80",
         "tags": [
-          "noun",
-          "earthquake",
-          "action"
+          "airport",
+          "infrastructure",
+          "travel"
         ]
       },
       {
-        "front": "Vow",
-        "back": "A solemn, binding promise or pledge made with deep conviction.",
-        "phonetic": "/vaʊ/",
+        "front": "Accommodation",
+        "back": "A temporary place to stay or sleep during a journey, such as a hotel, hostel, or rental apartment.",
+        "phonetic": "/əˌkɒm.əˈdeɪ.ʃən/",
         "partOfSpeech": "noun",
-        "example": "Drawing his sacred blade, the young swordsman swore a vow to protect his kingdom.",
-        "imageUrl": "https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80",
+        "example": "Budget travelers can find clean, comfortable accommodation near the central railway station.",
+        "imageUrl": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=80",
         "tags": [
-          "noun",
-          "honor",
-          "oath"
+          "hospitality",
+          "lodging",
+          "travel"
         ]
       },
       {
-        "front": "Relentless",
-        "back": "Oppressively constant, unyielding, or refusing to stop or show mercy.",
-        "phonetic": "/rɪˈlent.ləs/",
+        "front": "Landmark",
+        "back": "An iconic building, natural feature, or monument easily recognized and used for navigation or tourism.",
+        "phonetic": "/ˈlænd.mɑːk/",
+        "partOfSpeech": "noun",
+        "example": "The ancient stone bridge is considered the city's most distinctive historical landmark.",
+        "imageUrl": "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80",
+        "tags": [
+          "geography",
+          "tourism",
+          "sightseeing"
+        ]
+      },
+      {
+        "front": "Overbooked",
+        "back": "Having accepted more passenger reservations or ticket sales than there are seats or rooms available.",
+        "phonetic": "/ˌəʊ.vəˈbʊkt/",
         "partOfSpeech": "adjective",
-        "example": "Despite exhaustion and heavy snow, their relentless pursuit brought them to the enemy's encampment.",
-        "imageUrl": "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=600&q=80",
+        "example": "Because the evening flight was overbooked, the airline offered travel vouchers to volunteers.",
+        "imageUrl": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&q=80",
         "tags": [
-          "adjective",
-          "determination",
-          "fiction"
+          "flights",
+          "hospitality",
+          "travel"
         ]
       },
       {
-        "front": "Smirk",
-        "back": "To smile in an irritating, conceited, or self-satisfied manner.",
-        "phonetic": "/smɜːk/",
-        "partOfSpeech": "verb",
-        "example": "The sorcerer couldn't help but smirk as his opponent fell straight into his trap.",
-        "imageUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&q=80",
-        "tags": [
-          "verb",
-          "attitude",
-          "manga"
-        ]
-      },
-      {
-        "front": "Vanquish",
-        "back": "To defeat completely, conquer, or overcome in battle or competition.",
-        "phonetic": "/ˈvæŋ.kwɪʃ/",
-        "partOfSpeech": "verb",
-        "example": "Only the chosen warrior possessed enough spiritual strength to vanquish the dark lord.",
-        "imageUrl": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&q=80",
-        "tags": [
-          "verb",
-          "victory",
-          "fantasy"
-        ]
-      },
-      {
-        "front": "Menacing",
-        "back": "Suggesting the presence of imminent danger, evil, or harm.",
-        "phonetic": "/ˈmen.ɪ.sɪŋ/",
-        "partOfSpeech": "adjective",
-        "example": "The dark knight let out a menacing laugh before unsheathing his cursed two-handed broadsword.",
-        "imageUrl": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
-        "tags": [
-          "adjective",
-          "danger",
-          "villain"
-        ]
-      },
-      {
-        "front": "Skirmish",
-        "back": "A brief, unplanned fight or minor conflict between small groups of fighters.",
-        "phonetic": "/ˈskɜː.mɪʃ/",
+        "front": "Connection",
+        "back": "A secondary train, bus, or airplane that allows a passenger to continue their journey after transferring.",
+        "phonetic": "/kəˈnek.ʃən/",
         "partOfSpeech": "noun",
-        "example": "A border skirmish broke out when reconnaissance patrols crossed paths in the canyon.",
-        "imageUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80",
+        "example": "With our incoming flight delayed forty minutes, we sprinted to make our tight connection.",
+        "imageUrl": "https://images.unsplash.com/photo-1506015391300-4802dc74de2e?w=600&q=80",
         "tags": [
-          "noun",
-          "combat",
-          "warfare"
+          "transit",
+          "flights",
+          "travel"
         ]
       },
       {
-        "front": "Abyss",
-        "back": "A deep, immeasurable chasm, void, or bottomless dark pit.",
-        "phonetic": "/əˈbɪs/",
+        "front": "Passport control",
+        "back": "The government area at international entry ports where immigration officers verify travelers' travel identities and visas.",
+        "phonetic": "/ˈpɑːs.pɔːt kənˌtrəʊl/",
         "partOfSpeech": "noun",
-        "example": "He stared down into the glowing abyss, unsure if anything could survive such a fall.",
-        "imageUrl": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80",
+        "example": "Citizens holding biometric e-passports can pass through automated gates at passport control.",
+        "imageUrl": "https://images.unsplash.com/photo-1517400508447-f8dd518b86db?w=600&q=80",
         "tags": [
-          "noun",
-          "mystery",
-          "fantasy"
+          "immigration",
+          "airport",
+          "security"
         ]
       },
       {
-        "front": "Berserk",
-        "back": "Out of control with wild frenzy, uncontrollable fury, or violent destructive energy.",
-        "phonetic": "/bəˈzɜːk/",
-        "partOfSpeech": "adjective",
-        "example": "When his armor cracked, the warrior went berserk and shattered the stone pillars around him.",
-        "imageUrl": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&q=80",
+        "front": "Destination",
+        "back": "The final place to which someone or something is going or traveling.",
+        "phonetic": "/ˌdes.tɪˈneɪ.ʃən/",
+        "partOfSpeech": "noun",
+        "example": "After sixteen hours of flying and two layovers, we finally reached our tropical destination.",
+        "imageUrl": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80",
         "tags": [
-          "adjective",
-          "rage",
-          "manga"
-        ]
-      },
-      {
-        "front": "Pierce",
-        "back": "To penetrate, puncture, or cut sharply into or through an object.",
-        "phonetic": "/pɪəs/",
-        "partOfSpeech": "verb",
-        "example": "The silver arrow was sharp enough to pierce through enchanted dragon scales.",
-        "imageUrl": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=600&q=80",
-        "tags": [
-          "verb",
-          "combat",
-          "fantasy"
+          "travel",
+          "geography",
+          "vacation"
         ]
       }
     ]

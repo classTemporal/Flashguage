@@ -772,6 +772,15 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <Button
+                  as="link"
+                  href="/decks?tab=starter-kits"
+                  variant="secondary"
+                  size="sm"
+                  className="font-bold text-xs gap-1 border-border/80"
+                >
+                  <span>✨</span> Starter Kits
+                </Button>
+                <Button
                   type="button"
                   variant="secondary"
                   size="sm"
@@ -804,10 +813,17 @@ export default function Dashboard() {
                   description={`You haven't created any decks in the ${activeLanguage === "all" ? "collection" : currentLang.name + " track"} yet. Start learning by adding your first deck!`}
                   action={
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <Button type="button" onClick={() => setIsCreateDeckOpen(true)}>
+                      <Button
+                        href="/decks?tab=starter-kits"
+                        as="link"
+                        className="font-bold gap-1.5 shadow-sm bg-gradient-to-r from-primary to-indigo-600 text-white"
+                      >
+                        <span>✨</span> Explore Starter Packs (20+ cards)
+                      </Button>
+                      <Button type="button" variant="secondary" onClick={() => setIsCreateDeckOpen(true)}>
                         + Create {activeLanguage === "all" ? "" : currentLang.name} Deck
                       </Button>
-                      <Button href="/import" as="link" variant="secondary">
+                      <Button href="/import" as="link" variant="ghost" className="border border-border">
                         Import Cards
                       </Button>
                     </div>
@@ -978,7 +994,15 @@ export default function Dashboard() {
                 <span>→</span>
               </Link>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <Link
+                href="/decks?tab=starter-kits"
+                className="group rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-xs transition-all hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <div className="text-2xl mb-1.5 group-hover:scale-110 transition-transform">✨</div>
+                <p className="text-sm font-bold text-foreground">Starter Kits</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">Curated 20+ card packs with phonetics, images & examples</p>
+              </Link>
               <Link
                 href="/progress"
                 className="group rounded-2xl border border-border bg-card p-4 shadow-xs transition-all hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
