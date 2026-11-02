@@ -55,12 +55,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const cleanBase64 = audio.replace(/^data:audio\/[a-z0-9-+.]+;base64,/, "");
-    const cleanMime = mimeType.split(";")[0] || "audio/webm";
+    // Clean base64 audio and normalize mime type
+    let cleanBase64 = audio.trim();
+    let cleanMime = (mimeType || "audio/webm").split(";")[0].trim().toLowerCase();
+
+    // Strip data URL scheme if present (e.g. data:audio/webm;codecs=opus;base64,...)
+    const commaIdx = cleanBase64.indexOf(",");
+    if (cleanBase64.startsWith("data:") && commaIdx !== -1) {
+      const prefix = cleanBase64.slice(0, commaIdx);
+      const mimeMatch = prefix.match(/^data:([^;,]+)/);
+      if (mimeMatch && mimeMatch[1]) {
+        cleanMime = mimeMatch[1].trim().toLowerCase();
+      }
+      cleanBase64 = cleanBase64.slice(commaIdx + 1).trim();
+    }
+
+    // Inspect container magic bytes for accurate MIME identification
+    try {
+      const sample = Buffer.from(cleanBase64.slice(0, 16), "base64");
+      if (sample.slice(0, 4).toString("ascii") === "OggS") {
+        cleanMime = "audio/ogg";
+      } else if (
+        sample[0] === 0x1a &&
+        sample[1] === 0x45 &&
+        sample[2] === 0xdf &&
+        sample[3] === 0xa3
+      ) {
+        cleanMime = "audio/webm";
+      } else if (sample.slice(0, 4).toString("ascii") === "RIFF") {
+        cleanMime = "audio/wav";
+      }
+    } catch {
+      // Use fallback cleanMime
+    }
+
+    const helperExt = cleanMime.includes("ogg")
+      ? "ogg"
+      : cleanMime.includes("mp4") || cleanMime.includes("m4a")
+      ? "m4a"
+      : cleanMime.includes("wav")
+      ? "wav"
+      : "webm";
 
     // 1. Google Gemini Speech Provider
     if (speechProvider === "gemini") {
-      const model = speechModel || "gemini-3.5-flash-lite";
+      let model = speechModel || userSettings.aiModel || "gemini-2.5-flash";
+      if (model.includes("-tts")) {
+        model = model.replace(/-tts.*$/, "") || "gemini-2.5-flash";
+      }
+      if (model.includes("3.5-flash-lite")) {
+        model = "gemini-2.5-flash";
+      }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
         model
       )}:generateContent?key=${encodeURIComponent(speechApiKey)}`;
@@ -93,8 +138,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if (!geminiRes.ok) {
-        const errText = await geminiRes.text();
+        let errText = await geminiRes.text();
         console.error("[Transcribe Gemini Error]:", geminiRes.status, errText);
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed?.error?.message) {
+            errText = parsed.error.message;
+          }
+        } catch {}
+        if (errText.length > 200) {
+          errText = errText.slice(0, 197) + "...";
+        }
         return res.status(400).json({
           error: `Gemini Speech API error (${geminiRes.status}): ${errText}`,
         });
@@ -110,7 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (speechProvider === "groq") {
       const model = speechModel || "whisper-large-v3-turbo";
       const audioBuffer = Buffer.from(cleanBase64, "base64");
-      const file = new File([audioBuffer], "recording.webm", { type: cleanMime });
+      const file = new File([audioBuffer], `recording.${helperExt}`, { type: cleanMime });
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
@@ -125,7 +179,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if (!groqRes.ok) {
-        const errText = await groqRes.text();
+        let errText = await groqRes.text();
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed?.error?.message) {
+            errText = parsed.error.message;
+          }
+        } catch {}
+        if (errText.length > 200) {
+          errText = errText.slice(0, 197) + "...";
+        }
         return res.status(400).json({ error: `Groq Speech API error (${groqRes.status}): ${errText}` });
       }
 
@@ -137,15 +200,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (speechProvider === "openai") {
       const model = speechModel || "whisper-1";
       const audioBuffer = Buffer.from(cleanBase64, "base64");
-      const ext = cleanMime.includes("ogg")
-        ? "ogg"
-        : cleanMime.includes("mp4") || cleanMime.includes("m4a")
-        ? "m4a"
-        : cleanMime.includes("wav")
-        ? "wav"
-        : "webm";
-
-      const file = new File([audioBuffer], `recording.${ext}`, { type: cleanMime });
+      const file = new File([audioBuffer], `recording.${helperExt}`, { type: cleanMime });
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
@@ -160,7 +215,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if (!whisperRes.ok) {
-        const errText = await whisperRes.text();
+        let errText = await whisperRes.text();
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed?.error?.message) {
+            errText = parsed.error.message;
+          }
+        } catch {}
+        if (errText.length > 200) {
+          errText = errText.slice(0, 197) + "...";
+        }
         return res.status(400).json({
           error: `OpenAI Speech API error (${whisperRes.status}): ${errText}`,
         });
@@ -179,7 +243,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const model = speechModel || "whisper-1";
       const audioBuffer = Buffer.from(cleanBase64, "base64");
-      const file = new File([audioBuffer], "recording.webm", { type: cleanMime });
+      const file = new File([audioBuffer], `recording.${helperExt}`, { type: cleanMime });
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
@@ -204,7 +268,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if (!customRes.ok) {
-        const errText = await customRes.text();
+        let errText = await customRes.text();
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed?.error?.message) {
+            errText = parsed.error.message;
+          }
+        } catch {}
+        if (errText.length > 200) {
+          errText = errText.slice(0, 197) + "...";
+        }
         return res.status(400).json({
           error: `Custom Speech API error (${customRes.status}): ${errText}`,
         });

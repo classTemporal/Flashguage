@@ -28,7 +28,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback((message: string, type: ToastType = "info", duration = 4000) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
+    let cleanMsg = typeof message === "string" ? message.trim() : String(message ?? "");
+    if (cleanMsg.length > 220) {
+      cleanMsg = cleanMsg.slice(0, 217) + "...";
+    }
+    setToasts((prev) => [...prev, { id, message: cleanMsg, type, duration }]);
 
     if (duration > 0) {
       setTimeout(() => {
@@ -86,9 +90,9 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
               bgStyles,
             ].join(" ")}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <span className={`h-2 w-2 rounded-full ${indicatorColor} shrink-0`} />
-              <p className="text-sm font-medium">{toast.message}</p>
+              <p className="text-sm font-medium break-words overflow-hidden line-clamp-3">{toast.message}</p>
             </div>
             <button
               onClick={() => onDismiss(toast.id)}
