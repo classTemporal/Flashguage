@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
+import { signOut } from "next-auth/react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -464,9 +465,9 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between">
       {/* Top Brand Bar */}
       <header className="border-b border-border/80 bg-background/80 backdrop-blur-md px-4 py-4 sm:px-8 sticky top-0 z-20">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white font-black shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white font-black shadow-sm shrink-0">
               <span className="text-sm">FG</span>
             </div>
             <div>
@@ -479,16 +480,30 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs sm:text-sm font-bold text-muted-foreground">
-              Step {step} of 5
-            </span>
-            <div className="w-20 sm:w-36 h-2.5 rounded-full bg-muted overflow-hidden border border-border/60">
-              <div
-                className="h-full bg-gradient-to-r from-primary to-indigo-600 transition-all duration-300"
-                style={{ width: `${(step / 5) * 100}%` }}
-              />
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-xs sm:text-sm font-bold text-muted-foreground whitespace-nowrap">
+                Step {step} of 5
+              </span>
+              <div className="w-16 sm:w-28 h-2.5 rounded-full bg-muted overflow-hidden border border-border/60">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-indigo-600 transition-all duration-300"
+                  style={{ width: `${(step / 5) * 100}%` }}
+                />
+              </div>
             </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2.5 py-1.5 h-8 gap-1.5 rounded-xl border border-border/60 transition-colors shadow-2xs"
+              title="Sign out of this account"
+            >
+              <span aria-hidden="true">🚪</span>
+              <span className="hidden sm:inline">Log out</span>
+            </Button>
           </div>
         </div>
       </header>
