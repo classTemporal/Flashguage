@@ -5,7 +5,7 @@ export interface DefinitionResult {
   partOfSpeech?: string;
 }
 
-export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "ollama" | "custom";
 export type ProviderName = AIProvider;
 
 export interface AIConfig {
@@ -17,6 +17,7 @@ export interface AIConfig {
   openaiKey?: string;
   anthropicKey?: string;
   geminiKey?: string;
+  groqKey?: string;
   ollamaUrl?: string;
   ollamaModel?: string;
   customBaseUrl?: string;
@@ -25,6 +26,7 @@ export interface AIConfig {
   openaiModel?: string;
   anthropicModel?: string;
   geminiModel?: string;
+  groqModel?: string;
 }
 
 interface CacheEntry {
@@ -107,6 +109,11 @@ function getCustomModel(config?: AIConfig): string {
   const model = (config?.provider === "custom" && (config.customModel || config.model)) || process.env.CUSTOM_AI_MODEL || "";
   if (!model) throw new Error("Missing model for Custom AI provider");
   return model;
+}
+
+function getGroqKey(config?: AIConfig): string {
+  if (config?.provider === "groq" && config.apiKey) return config.apiKey;
+  return config?.groqKey || config?.apiKey || process.env.GROQ_API_KEY || "";
 }
 
 // 1. OpenAI Client
@@ -338,6 +345,50 @@ export async function callCustom(prompt: string, config?: AIConfig): Promise<str
   return json.choices?.[0]?.message?.content ?? "";
 }
 
+// 6. Groq Client
+export async function callGroq(prompt: string, config?: AIConfig): Promise<string> {
+  const apiKey = getGroqKey(config);
+  if (!apiKey) {
+    throw new Error("Missing API Key for Groq provider");
+  }
+
+  const model =
+    (config?.provider === "groq" && (config.groqModel || config.model)) ||
+    config?.groqModel ||
+    "llama-3.3-70b-versatile";
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 512,
+    }),
+  });
+
+  if (!res.ok) {
+    let errMsg = `Groq API error ${res.status}`;
+    try {
+      const errJson = await res.json();
+      errMsg = errJson.error?.message || errJson.message || errMsg;
+    } catch {
+      const text = await res.text().catch(() => "");
+      if (text) errMsg += `: ${text}`;
+    }
+    throw new Error(errMsg);
+  }
+
+  const json = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  return json.choices?.[0]?.message?.content ?? "";
+}
+
 function hasConfigForProvider(provider: AIProvider, config?: AIConfig): boolean {
   switch (provider) {
     case "openai":
@@ -346,6 +397,8 @@ function hasConfigForProvider(provider: AIProvider, config?: AIConfig): boolean 
       return Boolean(getAnthropicKey(config));
     case "gemini":
       return Boolean(getGeminiKey(config));
+    case "groq":
+      return Boolean(getGroqKey(config));
     case "ollama":
       return Boolean(getOllamaUrl(config));
     case "custom":
@@ -359,9 +412,11 @@ function getFallbackChain(config?: AIConfig): AIProvider[] {
   if (config?.fallbackChain && config.fallbackChain.length > 0) {
     return config.fallbackChain;
   }
-  const allProviders: AIProvider[] = ["gemini", "openai", "anthropic", "custom", "ollama"];
+  const allProviders: AIProvider[] = ["openai", "anthropic", "gemini", "groq", "custom", "ollama"];
   const primary: AIProvider =
-    config?.provider || (hasConfigForProvider("gemini", config) ? "gemini" : "openai");
+    config?.provider ||
+    allProviders.find((p) => hasConfigForProvider(p, config)) ||
+    "openai";
   const chain: AIProvider[] = [primary];
   for (const p of allProviders) {
     if (p !== primary && hasConfigForProvider(p, config)) {
@@ -373,10 +428,22 @@ function getFallbackChain(config?: AIConfig): AIProvider[] {
 
 export function isAIConfigured(config?: AIConfig): boolean {
   if (!config) return false;
-  const p = config.provider || "gemini";
+  const p = config.provider;
+  if (!p) {
+    return Boolean(
+      config.apiKey ||
+      config.openaiKey ||
+      config.geminiKey ||
+      config.anthropicKey ||
+      config.groqKey ||
+      config.customBaseUrl ||
+      config.ollamaUrl
+    );
+  }
   if (p === "openai") return Boolean(config.apiKey || config.openaiKey);
   if (p === "gemini") return Boolean(config.apiKey || config.geminiKey);
   if (p === "anthropic") return Boolean(config.apiKey || config.anthropicKey);
+  if (p === "groq") return Boolean(config.apiKey || config.groqKey);
   if (p === "ollama") return true; // ollama runs locally
   if (p === "custom") return Boolean(config.customBaseUrl || config.baseUrl);
   return Boolean(config.apiKey || config.geminiKey || config.openaiKey);
@@ -422,6 +489,9 @@ export async function tryProviders(
           break;
         case "gemini":
           result = await callGemini(prompt, config);
+          break;
+        case "groq":
+          result = await callGroq(prompt, config);
           break;
         case "ollama":
           result = await callOllama(prompt, config);

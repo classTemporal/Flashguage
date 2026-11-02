@@ -42,9 +42,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (user?.settings) {
         const s = JSON.parse(user.settings);
         const provider = (s.aiProvider as string) || "openai";
-        const apiKey = (s.aiApiKey as string) || (provider === "openai" ? (s.openaiKey as string) || "" : provider === "anthropic" ? (s.anthropicKey as string) || "" : provider === "gemini" ? (s.geminiKey as string) || "" : provider === "custom" ? (s.customApiKey as string) || "" : "") || "";
+        const apiKey = (s.aiApiKey as string) || (provider === "openai" ? (s.openaiKey as string) || "" : provider === "anthropic" ? (s.anthropicKey as string) || "" : provider === "gemini" ? (s.geminiKey as string) || "" : provider === "groq" ? (s.groqKey as string) || "" : provider === "custom" ? (s.customApiKey as string) || "" : "") || "";
         const baseUrl = (s.aiBaseUrl as string) || (provider === "ollama" ? (s.ollamaUrl as string) || "" : provider === "custom" ? (s.customBaseUrl as string) || "" : "") || "";
-        const model = (s.aiModel as string) || (provider === "openai" ? (s.openaiModel as string) || "" : provider === "anthropic" ? (s.anthropicModel as string) || "" : provider === "gemini" ? (s.geminiModel as string) || "" : provider === "ollama" ? (s.ollamaModel as string) || "" : provider === "custom" ? (s.customModel as string) || "" : "") || "";
+        const model = (s.aiModel as string) || (provider === "openai" ? (s.openaiModel as string) || "" : provider === "anthropic" ? (s.anthropicModel as string) || "" : provider === "gemini" ? (s.geminiModel as string) || "" : provider === "groq" ? (s.groqModel as string) || "" : provider === "ollama" ? (s.ollamaModel as string) || "" : provider === "custom" ? (s.customModel as string) || "" : "") || "";
         userConfig = {
           provider: provider as any,
           apiKey,
@@ -53,6 +53,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           openaiKey: (s.openaiKey as string) || "",
           anthropicKey: (s.anthropicKey as string) || "",
           geminiKey: (s.geminiKey as string) || "",
+          groqKey: (s.groqKey as string) || "",
           ollamaUrl: (s.ollamaUrl as string) || "",
           ollamaModel: (s.ollamaModel as string) || "",
           customBaseUrl: (s.customBaseUrl as string) || "",
@@ -61,6 +62,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           openaiModel: (s.openaiModel as string) || undefined,
           anthropicModel: (s.anthropicModel as string) || undefined,
           geminiModel: (s.geminiModel as string) || undefined,
+          groqModel: (s.groqModel as string) || undefined,
         };
       }
     } catch (e) {

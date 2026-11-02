@@ -206,6 +206,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         overrideApiKey ||
         userSettings.speechApiKey ||
         userSettings.openaiKey ||
+        userSettings.aiApiKey ||
         ""
       ).trim();
 
@@ -334,12 +335,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Custom TTS Integration
     if (provider === "custom") {
-      const baseUrl = (req.body.baseUrl || userSettings.speechBaseUrl || "").trim();
+      const baseUrl = (req.body.baseUrl || userSettings.speechBaseUrl || userSettings.customBaseUrl || "").trim();
       if (!baseUrl) {
         return await serveGoogleTTS(cleanText, language, cacheDir, res);
       }
 
-      const apiKey = (overrideApiKey || userSettings.speechApiKey || "").trim();
+      const apiKey = (overrideApiKey || userSettings.speechApiKey || userSettings.customApiKey || "").trim();
       const voice = (overrideVoice || userSettings.speechVoice || "alloy").trim();
       const speed = typeof overrideSpeed === "number" ? overrideSpeed : (userSettings.speechSpeed ?? 1.0);
       const model = (overrideModel || userSettings.speechModel || "tts-1").trim();

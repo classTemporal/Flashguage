@@ -37,14 +37,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
 
-    const speechProvider = userSettings.speechProvider || "browser";
-    const speechApiKey = (userSettings.speechApiKey || "").trim();
+    const speechProvider = userSettings.speechProvider || (userSettings.aiProvider ? userSettings.aiProvider : "browser");
+    const speechApiKey = (
+      userSettings.speechApiKey ||
+      userSettings.groqKey ||
+      userSettings.openaiKey ||
+      userSettings.geminiKey ||
+      userSettings.aiApiKey ||
+      ""
+    ).trim();
     const speechModel = (userSettings.speechModel || "").trim();
 
-    if (!speechApiKey) {
+    if (!speechApiKey && speechProvider !== "custom") {
       return res.status(400).json({
         error:
-          "A dedicated Speech API Key is required for speech transcription in this browser. Go to Settings > Speech & Pronunciation to configure your provider and voice key.",
+          "An API key (OpenAI, Gemini, or Groq) or a Custom server is required for microphone transcription. Configure it in Settings > Speech & Pronunciation.",
       });
     }
 

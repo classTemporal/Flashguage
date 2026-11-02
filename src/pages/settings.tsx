@@ -1139,16 +1139,16 @@ export default function SettingsPage() {
                     setSpeechProvider(newProvider);
                     setDetectedSpeechModels([]);
                     if (newProvider === "openai") setSpeechModel("tts-1");
-                    else if (newProvider === "gemini") setSpeechModel("gemini-3.5-flash-lite");
+                    else if (newProvider === "gemini") setSpeechModel("gemini-3.8-flash-tts");
                     else if (newProvider === "groq") setSpeechModel("whisper-large-v3-turbo");
                     else if (newProvider === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
-                    else if (newProvider === "custom") setSpeechModel("whisper-1");
+                    else if (newProvider === "custom") setSpeechModel("tts-1");
                   }}
                   options={[
-                    { value: "browser", label: "Browser Web Speech (Free / Offline / No API Key required)" },
+                    { value: "browser", label: "Browser Web Speech (Free / Universal Cloud Audio / No API Key required)" },
                     { value: "openai", label: "OpenAI (TTS Audio & Whisper Transcription)" },
-                    { value: "gemini", label: "Google Gemini (Multimodal Speech Transcription)" },
-                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
+                    { value: "gemini", label: "Google Gemini (TTS Audio & Speech Transcription)" },
+                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT Transcription)" },
                     { value: "elevenlabs", label: "ElevenLabs (Ultra-Realistic Generative Speech)" },
                     { value: "custom", label: "Custom (OpenAI-Compatible Local / Self-Hosted Server)" },
                   ]}
