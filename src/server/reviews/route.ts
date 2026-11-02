@@ -4,7 +4,7 @@ import { authOptions } from "../auth/options";
 import { prisma } from "@/lib/prisma";
 import type { Card } from "@prisma/client";
 import { calculateNextReviewWithState } from "@/lib/sm2";
-import { getDailyGoalProgress } from "@/lib/stats";
+import { getDailyGoalProgress, getDayBounds } from "@/lib/stats";
 
 // ─── GET /api/reviews/due ─────────────────────────────────────────────────────
 // Returns cards that are due for review. Crucially, also includes cards that
@@ -146,6 +146,83 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
 
     // New cards come first, then due reviews ordered by due date
     const combined = [...newCardReviews, ...dueReviews];
+
+    // 3. User Daily Goal Progress Check:
+    // If the user has not completed their daily study goal, pull in additional cards
+    // (ordered by nearest dueDate) so the user can study and fulfill their goal today.
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { dailyGoal: true, settings: true },
+    });
+    const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
+    const timezone = (req.query.tz as string) || userSettings.timezone || "UTC";
+    const dailyGoal = user?.dailyGoal || 20;
+
+    const goalProgress = await getDailyGoalProgress(
+      session.user.id,
+      dailyGoal,
+      language,
+      timezone
+    );
+    const neededForGoal = Math.max(0, dailyGoal - goalProgress.current);
+
+    if (combined.length < neededForGoal && !isAllMode) {
+      const alreadyIncludedIds = new Set(combined.map((c) => c.cardId));
+      let deficit = neededForGoal - combined.length;
+
+      const { startOfDay } = getDayBounds(new Date(), timezone);
+
+      // Phase A: Prioritize cards that have NOT been reviewed today yet
+      const notReviewedToday = await prisma.review.findMany({
+        where: {
+          userId: session.user.id,
+          dueDate: { gt: new Date() },
+          OR: [
+            { lastReview: null },
+            { lastReview: { lt: startOfDay } },
+          ],
+          ...(alreadyIncludedIds.size > 0 ? { cardId: { notIn: Array.from(alreadyIncludedIds) } } : {}),
+          ...(deckFilter ? { card: deckFilter } : {}),
+        },
+        include: {
+          card: {
+            include: {
+              deck: { select: { id: true, name: true, targetLanguage: true } },
+            },
+          },
+        },
+        orderBy: { dueDate: "asc" },
+        take: deficit,
+      });
+
+      combined.push(...notReviewedToday);
+      notReviewedToday.forEach((r) => alreadyIncludedIds.add(r.cardId));
+      deficit = neededForGoal - combined.length;
+
+      // Phase B: If still under deficit (e.g. deck has fewer total cards than daily goal),
+      // allow cards scheduled further out sorted by earliest lastReview / dueDate
+      if (deficit > 0) {
+        const remainingFutureCards = await prisma.review.findMany({
+          where: {
+            userId: session.user.id,
+            dueDate: { gt: new Date() },
+            ...(alreadyIncludedIds.size > 0 ? { cardId: { notIn: Array.from(alreadyIncludedIds) } } : {}),
+            ...(deckFilter ? { card: deckFilter } : {}),
+          },
+          include: {
+            card: {
+              include: {
+                deck: { select: { id: true, name: true, targetLanguage: true } },
+              },
+            },
+          },
+          orderBy: [{ lastReview: "asc" }, { dueDate: "asc" }],
+          take: deficit,
+        });
+
+        combined.push(...remainingFutureCards);
+      }
+    }
 
     const limit = req.query.limit ? Number(req.query.limit) : undefined;
     if (limit && limit > 0) {

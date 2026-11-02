@@ -388,29 +388,29 @@ function GoalProgress({
           </div>
         ) : dueCount === 0 ? (
           <div className="flex items-center gap-2">
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm">
-              0 cards due today
+            <span className={current >= goal ? "text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm" : "text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm"}>
+              {current >= goal ? "0 cards due today (Goal complete! 🎉)" : `${goal - current} left to reach daily goal`}
             </span>
             <Button
               href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
               as="link"
-              variant="secondary"
+              variant={current >= goal ? "secondary" : "primary"}
               size="sm"
-              className="h-6 text-[11px] px-2 py-0"
+              className="h-6 text-[11px] px-2.5 py-0 font-semibold shadow-xs"
             >
-              {current < goal ? `Practice to Goal (${goal - current} left) →` : "Practice Any →"}
+              {current < goal ? `Study to Goal (${goal - current} left) →` : "Practice Any →"}
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-primary font-semibold text-xs sm:text-sm">
-              {dueCount} {dueCount === 1 ? "card" : "cards"} due
+              {dueCount} {dueCount === 1 ? "card" : "cards"} due today
             </span>
             <Button
               href={`/study?lang=${encodeURIComponent(activeLanguage)}`}
               as="link"
               size="sm"
-              className="h-6 text-[11px] px-2 py-0"
+              className="h-6 text-[11px] px-2.5 py-0 font-semibold shadow-xs"
             >
               Study Now →
             </Button>
@@ -1162,6 +1162,16 @@ export default function Dashboard() {
                 >
                   <span>🧠</span>
                   <span>Study {activeLanguage === "all" ? "Due Cards" : currentLang.name}</span>
+                </Button>
+              ) : stats && stats.dailyGoal.current < stats.dailyGoal.goal ? (
+                <Button
+                  href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
+                  as="link"
+                  size="md"
+                  className="gap-1.5 font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90"
+                >
+                  <span>🎯</span>
+                  <span>Study to Goal ({stats.dailyGoal.goal - stats.dailyGoal.current} left)</span>
                 </Button>
               ) : (
                 <Button

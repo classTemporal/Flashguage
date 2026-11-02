@@ -29,15 +29,17 @@ export function NoDueCards({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
-      <div className="mb-4 text-6xl">🎉</div>
+      <div className="mb-4 text-6xl">{remainingGoal > 0 ? "🎯" : "🎉"}</div>
       <span className="inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2">
         {currentLang.flag} {currentLang.name} Track
       </span>
       <h1 className="text-2xl sm:text-3xl font-black text-foreground mb-2">
-        All cards caught up!
+        {remainingGoal > 0 ? "Daily Goal in Progress" : "All cards caught up!"}
       </h1>
       <p className="text-muted-foreground mb-4 max-w-sm text-sm">
-        {deckId === "all"
+        {remainingGoal > 0
+          ? `You have studied ${dailyGoalCurrent} cards today. Study ${remainingGoal} more card${remainingGoal === 1 ? "" : "s"} to complete your daily goal of ${dailyGoalTarget}.`
+          : deckId === "all"
           ? `According to your spaced repetition schedule, all cards in your ${currentLang.name} track are currently up to date.`
           : `According to your spaced repetition memory schedule, all vocabulary in ${deckName} is currently reviewed.`}
       </p>
@@ -46,7 +48,7 @@ export function NoDueCards({
         <div className="mb-6 rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 max-w-sm text-xs text-foreground font-medium flex items-center justify-between gap-3">
           <span>🎯 Daily Goal Progress:</span>
           <span className="font-bold text-primary font-mono">
-            {dailyGoalCurrent} / {dailyGoalTarget} ({remainingGoal} to goal)
+            {dailyGoalCurrent} / {dailyGoalTarget} ({remainingGoal} left to reach goal)
           </span>
         </div>
       ) : (
@@ -58,9 +60,9 @@ export function NoDueCards({
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <Link
           href={deckId === "all" ? `/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all` : `/study/${deckId}?mode=all`}
-          className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-white font-bold text-center transition-colors shadow-md flex items-center justify-center gap-2"
+          className="w-full rounded-2xl bg-primary hover:opacity-90 py-3.5 text-primary-foreground font-bold text-center transition-opacity shadow-md flex items-center justify-center gap-2"
         >
-          <span>🎯</span> {remainingGoal > 0 ? `Practice Ahead (${remainingGoal} to goal)` : "Free Practice Mode"}
+          <span>🎯</span> {remainingGoal > 0 ? `Study Remaining to Reach Goal (${remainingGoal} left)` : "Free Practice Mode"}
         </Link>
 
         <Link
