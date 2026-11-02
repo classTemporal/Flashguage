@@ -16,6 +16,7 @@ import {
   setStoredActiveLanguage,
   recordTrackAccess,
 } from "@/lib/languages";
+import { playCardSpeech } from "@/lib/speech";
 
 const fetcher = (url: string) => fetch(url).then((res) => (res.ok ? res.json() : null));
 
@@ -86,10 +87,14 @@ export default function OnboardingPage() {
   const [speechProvider, setSpeechProvider] = useState<string>("browser");
   const [speechApiKey, setSpeechApiKey] = useState<string>("");
   const [speechBaseUrl, setSpeechBaseUrl] = useState<string>("");
+  const [speechVoice, setSpeechVoice] = useState<string>("nova");
   const [speechModel, setSpeechModel] = useState<string>("gemini-3.8-flash-tts");
   const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(true);
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [showSpeechKey, setShowSpeechKey] = useState<boolean>(false);
+  const [detectedSpeechModels, setDetectedSpeechModels] = useState<string[]>([]);
+  const [detectingSpeechModels, setDetectingSpeechModels] = useState<boolean>(false);
+  const [testingSpeech, setTestingSpeech] = useState<boolean>(false);
 
   // Step 3: Speech-to-Text (STT) Key (OPTIONAL)
   const [transcribeProvider, setTranscribeProvider] = useState<"gemini" | "groq" | "openai" | "custom">("gemini");
@@ -97,6 +102,8 @@ export default function OnboardingPage() {
   const [transcribeBaseUrl, setTranscribeBaseUrl] = useState<string>("");
   const [transcribeModel, setTranscribeModel] = useState<string>("gemini-3.5-flash");
   const [showTranscribeKey, setShowTranscribeKey] = useState<boolean>(false);
+  const [detectedTranscribeModels, setDetectedTranscribeModels] = useState<string[]>([]);
+  const [detectingTranscribeModels, setDetectingTranscribeModels] = useState<boolean>(false);
 
   // Step 4: Timezone & Habits (OPTIONAL)
   const [allTimezones, setAllTimezones] = useState<string[]>([]);
@@ -146,6 +153,120 @@ export default function OnboardingPage() {
     const langInfo = getLanguage(selectedLanguage);
     setCustomDeckName(`${langInfo.name} Core Vocabulary`);
   }, [selectedLanguage]);
+
+  // Handler: Test Speech Output in Wizard
+  const handleTestSpeech = async () => {
+    setTestingSpeech(true);
+    try {
+      const sampleSentence = "Welcome to Flashguage! This is a preview of your speech voice.";
+      showToast("Generating voice preview...", "info");
+      await playCardSpeech(sampleSentence, selectedLanguage || "en", {
+        provider: speechProvider,
+        apiKey: speechApiKey.trim(),
+        baseUrl: speechBaseUrl.trim(),
+        voice: speechVoice.trim(),
+        speed: Number(speechSpeed),
+        model: speechModel.trim(),
+        skipCache: true,
+        onEnd: () => setTestingSpeech(false),
+        onError: (err) => {
+          showToast(`Speech test failed: ${err?.message || "Could not generate speech"}`, "error");
+          setTestingSpeech(false);
+        },
+      });
+      setTimeout(() => setTestingSpeech(false), 3500);
+    } catch (err: any) {
+      showToast(`Speech test failed: ${err?.message || "Could not generate speech"}`, "error");
+      setTestingSpeech(false);
+    }
+  };
+
+  // Handler: Detect Text-to-Speech (TTS) Models
+  const detectSpeechModels = async () => {
+    if (speechProvider === "browser") return;
+    if (speechProvider === "custom" && !speechBaseUrl.trim()) {
+      showToast("Please enter a Base URL for your custom TTS server first", "error");
+      return;
+    }
+    if (speechProvider !== "custom" && !speechApiKey.trim()) {
+      showToast("Please enter a TTS API key first", "error");
+      return;
+    }
+
+    setDetectingSpeechModels(true);
+    try {
+      const params = new URLSearchParams({
+        provider: speechProvider,
+        mode: "tts",
+      });
+      if (speechApiKey.trim()) params.set("apiKey", speechApiKey.trim());
+      if (speechBaseUrl.trim()) params.set("baseUrl", speechBaseUrl.trim());
+
+      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Failed to detect TTS models (${res.status})`);
+      }
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        setDetectedSpeechModels(data.models);
+        if (!speechModel || !data.models.includes(speechModel)) {
+          setSpeechModel(data.models[0]);
+        }
+        showToast(`Found ${data.models.length} TTS models`, "success");
+      } else {
+        setDetectedSpeechModels([]);
+        showToast("No TTS models found for this provider", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to detect TTS models", "error");
+    } finally {
+      setDetectingSpeechModels(false);
+    }
+  };
+
+  // Handler: Detect Speech-to-Text (STT) Models
+  const detectTranscribeModels = async () => {
+    if (transcribeProvider === "custom" && !transcribeBaseUrl.trim()) {
+      showToast("Please enter a Base URL for your custom STT server first", "error");
+      return;
+    }
+    if (transcribeProvider !== "custom" && !transcribeApiKey.trim()) {
+      showToast(`Please enter an API key for ${transcribeProvider.toUpperCase()} first`, "error");
+      return;
+    }
+
+    setDetectingTranscribeModels(true);
+    try {
+      const params = new URLSearchParams({
+        provider: transcribeProvider,
+        mode: "stt",
+      });
+      if (transcribeApiKey.trim()) params.set("apiKey", transcribeApiKey.trim());
+      if (transcribeBaseUrl.trim()) params.set("baseUrl", transcribeBaseUrl.trim());
+
+      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Failed to detect STT models (${res.status})`);
+      }
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        setDetectedTranscribeModels(data.models);
+        if (!transcribeModel || !data.models.includes(transcribeModel)) {
+          setTranscribeModel(data.models[0]);
+        }
+        showToast(`Found ${data.models.length} speech recognition models`, "success");
+      } else {
+        setDetectedTranscribeModels([]);
+        showToast("No speech recognition models found for this provider", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to detect STT models", "error");
+    } finally {
+      setDetectingTranscribeModels(false);
+    }
+  };
 
   const handleNextStep = () => {
     if (step < 5) {
@@ -538,16 +659,28 @@ export default function OnboardingPage() {
 
               {/* ── Sub-card 1: Text-to-Speech (TTS) ── */}
               <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg" aria-hidden="true">🔊</span>
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      1. Text-to-Speech (TTS) — Voice Pronunciation
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Engine used to pronounce flashcard words and example sentences.
-                    </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg" aria-hidden="true">🔊</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground">
+                        1. Text-to-Speech (TTS) — Voice Pronunciation
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Engine used to pronounce flashcard words and example sentences.
+                      </p>
+                    </div>
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleTestSpeech}
+                    disabled={testingSpeech}
+                    className="text-xs h-8 px-3 border border-border flex items-center gap-1.5 shadow-xs"
+                  >
+                    <span>{testingSpeech ? "🔊 Playing..." : "🔊 Test Voice"}</span>
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -564,6 +697,7 @@ export default function OnboardingPage() {
                         type="button"
                         onClick={() => {
                           setSpeechProvider(p.id);
+                          setDetectedSpeechModels([]);
                           if (p.id === "gemini") setSpeechModel("gemini-3.8-flash-tts");
                           else if (p.id === "openai") setSpeechModel("tts-1");
                           else if (p.id === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
@@ -619,6 +753,56 @@ export default function OnboardingPage() {
                         </button>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={detectSpeechModels}
+                        disabled={
+                          detectingSpeechModels ||
+                          (speechProvider === "custom" ? !speechBaseUrl.trim() : !speechApiKey.trim())
+                        }
+                        className="text-xs h-8 px-3 border border-border"
+                      >
+                        {detectingSpeechModels ? "Detecting TTS models..." : "🔍 Detect TTS Models"}
+                      </Button>
+                    </div>
+
+                    {detectedSpeechModels.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[11px] font-medium text-muted-foreground">Available TTS models from your key:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {detectedSpeechModels.map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setSpeechModel(m)}
+                              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                speechModel === m
+                                  ? "border-primary bg-primary/10 text-primary font-bold"
+                                  : "border-border bg-background text-foreground hover:bg-accent"
+                              }`}
+                            >
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">
+                        TTS Model
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. gemini-3.8-flash-tts, tts-1, eleven_multilingual_v2"
+                        value={speechModel}
+                        onChange={(e) => setSpeechModel(e.target.value)}
+                        className="text-xs rounded-xl font-mono"
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -669,6 +853,7 @@ export default function OnboardingPage() {
                         onClick={() => {
                           const newP = p.id as any;
                           setTranscribeProvider(newP);
+                          setDetectedTranscribeModels([]);
                           if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
                           else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
                           else if (newP === "openai") setTranscribeModel("whisper-1");
@@ -722,6 +907,56 @@ export default function OnboardingPage() {
                         {showTranscribeKey ? "Hide" : "Show"}
                       </button>
                     </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={detectTranscribeModels}
+                      disabled={
+                        detectingTranscribeModels ||
+                        (transcribeProvider === "custom" ? !transcribeBaseUrl.trim() : !transcribeApiKey.trim())
+                      }
+                      className="text-xs h-8 px-3 border border-border"
+                    >
+                      {detectingTranscribeModels ? "Detecting STT models..." : "🔍 Detect STT Models"}
+                    </Button>
+                  </div>
+
+                  {detectedTranscribeModels.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <p className="text-[11px] font-medium text-muted-foreground">Available STT models from your key:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detectedTranscribeModels.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setTranscribeModel(m)}
+                            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              transcribeModel === m
+                                ? "border-primary bg-primary/10 text-primary font-bold"
+                                : "border-border bg-background text-foreground hover:bg-accent"
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-foreground">
+                      STT Model
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. gemini-3.5-flash, whisper-large-v3-turbo, whisper-1"
+                      value={transcribeModel}
+                      onChange={(e) => setTranscribeModel(e.target.value)}
+                      className="text-xs rounded-xl font-mono"
+                    />
                   </div>
                 </div>
               </div>
