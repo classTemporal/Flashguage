@@ -4,9 +4,13 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
+import useSWR from "swr";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { SUPPORTED_LANGUAGES, getLanguage } from "@/lib/languages";
+import { DailyGoalDialog } from "@/components/study/daily-goal-dialog";
+
+const statsFetcher = (url: string) => fetch(url).then((res) => (res.ok ? res.json() : null));
 
 interface HeaderProps {
   title?: string;
@@ -59,6 +63,25 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [currentTrackLang, setCurrentTrackLang] = useState<string>("en");
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+
+  const { data: stats } = useSWR<{
+    dailyGoal?: { current: number; goal: number; percentage: number };
+  }>(
+    isLoggedIn ? `/api/stats?lang=${encodeURIComponent(currentTrackLang)}` : null,
+    statsFetcher,
+    { revalidateOnFocus: true }
+  );
+
+  const isDailyGoalAchieved = Boolean(
+    stats?.dailyGoal && stats.dailyGoal.goal > 0 && stats.dailyGoal.current >= stats.dailyGoal.goal
+  );
+
+  useEffect(() => {
+    const handleOpen = () => setGoalModalOpen(true);
+    window.addEventListener("open-daily-goal-modal", handleOpen);
+    return () => window.removeEventListener("open-daily-goal-modal", handleOpen);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -150,7 +173,20 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const desktopNavItems = [
     { href: `/dashboard?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
     { href: `/decks?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/decks", label: "Decks", icon: "🗂️" },
-    { href: `/study?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/study", label: "Study", icon: "🧠" },
+    {
+      href: isDailyGoalAchieved
+        ? `/study/all?lang=${encodeURIComponent(currentTrackLang)}&mode=all`
+        : `/study?lang=${encodeURIComponent(currentTrackLang)}`,
+      baseRoute: "/study",
+      label: isDailyGoalAchieved ? "Practice" : "Study",
+      icon: isDailyGoalAchieved ? "🎯" : "🧠",
+      onClick: isDailyGoalAchieved
+        ? (e: React.MouseEvent) => {
+            e.preventDefault();
+            setGoalModalOpen(true);
+          }
+        : undefined,
+    },
     { href: `/progress?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/progress", label: "Progress", icon: "📈" },
     { href: `/dictionaries?lang=${encodeURIComponent(currentTrackLang)}`, baseRoute: "/dictionaries", label: "Dictionary", icon: "📖" },
   ];
@@ -187,6 +223,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={item.onClick}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                         active
                           ? "bg-primary/10 text-primary font-semibold shadow-xs"
@@ -417,7 +454,21 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
             {[
               { href: currentTrackLang ? `/dashboard?lang=${encodeURIComponent(currentTrackLang)}` : "/dashboard", baseRoute: "/dashboard", label: "Dashboard", icon: "📊" },
               { href: currentTrackLang ? `/decks?lang=${encodeURIComponent(currentTrackLang)}` : "/decks", baseRoute: "/decks", label: "Decks", icon: "🗂️" },
-              { href: currentTrackLang ? `/study?lang=${encodeURIComponent(currentTrackLang)}` : "/study", baseRoute: "/study", label: "Study", icon: "🧠", isHero: true },
+              {
+                href: isDailyGoalAchieved
+                  ? `/study/all?lang=${encodeURIComponent(currentTrackLang)}&mode=all`
+                  : (currentTrackLang ? `/study?lang=${encodeURIComponent(currentTrackLang)}` : "/study"),
+                baseRoute: "/study",
+                label: isDailyGoalAchieved ? "Practice" : "Study",
+                icon: isDailyGoalAchieved ? "🎯" : "🧠",
+                isHero: true,
+                onClick: isDailyGoalAchieved
+                  ? (e: React.MouseEvent) => {
+                      e.preventDefault();
+                      setGoalModalOpen(true);
+                    }
+                  : undefined,
+              },
               { href: currentTrackLang ? `/dictionaries?lang=${encodeURIComponent(currentTrackLang)}` : "/dictionaries", baseRoute: "/dictionaries", label: "Search", icon: "📖" },
               { href: "/settings", baseRoute: "/settings", label: "Settings", icon: "⚙️" },
             ].map((btn) => {
@@ -427,12 +478,27 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                   <Link
                     key={btn.href}
                     href={btn.href}
+                    onClick={btn.onClick}
                     className="flex flex-col items-center justify-center -mt-4 group"
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-lg shadow-primary/40 group-active:scale-95 transition-transform">
-                      <span className="text-xl">🧠</span>
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg group-active:scale-95 transition-all ${
+                        isDailyGoalAchieved
+                          ? "bg-gradient-to-tr from-emerald-500 to-teal-600 shadow-emerald-500/40 ring-2 ring-emerald-400/30"
+                          : "bg-gradient-to-tr from-primary to-indigo-600 shadow-primary/40"
+                      }`}
+                    >
+                      <span className="text-xl">{btn.icon}</span>
                     </div>
-                    <span className="text-[10px] font-bold text-foreground mt-0.5">Study</span>
+                    <span
+                      className={`text-[10px] mt-0.5 ${
+                        isDailyGoalAchieved
+                          ? "font-extrabold text-emerald-600 dark:text-emerald-400"
+                          : "font-bold text-foreground"
+                      }`}
+                    >
+                      {btn.label}
+                    </span>
                   </Link>
                 );
               }
@@ -452,6 +518,15 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
           </div>
         </div>
       )}
+
+      {/* Daily Goal Achieved / Scientific Advisory Modal */}
+      <DailyGoalDialog
+        isOpen={goalModalOpen}
+        onClose={() => setGoalModalOpen(false)}
+        activeLanguage={currentTrackLang}
+        current={stats?.dailyGoal?.current ?? 20}
+        goal={stats?.dailyGoal?.goal ?? 20}
+      />
     </>
   );
 }

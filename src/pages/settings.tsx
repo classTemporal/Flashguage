@@ -36,6 +36,7 @@ interface SettingsData {
   anthropicModel?: string;
   geminiModel?: string;
   theme?: string;
+  timezone?: string;
   dailyGoal?: number;
   reviewLimit?: number;
   sessionBreakMinutes?: number;
@@ -53,6 +54,38 @@ const fetcher = async (url: string): Promise<SettingsData> => {
   }
   return res.json();
 };
+
+const POPULAR_TIMEZONES = [
+  { value: "UTC", label: "UTC (Coordinated Universal Time) — Default" },
+  { value: "America/New_York", label: "America/New York (Eastern Time - US & Canada)" },
+  { value: "America/Chicago", label: "America/Chicago (Central Time - US & Canada)" },
+  { value: "America/Denver", label: "America/Denver (Mountain Time - US & Canada)" },
+  { value: "America/Los_Angeles", label: "America/Los Angeles (Pacific Time - US & Canada)" },
+  { value: "America/Anchorage", label: "America/Anchorage (Alaska Time)" },
+  { value: "Pacific/Honolulu", label: "Pacific/Honolulu (Hawaii Time)" },
+  { value: "America/Mexico_City", label: "America/Mexico City (Central Mexico)" },
+  { value: "America/Bogota", label: "America/Bogotá (Colombia, Ecuador, Peru)" },
+  { value: "America/Lima", label: "America/Lima (Peru)" },
+  { value: "America/Santiago", label: "America/Santiago (Chile)" },
+  { value: "America/Buenos_Aires", label: "America/Buenos Aires (Argentina)" },
+  { value: "America/Sao_Paulo", label: "America/São Paulo (Brazil)" },
+  { value: "Europe/London", label: "Europe/London (GMT / BST)" },
+  { value: "Europe/Madrid", label: "Europe/Madrid (CET / CEST - Spain)" },
+  { value: "Europe/Paris", label: "Europe/Paris (CET / CEST - France)" },
+  { value: "Europe/Berlin", label: "Europe/Berlin (CET / CEST - Germany)" },
+  { value: "Europe/Rome", label: "Europe/Rome (CET / CEST - Italy)" },
+  { value: "Europe/Athens", label: "Europe/Athens (EET / EEST - Greece)" },
+  { value: "Europe/Moscow", label: "Europe/Moscow (MSK)" },
+  { value: "Asia/Dubai", label: "Asia/Dubai (GST - UAE)" },
+  { value: "Asia/Kolkata", label: "Asia/Kolkata (IST - India)" },
+  { value: "Asia/Bangkok", label: "Asia/Bangkok (ICT - Thailand, Vietnam)" },
+  { value: "Asia/Singapore", label: "Asia/Singapore (SGT)" },
+  { value: "Asia/Shanghai", label: "Asia/Shanghai (CST - China)" },
+  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST - Japan)" },
+  { value: "Asia/Seoul", label: "Asia/Seoul (KST - South Korea)" },
+  { value: "Australia/Sydney", label: "Australia/Sydney (AEST / AEDT)" },
+  { value: "Pacific/Auckland", label: "Pacific/Auckland (NZST / NZDT)" },
+];
 
 export default function SettingsPage() {
   const { data: session, status, update: updateSession } = useSession();
@@ -98,6 +131,7 @@ export default function SettingsPage() {
   const [dailyGoal, setDailyGoal] = useState<number>(20);
   const [reviewLimit, setReviewLimit] = useState<number>(20);
   const [sessionBreakMinutes, setSessionBreakMinutes] = useState<number>(5);
+  const [timezone, setTimezone] = useState<string>("UTC");
   const [savingStudy, setSavingStudy] = useState(false);
 
   // Notification Settings state
@@ -153,6 +187,9 @@ export default function SettingsPage() {
       }
       if (typeof apiSettings.sessionBreakMinutes === "number") {
         setSessionBreakMinutes(apiSettings.sessionBreakMinutes);
+      }
+      if (apiSettings.timezone) {
+        setTimezone(apiSettings.timezone);
       }
       if (typeof apiSettings.dailyReminder === "boolean") {
         setDailyReminder(apiSettings.dailyReminder);
@@ -422,6 +459,7 @@ export default function SettingsPage() {
         dailyGoal: Number(dailyGoal) || 20,
         reviewLimit: Number(reviewLimit) || 20,
         sessionBreakMinutes: Number(sessionBreakMinutes) || 5,
+        timezone: timezone || "UTC",
       };
 
       const res = await fetch("/api/settings", {
@@ -986,6 +1024,37 @@ export default function SettingsPage() {
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Recommended rest time after finishing a session batch before starting the next one.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="study-timezone" className="block text-sm font-medium text-foreground mb-1">
+                  Study Timezone (Default: UTC)
+                </label>
+                <select
+                  id="study-timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                >
+                  {POPULAR_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                  {typeof Intl !== "undefined" &&
+                    "supportedValuesOf" in Intl &&
+                    (Intl as any)
+                      .supportedValuesOf("timeZone")
+                      .filter((z: string) => !POPULAR_TIMEZONES.some((pt) => pt.value === z))
+                      .map((tz: string) => (
+                        <option key={tz} value={tz}>
+                          {tz}
+                        </option>
+                      ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Determines when your Daily Goal and study streaks reset each day. Default is UTC.
                 </p>
               </div>
 

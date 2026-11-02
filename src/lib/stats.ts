@@ -6,44 +6,100 @@ export interface ReviewLite {
 }
 
 /**
- * Pure function: computes consecutive study streak from an array of reviews.
- * Counts how many distinct days ending at the most recent review date
- * had at least one review.
+ * Format a Date into YYYY-MM-DD in the given IANA timezone.
+ * Defaults to "UTC".
  */
-export function getStreak(reviews: ReviewLite[]): number {
+export function getDateStrInTimezone(date: Date, timezone: string = "UTC"): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = formatter.formatToParts(date);
+    let y = 1970, m = 1, d = 1;
+    for (const p of parts) {
+      if (p.type === "year") y = parseInt(p.value, 10);
+      if (p.type === "month") m = parseInt(p.value, 10);
+      if (p.type === "day") d = parseInt(p.value, 10);
+    }
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+/**
+ * Returns UTC Date objects for the start and end of the calendar day
+ * corresponding to `date` in the given timezone.
+ */
+export function getDayBounds(date: Date = new Date(), timezone: string = "UTC"): { startOfDay: Date; endOfDay: Date } {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = formatter.formatToParts(date);
+    let y = 1970, m = 1, d = 1;
+    for (const p of parts) {
+      if (p.type === "year") y = parseInt(p.value, 10);
+      if (p.type === "month") m = parseInt(p.value, 10);
+      if (p.type === "day") d = parseInt(p.value, 10);
+    }
+    const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+    // Noon UTC on that calendar day to determine timezone offset reliably
+    const tempUtc = new Date(`${dateStr}T12:00:00Z`);
+    const utcDate = new Date(tempUtc.toLocaleString("en-US", { timeZone: "UTC" }));
+    const tzDate = new Date(tempUtc.toLocaleString("en-US", { timeZone: timezone }));
+    const offsetMinutes = (tzDate.getTime() - utcDate.getTime()) / 60000;
+
+    const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - offsetMinutes * 60000);
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    return { startOfDay, endOfDay };
+  } catch {
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth();
+    const d = date.getUTCDate();
+    const startOfDay = new Date(Date.UTC(y, m, d, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(y, m, d + 1, 0, 0, 0));
+    return { startOfDay, endOfDay };
+  }
+}
+
+/**
+ * Computes consecutive study streak from an array of reviews in the user's timezone.
+ * Defaults to "UTC".
+ */
+export function getStreak(reviews: ReviewLite[], timezone: string = "UTC"): number {
   if (!reviews.length) return 0;
 
   const daySet = new Set<string>();
   for (const r of reviews) {
     const d = new Date(r.lastReview ?? r.createdAt);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    daySet.add(key);
+    daySet.add(getDateStrInTimezone(d, timezone));
   }
 
-  const sortedDays = Array.from(daySet).sort((a, b) => b.localeCompare(a));
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const now = new Date();
+  const todayKey = getDateStrInTimezone(now, timezone);
+  const yesterdayKey = getDateStrInTimezone(new Date(now.getTime() - 24 * 60 * 60 * 1000), timezone);
+
+  // If neither today nor yesterday had any activity, streak is broken (0)
+  if (!daySet.has(todayKey) && !daySet.has(yesterdayKey)) {
+    return 0;
+  }
 
   let streak = 0;
-  let checkDate = new Date(today);
+  let checkTime = daySet.has(todayKey) ? now.getTime() : now.getTime() - 24 * 60 * 60 * 1000;
 
-  for (let i = 0; i < sortedDays.length; i++) {
-    const checkKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, "0")}-${String(checkDate.getDate()).padStart(2, "0")}`;
-    if (daySet.has(checkKey)) {
+  while (true) {
+    const key = getDateStrInTimezone(new Date(checkTime), timezone);
+    if (daySet.has(key)) {
       streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else if (i === 0 && checkKey !== todayKey) {
-      // If the most recent review wasn't today or yesterday, streak is 0
-      // Actually, let's start from the first day in the list
-      const firstDay = sortedDays[0];
-      const [fy, fm, fd] = firstDay.split("-").map(Number);
-      checkDate = new Date(fy, fm - 1, fd);
-      // Re-check this day
-      if (daySet.has(checkKey)) {
-        streak = 1;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-      break;
+      checkTime -= 24 * 60 * 60 * 1000;
     } else {
       break;
     }
@@ -100,16 +156,15 @@ export async function getMasteryLevel(
 
 export async function getWeeklyActivity(
   userId: string,
-  language?: string
+  language?: string,
+  timezone: string = "UTC"
 ): Promise<{ day: string; count: number }[]> {
   const days: { day: string; count: number }[] = [];
-  const today = new Date();
+  const now = new Date();
 
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    const targetDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const { startOfDay, endOfDay } = getDayBounds(targetDate, timezone);
 
     const [logCount, reviewCount] = await Promise.all([
       prisma.reviewLog.count({
@@ -128,8 +183,15 @@ export async function getWeeklyActivity(
       }),
     ]);
 
+    let dayLabel = "";
+    try {
+      dayLabel = targetDate.toLocaleDateString("en-US", { weekday: "short", timeZone: timezone });
+    } catch {
+      dayLabel = targetDate.toLocaleDateString("en-US", { weekday: "short" });
+    }
+
     days.push({
-      day: d.toLocaleDateString("en-US", { weekday: "short" }),
+      day: dayLabel,
       count: Math.max(logCount, reviewCount),
     });
   }
@@ -140,11 +202,10 @@ export async function getWeeklyActivity(
 export async function getDailyGoalProgress(
   userId: string,
   goal: number,
-  language?: string
+  language?: string,
+  timezone: string = "UTC"
 ): Promise<{ current: number; goal: number; percentage: number }> {
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const { startOfDay, endOfDay } = getDayBounds(new Date(), timezone);
 
   const [logCount, reviewCount] = await Promise.all([
     prisma.reviewLog.count({

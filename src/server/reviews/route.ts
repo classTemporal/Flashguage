@@ -151,8 +151,17 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
       where: { id: session.user.id },
       select: { settings: true, dailyGoal: true },
     });
+    let timezone = "UTC";
+    if (user?.settings) {
+      try {
+        const parsed = JSON.parse(user.settings as string);
+        if (parsed.timezone && typeof parsed.timezone === "string") {
+          timezone = parsed.timezone;
+        }
+      } catch {}
+    }
     const targetDailyGoal = user?.dailyGoal ?? 20;
-    const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, language);
+    const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, language, timezone);
     const remainingToGoal = Math.max(0, goalProgress.goal - goalProgress.current);
 
     let effectiveLimit = req.query.limit ? Number(req.query.limit) : undefined;

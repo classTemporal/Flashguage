@@ -596,6 +596,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   let reviewLimit = 20;
   let sessionBreakMinutes = 5;
+  let timezone = "UTC";
   if (user?.settings) {
     try {
       const parsed = JSON.parse(user.settings as string);
@@ -605,11 +606,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       if (typeof parsed.sessionBreakMinutes === "number" && parsed.sessionBreakMinutes > 0) {
         sessionBreakMinutes = parsed.sessionBreakMinutes;
       }
+      if (parsed.timezone && typeof parsed.timezone === "string") {
+        timezone = parsed.timezone;
+      }
     } catch {}
   }
 
   const targetDailyGoal = user?.dailyGoal ?? 20;
-  const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, effectiveLang);
+  const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, effectiveLang, timezone);
   const remainingToGoal = Math.max(0, goalProgress.goal - goalProgress.current);
 
   const isCram = context.query.mode === "all";

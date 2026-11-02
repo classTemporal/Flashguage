@@ -26,7 +26,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userId = session.user.id;
     const lang = (req.query.lang as string) || undefined;
 
-    const [reviews, totalCards, cardsLearned, mastery, weeklyActivity, user] =
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { dailyGoal: true, settings: true },
+    });
+
+    let timezone = "UTC";
+    if (user?.settings) {
+      try {
+        const parsed = JSON.parse(user.settings as string);
+        if (parsed.timezone && typeof parsed.timezone === "string") {
+          timezone = parsed.timezone;
+        }
+      } catch {}
+    }
+
+    const [reviews, totalCards, cardsLearned, mastery, weeklyActivity, goalProgress] =
       await Promise.all([
         prisma.review.findMany({
           where: {
@@ -38,16 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         getTotalCards(userId, lang),
         getCardsLearned(userId, lang),
         getMasteryLevel(userId, lang),
-        getWeeklyActivity(userId, lang),
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { dailyGoal: true },
-        }),
+        getWeeklyActivity(userId, lang, timezone),
+        getDailyGoalProgress(userId, user?.dailyGoal ?? 20, lang, timezone),
       ]);
 
-    const streak = getStreak(reviews);
-    const goal = user?.dailyGoal ?? 20;
-    const goalProgress = await getDailyGoalProgress(userId, goal, lang);
+    const streak = getStreak(reviews, timezone);
 
     return res.status(200).json({
       streak,

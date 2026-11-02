@@ -28,6 +28,7 @@ export const settingsSchema = z.object({
   customModel: z.string().optional(),
   // App settings
   theme: z.enum(["light", "dark", "system"]).optional(),
+  timezone: z.string().optional(),
   dailyGoal: z.number().int().min(1).max(200).optional(),
   reviewLimit: z.number().int().min(1).max(500).optional(),
   sessionBreakMinutes: z.number().int().min(1).max(120).optional(),
@@ -104,6 +105,7 @@ export const pickSettings = (
     customModel: customModel || (aiProvider === "custom" ? aiModel : ""),
     // General user preferences
     theme: (data.theme as string) ?? "system",
+    timezone: (data.timezone as string) || "UTC",
     dailyGoal: (data.dailyGoal as number) ?? 20,
     reviewLimit: (data.reviewLimit as number) ?? 20,
     sessionBreakMinutes: (data.sessionBreakMinutes as number) ?? 5,

@@ -341,9 +341,23 @@ function GoalProgress({
       <div className="mt-5 flex items-center justify-between text-xs font-medium">
         <span className="text-muted-foreground">{percentage}% completed</span>
         {percentage >= 100 ? (
-          <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-            Goal achieved! 🎯
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+              Goal achieved! 🎯
+            </span>
+            <Button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new Event("open-daily-goal-modal"));
+                }
+              }}
+              size="sm"
+              className="h-6 text-[11px] px-2.5 py-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+            >
+              Practice →
+            </Button>
+          </div>
         ) : totalCards === 0 ? (
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground font-medium">No cards in track yet</span>
