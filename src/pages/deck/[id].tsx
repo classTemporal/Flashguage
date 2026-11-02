@@ -21,6 +21,7 @@ import { EditCardModal } from "@/components/card/edit-card-modal";
 import { invalidateAppCache } from "@/lib/cache";
 import { getLanguage } from "@/lib/languages";
 import { parseCardMedia, parseCardTags } from "@/lib/card-utils";
+import { playCardSpeech } from "@/lib/speech";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -81,6 +82,34 @@ export default function DeckDetail() {
   const [editingCard, setEditingCard] = useState<CardItem | null>(null);
   const [cardToDelete, setCardToDelete] = useState<CardItem | null>(null);
   const [isDeletingCard, setIsDeletingCard] = useState(false);
+
+  // View mode & audio state for Cards tab
+  const [cardViewMode, setCardViewMode] = useState<"grid" | "list">("grid");
+  const [speakingCardId, setSpeakingCardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("flashguage_deck_view_mode");
+      if (saved === "grid" || saved === "list") {
+        setCardViewMode(saved);
+      }
+    } catch {}
+  }, []);
+
+  const handleToggleViewMode = (mode: "grid" | "list") => {
+    setCardViewMode(mode);
+    try {
+      localStorage.setItem("flashguage_deck_view_mode", mode);
+    } catch {}
+  };
+
+  const handleSpeakCard = (cardId: string, word: string) => {
+    setSpeakingCardId(cardId);
+    playCardSpeech(word, deckData?.targetLanguage || "en", {
+      onEnd: () => setSpeakingCardId(null),
+      onError: () => setSpeakingCardId(null),
+    });
+  };
 
   const { data: decks, error: decksError, mutate: mutateDecks } = useSWR<Deck[]>("/api/decks", fetcher);
   const deckData = Array.isArray(decks) ? decks.find((d) => d.id === deckId) : undefined;
@@ -291,7 +320,7 @@ export default function DeckDetail() {
     <div className="flex min-h-screen flex-col bg-background text-foreground pb-24 md:pb-6">
       <Header title={deckData.name} />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-5xl lg:max-w-6xl flex-1 px-4 py-8 sm:px-6">
         {/* Navigation Breadcrumb */}
         <div className="mb-6 flex items-center justify-between">
           <BackButton href="/dashboard" label="Back to Dashboard" />
@@ -680,105 +709,242 @@ export default function DeckDetail() {
                   <span>
                     Showing {filteredCards.length} of {cards?.length || 0} cards
                   </span>
+
+                  {/* View Mode Toggle: Grid vs List */}
+                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleViewMode("grid")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                        cardViewMode === "grid"
+                          ? "bg-card text-foreground shadow-xs font-bold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="Grid view (2 columns on PC)"
+                    >
+                      ⊞ Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleViewMode("list")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                        cardViewMode === "list"
+                          ? "bg-card text-foreground shadow-xs font-bold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="List view (compact rows)"
+                    >
+                      ☰ List
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-4">
-                  {filteredCards.map((card) => {
-                    const tagsList = parseCardTags(card.tags);
-                    const mediaObj = parseCardMedia(card.media);
+                {/* ── Grid View Layout (Optimized for PC 2-Columns & Mobile) ── */}
+                {cardViewMode === "grid" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredCards.map((card) => {
+                      const tagsList = parseCardTags(card.tags);
+                      const mediaObj = parseCardMedia(card.media);
+                      const isSpeaking = speakingCardId === card.id;
 
-                    return (
-                      <div
-                        key={card.id}
-                        className="bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/40 flex flex-col sm:flex-row gap-5 items-start justify-between"
-                      >
-                        <div className="flex flex-col sm:flex-row gap-4 items-start flex-1 w-full">
-                          {/* Thumbnail image if available */}
-                          {(mediaObj.imageUrl || mediaObj.image) && (
-                            <img
-                              src={mediaObj.imageUrl || mediaObj.image}
-                              alt={card.front}
-                              referrerPolicy="no-referrer"
-                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0 border border-border"
-                            />
-                          )}
-
-                          <div className="flex-1 grid gap-4 sm:grid-cols-2 w-full">
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  Word / Front
-                                </span>
+                      return (
+                        <div
+                          key={card.id}
+                          className="group bg-card border border-border hover:border-primary/40 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4"
+                        >
+                          {/* Card Header: Front, Pronunciation, POS & Action Menu */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight font-display capitalize">
+                                  {card.front}
+                                </h3>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSpeakCard(card.id, card.front)}
+                                  className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
+                                    isSpeaking
+                                      ? "bg-primary text-primary-foreground animate-pulse scale-105"
+                                      : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground"
+                                  }`}
+                                  title="Listen to pronunciation"
+                                  aria-label={`Pronounce ${card.front}`}
+                                >
+                                  <span className="text-xs">🔊</span>
+                                </button>
                                 {mediaObj.partOfSpeech && (
-                                  <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.2 text-[10px] font-bold text-primary uppercase">
+                                  <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary uppercase">
                                     {mediaObj.partOfSpeech}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-lg font-black text-foreground">
-                                {card.front}
-                              </p>
                               {mediaObj.phonetic && (
-                                <p className="text-xs font-mono text-muted-foreground">
+                                <p className="text-xs text-primary/80 font-medium tracking-wide">
                                   {mediaObj.phonetic}
                                 </p>
                               )}
                             </div>
 
-                            <div className="space-y-1.5 sm:border-l sm:border-border sm:pl-4">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                Meaning / Back
-                              </span>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {card.back}
-                              </p>
+                            {/* Card Quick Actions: Edit & Delete */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setEditingCard(card)}
+                                className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                                title="Edit card"
+                                aria-label="Edit card"
+                              >
+                                <span className="text-xs">✏️</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCardToDelete(card)}
+                                className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                title="Delete card"
+                                aria-label="Delete card"
+                              >
+                                <span className="text-xs">🗑️</span>
+                              </button>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Card Actions: Edit & Delete */}
-                        <div className="flex sm:flex-col items-center gap-2 self-end sm:self-start shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border w-full sm:w-auto justify-end">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setEditingCard(card)}
-                            className="text-xs px-3 py-1 font-semibold"
-                            title="Edit flashcard"
-                          >
-                            ✏️ Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setCardToDelete(card)}
-                            className="text-xs px-2.5 py-1 text-destructive hover:bg-destructive/10"
-                            title="Delete flashcard"
-                          >
-                            🗑️ Delete
-                          </Button>
-                        </div>
+                          {/* Card Body: Thumbnail & Definition + Example */}
+                          <div className="flex gap-4 items-start flex-1">
+                            {(mediaObj.imageUrl || mediaObj.image) && (
+                              <img
+                                src={mediaObj.imageUrl || mediaObj.image}
+                                alt={card.front}
+                                referrerPolicy="no-referrer"
+                                className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shrink-0 border border-border/80 bg-muted/40 shadow-2xs"
+                              />
+                            )}
 
-                        {tagsList.length > 0 && (
-                          <div className="mt-2 w-full flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-                            <span className="text-[10px] text-muted-foreground mr-1">Tags:</span>
-                            {tagsList.map((tag: string, idx: number) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => setSelectedTag(tag)}
-                                className="rounded-full bg-muted hover:bg-muted/80 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors"
-                              >
-                                #{tag}
-                              </button>
-                            ))}
+                            <div className="space-y-2 flex-1 min-w-0">
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Meaning
+                                </span>
+                                <p className="text-sm text-foreground/90 font-medium leading-relaxed">
+                                  {card.back}
+                                </p>
+                              </div>
+
+                              {/* Example sentence if available */}
+                              {(mediaObj.example || (mediaObj.examples && mediaObj.examples[0])) && (
+                                <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2.5 line-clamp-2">
+                                  &ldquo;{mediaObj.example || mediaObj.examples[0]}&rdquo;
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          {/* Card Footer: Tags */}
+                          {tagsList.length > 0 && (
+                            <div className="pt-2.5 border-t border-border/60 flex flex-wrap items-center gap-1.5">
+                              {tagsList.map((tag: string, idx: number) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setSelectedTag(tag)}
+                                  className="rounded-full bg-muted/80 hover:bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  #{tag}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── List / Table View Layout (Compact Rows) ── */}
+                {cardViewMode === "list" && (
+                  <div className="space-y-2">
+                    {filteredCards.map((card) => {
+                      const tagsList = parseCardTags(card.tags);
+                      const mediaObj = parseCardMedia(card.media);
+                      const isSpeaking = speakingCardId === card.id;
+
+                      return (
+                        <div
+                          key={card.id}
+                          className="group bg-card border border-border hover:border-primary/40 rounded-xl p-3.5 sm:px-4 shadow-2xs hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            {(mediaObj.imageUrl || mediaObj.image) && (
+                              <img
+                                src={mediaObj.imageUrl || mediaObj.image}
+                                alt={card.front}
+                                referrerPolicy="no-referrer"
+                                className="w-12 h-12 rounded-lg object-cover shrink-0 border border-border/70"
+                              />
+                            )}
+
+                            <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center">
+                              <div className="sm:col-span-4 flex items-center gap-2">
+                                <span className="font-bold text-foreground text-sm truncate capitalize font-display">
+                                  {card.front}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSpeakCard(card.id, card.front)}
+                                  className={`text-xs p-1 rounded-full hover:bg-muted ${
+                                    isSpeaking ? "text-primary animate-pulse" : "text-muted-foreground"
+                                  }`}
+                                  title="Listen"
+                                >
+                                  🔊
+                                </button>
+                                {mediaObj.partOfSpeech && (
+                                  <span className="rounded bg-primary/10 px-1.5 py-0.2 text-[9px] font-bold text-primary uppercase shrink-0">
+                                    {mediaObj.partOfSpeech}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="sm:col-span-6 text-xs text-muted-foreground line-clamp-1">
+                                {card.back}
+                              </p>
+
+                              <div className="sm:col-span-2 hidden sm:flex items-center gap-1 overflow-hidden">
+                                {tagsList.slice(0, 2).map((tag: string, idx: number) => (
+                                  <span key={idx} className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground truncate">
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setEditingCard(card)}
+                              className="text-xs h-7 px-2.5 font-semibold"
+                              title="Edit"
+                            >
+                              ✏️ Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCardToDelete(card)}
+                              className="text-xs h-7 px-2 text-destructive hover:bg-destructive/10"
+                              title="Delete"
+                            >
+                              🗑️
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
