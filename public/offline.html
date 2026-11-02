@@ -3,36 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Offline - Flashguage</title>
+  <title>Offline Mode - Flashguage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 0;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      background: #ffffff;
-      color: #1f2937;
-    }
-    .container {
+      background: #090d16;
+      color: #f1f5f9;
+      padding: 1.5rem;
       text-align: center;
-      padding: 2rem;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 1.5rem;
+      padding: 2.5rem 2rem;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #f59e0b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      margin-bottom: 1.5rem;
+    }
+    .icon {
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+      display: block;
     }
     h1 {
-      font-size: 3rem;
-      color: #6366f1;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin-bottom: 0.6rem;
     }
     p {
-      color: #6b7280;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 1.8rem;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.25rem;
+      border-radius: 0.85rem;
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: #6366f1;
+      color: #ffffff;
+      border: none;
+    }
+    .btn-primary:hover {
+      background: #4f46e5;
+    }
+    .btn-secondary {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+    }
+    .btn-secondary:hover {
+      background: #334155;
+    }
+    .footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: #64748b;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📚</h1>
-    <h2>You&apos;re Offline</h2>
-    <p>Check your connection and try again.</p>
+  <div class="card">
+    <div class="badge">
+      <span>📶</span> Offline Learning Active
+    </div>
+    <span class="icon">⚡📚</span>
+    <h1>Ready for Offline Study</h1>
+    <p>
+      You are currently disconnected, but your locally cached flashcards and audio are ready. Reviews made offline will sync automatically once reconnected.
+    </p>
+
+    <div class="actions">
+      <a href="/study" class="btn btn-primary">
+        <span>🧠</span> Continue Studying
+      </a>
+      <a href="/decks" class="btn btn-secondary">
+        <span>🗂️</span> View Decks
+      </a>
+      <button onclick="window.location.reload()" class="btn btn-secondary">
+        <span>🔄</span> Reconnect & Refresh
+      </button>
+    </div>
+
+    <div class="footer-note" id="status-text">
+      Waiting for internet connection...
+    </div>
   </div>
+
+  <script>
+    function updateStatus() {
+      if (navigator.onLine) {
+        document.getElementById('status-text').textContent = '✅ Connection restored! Reloading...';
+        setTimeout(() => window.location.reload(), 800);
+      }
+    }
+    window.addEventListener('online', updateStatus);
+  </script>
 </body>
 </html>

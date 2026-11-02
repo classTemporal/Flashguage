@@ -71,6 +71,29 @@ export default function DecksPage() {
     mutate: mutateStarter,
   } = useSWR<StarterTemplateItem[]>(starterUrl, fetcher);
 
+  // Offline decks cache
+  const [offlineDecks, setOfflineDecks] = useState<Deck[]>([]);
+
+  useEffect(() => {
+    if (Array.isArray(decks) && decks.length > 0) {
+      try {
+        localStorage.setItem(`flashguage_offline_decks_${activeLanguage}`, JSON.stringify(decks));
+      } catch {}
+    } else if (error) {
+      try {
+        const stored = localStorage.getItem(`flashguage_offline_decks_${activeLanguage}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setOfflineDecks(parsed);
+          }
+        }
+      } catch {}
+    }
+  }, [decks, error, activeLanguage]);
+
+  const effectiveDecks = (Array.isArray(decks) && decks.length > 0) ? decks : offlineDecks;
+
   // Tab & search state
   const [activeTab, setActiveTab] = useState<"my-decks" | "starter-kits">("my-decks");
   const [isImportingId, setIsImportingId] = useState<string | null>(null);
@@ -138,8 +161,8 @@ export default function DecksPage() {
   };
 
   const filteredDecks = useMemo(() => {
-    if (!decks) return [];
-    let list = decks;
+    if (!effectiveDecks || effectiveDecks.length === 0) return [];
+    let list = effectiveDecks;
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       list = list.filter(
@@ -351,8 +374,8 @@ export default function DecksPage() {
               </div>
             )}
 
-            {/* Error State */}
-            {!isLoading && error && (
+            {/* Error State only when no cached decks are available */}
+            {!isLoading && error && effectiveDecks.length === 0 && (
               <div className="bg-card border border-border rounded-2xl p-6">
                 <EmptyState
                   icon="⚠️"
@@ -367,8 +390,18 @@ export default function DecksPage() {
               </div>
             )}
 
+            {/* Offline notification badge if displaying from local offline cache */}
+            {error && effectiveDecks.length > 0 && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-500">
+                <span>📶</span>
+                <span>
+                  <strong>Offline Mode:</strong> Displaying {effectiveDecks.length} locally saved deck(s).
+                </span>
+              </div>
+            )}
+
             {/* Empty State when no decks at all */}
-            {!isLoading && !error && (!decks || decks.length === 0) && (
+            {!isLoading && effectiveDecks.length === 0 && !error && (
               <div className="bg-card border border-border rounded-2xl p-8 shadow-xs">
                 <EmptyState
                   icon="🗂️"
@@ -398,7 +431,7 @@ export default function DecksPage() {
             )}
 
             {/* Empty State when search has no results */}
-            {!isLoading && !error && decks && decks.length > 0 && filteredDecks.length === 0 && (
+            {!isLoading && effectiveDecks.length > 0 && filteredDecks.length === 0 && (
               <div className="bg-card border border-border rounded-2xl p-8 shadow-xs">
                 <EmptyState
                   icon="🔍"
@@ -414,7 +447,7 @@ export default function DecksPage() {
             )}
 
             {/* Decks Grid */}
-            {!isLoading && !error && filteredDecks.length > 0 && (
+            {!isLoading && filteredDecks.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredDecks.map((deck) => {
                   const cardCount = deck._count?.cards ?? 0;

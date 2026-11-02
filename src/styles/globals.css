@@ -60,10 +60,16 @@
     cursor: not-allowed;
   }
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     overflow-x: hidden;
     max-width: 100vw;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
   }
   html {
     overflow-x: hidden;

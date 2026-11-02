@@ -33,7 +33,22 @@ const config: Config = {
         "ring-offset-background": "hsl(var(--background))",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        sans: [
+          '"Plus Jakarta Sans"',
+          '"Inter"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          'sans-serif',
+        ],
+        display: [
+          '"Plus Jakarta Sans"',
+          '"Inter"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'sans-serif',
+        ],
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -228,13 +228,34 @@ export default function StudySessionPage({
 
   const { data: reviews, error, mutate: mutateReviews } = useSWR<Review[]>(swrUrl, fetcher);
 
-  // Initialise local queue when SWR returns
+  // Initialise local queue when SWR returns or restore from offline storage
   useEffect(() => {
     if (Array.isArray(reviews) && !queueInitialized) {
       setQueue([...reviews]);
       setQueueInitialized(true);
+      try {
+        if (effectiveDeckId && reviews.length > 0) {
+          localStorage.setItem(
+            `flashguage_offline_queue_${effectiveDeckId}`,
+            JSON.stringify(reviews)
+          );
+        }
+      } catch {}
+    } else if ((error || (!isOnline && !reviews)) && !queueInitialized && effectiveDeckId) {
+      // Fallback: restore study queue from local offline storage
+      try {
+        const stored = localStorage.getItem(`flashguage_offline_queue_${effectiveDeckId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQueue(parsed);
+            setQueueInitialized(true);
+            showToast(`Loaded ${parsed.length} cards from offline storage ⚡`, "info");
+          }
+        }
+      } catch {}
     }
-  }, [reviews, queueInitialized]);
+  }, [reviews, error, queueInitialized, effectiveDeckId, isOnline, showToast]);
 
   // Pre-cache media (images and neural audio) for active study queue
   useEffect(() => {
@@ -917,11 +938,11 @@ export default function StudySessionPage({
               className="px-6 py-6 border-t border-border/60 bg-primary/5 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 text-center"
             >
               <div className="space-y-1">
-                <h2 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight capitalize">
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight capitalize font-display">
                   {card.front}
                 </h2>
                 {activePhonetic && (
-                  <p className="font-mono text-sm sm:text-base text-primary/90 font-bold tracking-wide">
+                  <p className="text-sm sm:text-base text-primary font-medium tracking-wide">
                     {activePhonetic}
                   </p>
                 )}
