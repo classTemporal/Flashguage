@@ -110,8 +110,8 @@ export { playCardSpeech, speakInLanguageNative };
  * Uses cached neural audio when enabled, falling back to browser SpeechSynthesis.
  */
 export function speakInLanguage(text: string, languageCode: string = "en"): void {
-  playCardSpeech(text, languageCode).catch(() => {
-    speakInLanguageNative(text, languageCode);
+  playCardSpeech(text, languageCode).catch((err) => {
+    console.warn("[speakInLanguage]:", err?.message || err);
   });
 }
 

@@ -10,8 +10,11 @@ export interface SpeechPlayOptions {
   languageCode?: string;
   provider?: string;
   apiKey?: string;
+  baseUrl?: string;
   voice?: string;
   speed?: number;
+  model?: string;
+  skipCache?: boolean;
 }
 
 export function stopCurrentSpeech() {
@@ -104,86 +107,150 @@ export async function playCardSpeech(
 
   stopCurrentSpeech();
 
+  const isExplicitApiProvider = Boolean(
+    options?.provider && options.provider !== "browser"
+  );
+
   try {
     options?.onStart?.();
 
-    // 1. Check offline-cached audio mapping first (instant playback offline or online)
-    const cachedUrl = getOfflineCachedAudio(text, languageCode);
-    if (cachedUrl) {
-      try {
-        const audio = new Audio(cachedUrl);
-        audio.preload = "auto";
-        activeAudio = audio;
+    // 1. Check offline-cached audio mapping first (if not explicitly skipping cache)
+    if (!options?.skipCache) {
+      const cachedUrl = getOfflineCachedAudio(
+        text,
+        languageCode,
+        options?.provider,
+        options?.voice,
+        options?.model
+      );
 
-        audio.onended = () => {
-          activeAudio = null;
-          options?.onEnd?.();
-        };
+      if (cachedUrl) {
+        try {
+          const audio = new Audio(cachedUrl);
+          audio.preload = "auto";
+          activeAudio = audio;
 
-        audio.onerror = () => {
-          activeAudio = null;
-          speakInLanguageNative(text, languageCode);
-          options?.onEnd?.();
-        };
-
-        await audio.play();
-        return;
-      } catch {
-        // Fall through to server fetch
-      }
-    }
-
-    // 2. Fetch from server if online
-    if (typeof navigator === "undefined" || navigator.onLine) {
-      try {
-        const res = await fetch("/api/audio/speech", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            language: languageCode,
-            provider: options?.provider,
-            apiKey: options?.apiKey,
-            voice: options?.voice,
-            speed: options?.speed,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.audioUrl) {
-            setOfflineCachedAudio(text, languageCode, data.audioUrl);
-            const audio = new Audio(data.audioUrl);
-            audio.preload = "auto";
-            activeAudio = audio;
-
+          await new Promise<void>((resolve, reject) => {
             audio.onended = () => {
               activeAudio = null;
               options?.onEnd?.();
+              resolve();
             };
-
-            audio.onerror = () => {
+            audio.onerror = (e) => {
               activeAudio = null;
-              speakInLanguageNative(text, languageCode);
-              options?.onEnd?.();
+              reject(new Error("Cached audio playback failed"));
             };
-
-            await audio.play();
-            return;
-          }
+            audio.play().catch(reject);
+          });
+          return;
+        } catch {
+          activeAudio = null;
+          // Cached item failed to play, fall through to fetch fresh
         }
-      } catch (fetchErr) {
-        console.warn("[Speech API request notice]:", fetchErr);
       }
     }
 
-    // 3. Fallback to browser's native speech synthesis (operates 100% offline)
+    // 2. Fetch from speech API
+    const res = await fetch("/api/audio/speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        language: languageCode,
+        provider: options?.provider,
+        apiKey: options?.apiKey,
+        baseUrl: options?.baseUrl,
+        voice: options?.voice,
+        speed: options?.speed,
+        model: options?.model,
+        skipCache: options?.skipCache,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    // If server responded with an error or unfulfilled speech request
+    if (!res.ok || !data.success) {
+      const errorMsg = data.message || `Speech generation failed (${res.status})`;
+
+      // If an external API provider was requested or detected, DO NOT fall back to robotic browser synthesis!
+      if (isExplicitApiProvider || (data.provider && data.provider !== "browser" && data.provider !== "google-tts")) {
+        throw new Error(errorMsg);
+      }
+
+      // If browser was explicitly selected, fall back to native browser synthesis
+      speakInLanguageNative(text, languageCode);
+      setTimeout(() => options?.onEnd?.(), 1200);
+      return;
+    }
+
+    // Play returned audio stream
+    if (data.audioUrl) {
+      if (!options?.skipCache) {
+        setOfflineCachedAudio(
+          text,
+          languageCode,
+          data.audioUrl,
+          options?.provider || data.provider,
+          options?.voice,
+          options?.model
+        );
+      }
+
+      const audio = new Audio(data.audioUrl);
+      audio.preload = "auto";
+      activeAudio = audio;
+
+      await new Promise<void>((resolve, reject) => {
+        audio.onended = () => {
+          activeAudio = null;
+          options?.onEnd?.();
+          resolve();
+        };
+        audio.onerror = () => {
+          activeAudio = null;
+          reject(new Error("Failed to play audio stream from provider"));
+        };
+        audio.play().catch(reject);
+      });
+      return;
+    }
+
+    // If no audioUrl returned and browser provider was requested
+    if (options?.provider === "browser" || data.provider === "browser") {
+      speakInLanguageNative(text, languageCode);
+      setTimeout(() => options?.onEnd?.(), 1200);
+    } else {
+      throw new Error(data.message || "No audio stream returned by provider.");
+    }
+  } catch (err: any) {
+    activeAudio = null;
+    console.error("[playCardSpeech Error]:", err);
+
+    // CRITICAL REQUIREMENT:
+    // If an external provider is configured or requested, DO NOT silently fall back to browser voice!
+    // Give user clear error feedback via onError.
+    if (isExplicitApiProvider) {
+      options?.onError?.(err);
+      return;
+    }
+
+    // If the error message indicates an API provider failure, don't play browser fallback
+    if (err?.message && (
+      err.message.includes("Gemini") ||
+      err.message.includes("OpenAI") ||
+      err.message.includes("ElevenLabs") ||
+      err.message.includes("Custom") ||
+      err.message.includes("API key") ||
+      err.message.includes("Base URL")
+    )) {
+      options?.onError?.(err);
+      return;
+    }
+
+    // Otherwise, browser fallback is acceptable for default browser mode
     speakInLanguageNative(text, languageCode);
-    setTimeout(() => {
-      options?.onEnd?.();
-    }, 1200);
-  } catch (err) {
-    speakInLanguageNative(text, languageCode);
+    options?.onError?.(err);
     options?.onEnd?.();
   }
 }

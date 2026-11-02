@@ -613,20 +613,24 @@ export default function SettingsPage() {
     setTestingSpeech(true);
     try {
       const sampleSentence = "Hello! Welcome to Flashguage. This is a preview of your speech voice.";
-      showToast("Playing voice preview...", "info");
+      showToast("Generating voice preview...", "info");
       await playCardSpeech(sampleSentence, "en", {
         provider: speechProvider,
         apiKey: speechApiKey.trim(),
+        baseUrl: speechBaseUrl.trim(),
         voice: speechVoice.trim(),
         speed: Number(speechSpeed),
+        model: speechModel.trim(),
+        skipCache: true,
         onEnd: () => setTestingSpeech(false),
         onError: (err) => {
-          showToast(`Voice preview notice: ${err?.message || "Using fallback"}`, "info");
+          showToast(`Speech test failed: ${err?.message || "Could not generate speech"}`, "error");
           setTestingSpeech(false);
         },
       });
       setTimeout(() => setTestingSpeech(false), 3500);
-    } catch (err) {
+    } catch (err: any) {
+      showToast(`Speech test failed: ${err?.message || "Could not generate speech"}`, "error");
       setTestingSpeech(false);
     }
   };

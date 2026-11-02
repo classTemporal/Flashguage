@@ -107,7 +107,12 @@ export default function DeckDetail() {
     setSpeakingCardId(cardId);
     playCardSpeech(word, deckData?.targetLanguage || "en", {
       onEnd: () => setSpeakingCardId(null),
-      onError: () => setSpeakingCardId(null),
+      onError: (err) => {
+        setSpeakingCardId(null);
+        if (err?.message) {
+          showToast(`Speech error: ${err.message}`, "error");
+        }
+      },
     });
   };
 

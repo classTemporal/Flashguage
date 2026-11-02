@@ -87,13 +87,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       language = "en",
       provider: overrideProvider,
       apiKey: overrideApiKey,
+      baseUrl: overrideBaseUrl,
       voice: overrideVoice,
       speed: overrideSpeed,
       model: overrideModel,
+      skipCache = false,
     } = req.body;
 
     if (!text || typeof text !== "string" || !text.trim()) {
-      return res.status(400).json({ message: "Text is required" });
+      return res.status(400).json({ success: false, message: "Text is required" });
     }
 
     // Retrieve user settings
@@ -124,22 +126,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ).trim();
 
       if (!apiKey) {
-        return await serveGoogleTTS(cleanText, language, cacheDir, res);
+        return res.status(400).json({
+          success: false,
+          provider: "gemini",
+          message: "Gemini API key is required. Please configure it in Settings.",
+        });
       }
 
       const voice = (overrideVoice || userSettings.speechVoice || "Puck").trim();
       const rawModel = (overrideModel || userSettings.speechModel || "gemini-3.8-flash-tts").trim();
       const ttsModel = rawModel.includes("tts") ? rawModel : "gemini-3.8-flash-tts";
       const validVoices = ["Puck", "Aoede", "Charon", "Kore", "Fenrir"];
-      const selectedVoice = validVoices.includes(voice) ? voice : "Puck";
+      const matchedVoice = validVoices.find((v) => v.toLowerCase() === voice.toLowerCase()) || "Puck";
 
-      const cacheKey = `gemini:${ttsModel}:${selectedVoice}:${cleanText.toLowerCase()}`;
+      const cacheKey = `gemini:${ttsModel}:${matchedVoice}:${cleanText.toLowerCase()}`;
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.wav`;
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/api/audio/play/${fileName}`;
 
-      if (fs.existsSync(filePath)) {
+      if (!skipCache && fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
           return res.status(200).json({
@@ -166,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 speechConfig: {
                   voiceConfig: {
                     prebuiltVoiceConfig: {
-                      voiceName: selectedVoice,
+                      voiceName: matchedVoice,
                     },
                   },
                 },
@@ -188,16 +194,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               provider: "gemini",
             });
           }
+          return res.status(500).json({
+            success: false,
+            provider: "gemini",
+            message: "Gemini returned empty audio data.",
+          });
         } else {
-          const errText = await geminiRes.text();
-          console.warn("[Gemini TTS Error]:", geminiRes.status, errText);
+          const errJson = await geminiRes.json().catch(() => null);
+          const errMsg = errJson?.error?.message || (await geminiRes.text().catch(() => "Unknown Gemini error"));
+          console.error("[Gemini TTS Error]:", geminiRes.status, errMsg);
+          return res.status(geminiRes.status >= 400 && geminiRes.status < 600 ? geminiRes.status : 500).json({
+            success: false,
+            provider: "gemini",
+            message: `Gemini speech error (${geminiRes.status}): ${errMsg}`,
+          });
         }
-      } catch (geminiErr) {
-        console.warn("[Gemini TTS Fetch Error]:", geminiErr);
+      } catch (geminiErr: any) {
+        console.error("[Gemini TTS Fetch Error]:", geminiErr);
+        return res.status(500).json({
+          success: false,
+          provider: "gemini",
+          message: `Failed to connect to Gemini speech service: ${geminiErr?.message || "Network error"}`,
+        });
       }
-
-      // Fallback to Google Cloud stream if Gemini request failed
-      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
     // 2. OpenAI TTS Integration
@@ -211,7 +230,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ).trim();
 
       if (!apiKey) {
-        return await serveGoogleTTS(cleanText, language, cacheDir, res);
+        return res.status(400).json({
+          success: false,
+          provider: "openai",
+          message: "OpenAI API key is required. Please configure it in Settings.",
+        });
       }
 
       const voice = (overrideVoice || userSettings.speechVoice || "nova").trim();
@@ -224,7 +247,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/api/audio/play/${fileName}`;
 
-      if (fs.existsSync(filePath)) {
+      if (!skipCache && fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
           return res.status(200).json({
@@ -236,35 +259,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      const openAiRes = await fetch("https://api.openai.com/v1/audio/speech", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          voice,
-          input: cleanText,
-          speed: Math.max(0.25, Math.min(4.0, Number(speed) || 1.0)),
-        }),
-      });
+      try {
+        const openAiRes = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            voice,
+            input: cleanText,
+            speed: Math.max(0.25, Math.min(4.0, Number(speed) || 1.0)),
+          }),
+        });
 
-      if (openAiRes.ok) {
-        const arrayBuffer = await openAiRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        await fs.promises.writeFile(filePath, buffer);
+        if (openAiRes.ok) {
+          const arrayBuffer = await openAiRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
 
-        return res.status(200).json({
-          success: true,
-          audioUrl: publicUrl,
-          cached: false,
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "openai",
+          });
+        }
+
+        const errJson = await openAiRes.json().catch(() => null);
+        const errMsg = errJson?.error?.message || `HTTP ${openAiRes.status}`;
+        console.error("[OpenAI TTS Error]:", openAiRes.status, errMsg);
+        return res.status(openAiRes.status >= 400 && openAiRes.status < 600 ? openAiRes.status : 500).json({
+          success: false,
           provider: "openai",
+          message: `OpenAI speech error (${openAiRes.status}): ${errMsg}`,
+        });
+      } catch (openAiErr: any) {
+        console.error("[OpenAI TTS Fetch Error]:", openAiErr);
+        return res.status(500).json({
+          success: false,
+          provider: "openai",
+          message: `Failed to connect to OpenAI speech service: ${openAiErr?.message || "Network error"}`,
         });
       }
-
-      console.warn("[OpenAI TTS Error]:", openAiRes.status);
-      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
     // 3. ElevenLabs TTS Integration
@@ -277,17 +315,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ).trim();
 
       if (!apiKey) {
-        return await serveGoogleTTS(cleanText, language, cacheDir, res);
+        return res.status(400).json({
+          success: false,
+          provider: "elevenlabs",
+          message: "ElevenLabs API key is required. Please configure it in Settings.",
+        });
       }
 
       const voice = (overrideVoice || userSettings.speechVoice || "21m00Tcm4TlvDq8ikWAM").trim();
-      const cacheKey = `elevenlabs:${voice}:${cleanText.toLowerCase()}`;
+      const model = (overrideModel || userSettings.speechModel || "eleven_multilingual_v2").trim();
+      const cacheKey = `elevenlabs:${model}:${voice}:${cleanText.toLowerCase()}`;
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.mp3`;
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/api/audio/play/${fileName}`;
 
-      if (fs.existsSync(filePath)) {
+      if (!skipCache && fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
           return res.status(200).json({
@@ -299,45 +342,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
-        method: "POST",
-        headers: {
-          "xi-api-key": apiKey,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
-        },
-        body: JSON.stringify({
-          text: cleanText,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
+      try {
+        const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
+          method: "POST",
+          headers: {
+            "xi-api-key": apiKey,
+            "Content-Type": "application/json",
+            Accept: "audio/mpeg",
           },
-        }),
-      });
+          body: JSON.stringify({
+            text: cleanText,
+            model_id: model,
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+            },
+          }),
+        });
 
-      if (elevenRes.ok) {
-        const arrayBuffer = await elevenRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        await fs.promises.writeFile(filePath, buffer);
+        if (elevenRes.ok) {
+          const arrayBuffer = await elevenRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
 
-        return res.status(200).json({
-          success: true,
-          audioUrl: publicUrl,
-          cached: false,
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "elevenlabs",
+          });
+        }
+
+        const errJson = await elevenRes.json().catch(() => null);
+        const errMsg = errJson?.detail?.message || errJson?.error || `HTTP ${elevenRes.status}`;
+        console.error("[ElevenLabs TTS Error]:", elevenRes.status, errMsg);
+        return res.status(elevenRes.status >= 400 && elevenRes.status < 600 ? elevenRes.status : 500).json({
+          success: false,
           provider: "elevenlabs",
+          message: `ElevenLabs speech error (${elevenRes.status}): ${errMsg}`,
+        });
+      } catch (elevenErr: any) {
+        console.error("[ElevenLabs TTS Fetch Error]:", elevenErr);
+        return res.status(500).json({
+          success: false,
+          provider: "elevenlabs",
+          message: `Failed to connect to ElevenLabs: ${elevenErr?.message || "Network error"}`,
         });
       }
-
-      console.warn("[ElevenLabs TTS Error]:", elevenRes.status);
-      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
     // 4. Custom TTS Integration
     if (provider === "custom") {
-      const baseUrl = (req.body.baseUrl || userSettings.speechBaseUrl || userSettings.customBaseUrl || "").trim();
+      const baseUrl = (overrideBaseUrl || req.body.baseUrl || userSettings.speechBaseUrl || userSettings.customBaseUrl || "").trim();
       if (!baseUrl) {
-        return await serveGoogleTTS(cleanText, language, cacheDir, res);
+        return res.status(400).json({
+          success: false,
+          provider: "custom",
+          message: "Base URL is required for custom speech server. Please configure it in Settings.",
+        });
       }
 
       const apiKey = (overrideApiKey || userSettings.speechApiKey || userSettings.customApiKey || "").trim();
@@ -351,7 +413,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/api/audio/play/${fileName}`;
 
-      if (fs.existsSync(filePath)) {
+      if (!skipCache && fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
           return res.status(200).json({
@@ -363,46 +425,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      const cleanUrl = baseUrl.replace(/\/$/, "");
-      const endpoint = cleanUrl.endsWith("/v1") ? `${cleanUrl}/audio/speech` : `${cleanUrl}/v1/audio/speech`;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
+      try {
+        const cleanUrl = baseUrl.replace(/\/$/, "");
+        const endpoint = cleanUrl.endsWith("/v1") ? `${cleanUrl}/audio/speech` : `${cleanUrl}/v1/audio/speech`;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (apiKey) {
+          headers["Authorization"] = `Bearer ${apiKey}`;
+        }
 
-      const customRes = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          input: cleanText,
-          voice,
-          speed,
-        }),
-      });
+        const customRes = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model,
+            input: cleanText,
+            voice,
+            speed,
+          }),
+        });
 
-      if (customRes.ok) {
-        const arrayBuffer = await customRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        await fs.promises.writeFile(filePath, buffer);
+        if (customRes.ok) {
+          const arrayBuffer = await customRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
 
-        return res.status(200).json({
-          success: true,
-          audioUrl: publicUrl,
-          cached: false,
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "custom",
+          });
+        }
+
+        const errJson = await customRes.json().catch(() => null);
+        const errMsg = errJson?.error?.message || `HTTP ${customRes.status}`;
+        console.error("[Custom TTS Error]:", customRes.status, errMsg);
+        return res.status(customRes.status >= 400 && customRes.status < 600 ? customRes.status : 500).json({
+          success: false,
           provider: "custom",
+          message: `Custom speech server error (${customRes.status}): ${errMsg}`,
+        });
+      } catch (customErr: any) {
+        console.error("[Custom TTS Fetch Error]:", customErr);
+        return res.status(500).json({
+          success: false,
+          provider: "custom",
+          message: `Failed to connect to custom speech server: ${customErr?.message || "Network error"}`,
         });
       }
-
-      console.warn("[Custom TTS Error]:", customRes.status);
-      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
     // 5. Default / "browser" provider: Return reliable audio stream so all browsers (including Firefox) work out of the box
     return await serveGoogleTTS(cleanText, language, cacheDir, res);
   } catch (error: any) {
     console.error("[Audio Speech Handler Error]:", error);
-    const cacheDir = path.join(process.cwd(), "public", "audio-cache");
-    return await serveGoogleTTS(req.body?.text || "", req.body?.language || "en", cacheDir, res);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Internal server error generating speech",
+    });
   }
 }

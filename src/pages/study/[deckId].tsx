@@ -404,9 +404,14 @@ export default function StudySessionPage({
     setIsSpeaking(true);
     playCardSpeech(text, customLang || deckLang, {
       onEnd: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
+      onError: (err) => {
+        setIsSpeaking(false);
+        if (err?.message) {
+          showToast(`Speech error: ${err.message}`, "error");
+        }
+      },
     });
-  }, [deckLang]);
+  }, [deckLang, showToast]);
 
   const handleAdvanceDay = useCallback(async () => {
     setIsAdvancing(true);

@@ -6,26 +6,48 @@
  */
 
 const MEDIA_CACHE_NAME = "engcards-media-v1";
-const AUDIO_MAP_PREFIX = "flashguage_tts_";
+const AUDIO_MAP_PREFIX = "flashguage_tts_v2_";
 
-function getAudioKey(text: string, lang = "en"): string {
-  const clean = text.trim().toLowerCase().replace(/\s+/g, "_");
-  return `${AUDIO_MAP_PREFIX}${lang}_${clean}`;
+function getAudioKey(
+  text: string,
+  lang = "en",
+  provider?: string,
+  voice?: string,
+  model?: string
+): string {
+  const clean = text.trim().toLowerCase().replace(/\s+/g, "_").slice(0, 80);
+  const p = (provider || "default").toLowerCase();
+  const v = (voice || "default").toLowerCase();
+  const m = (model || "default").toLowerCase();
+  return `${AUDIO_MAP_PREFIX}${lang}_${p}_${v}_${m}_${clean}`;
 }
 
-export function getOfflineCachedAudio(text: string, lang = "en"): string | null {
+export function getOfflineCachedAudio(
+  text: string,
+  lang = "en",
+  provider?: string,
+  voice?: string,
+  model?: string
+): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return localStorage.getItem(getAudioKey(text, lang));
+    return localStorage.getItem(getAudioKey(text, lang, provider, voice, model));
   } catch {
     return null;
   }
 }
 
-export function setOfflineCachedAudio(text: string, lang: string, audioUrl: string): void {
+export function setOfflineCachedAudio(
+  text: string,
+  lang: string,
+  audioUrl: string,
+  provider?: string,
+  voice?: string,
+  model?: string
+): void {
   if (typeof window === "undefined" || !audioUrl) return;
   try {
-    localStorage.setItem(getAudioKey(text, lang), audioUrl);
+    localStorage.setItem(getAudioKey(text, lang, provider, voice, model), audioUrl);
   } catch {
     // Ignore storage quota limits
   }
