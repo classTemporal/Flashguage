@@ -66,7 +66,7 @@ export function ThemeToggle() {
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-lg border border-border bg-background text-foreground"
+        className="h-10 w-10 flex items-center justify-center rounded-xl border border-border bg-card/80 text-foreground"
         aria-label="Toggle theme"
       >
         <span className="block h-5 w-5" />
@@ -92,7 +92,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={cycleTheme}
-      className="p-2 rounded-lg border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="h-10 w-10 flex items-center justify-center rounded-xl border border-border bg-card/80 hover:bg-muted text-foreground active:scale-95 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={`Current theme: ${theme}. Click to change theme.`}
       title={`Theme: ${theme}`}
     >
