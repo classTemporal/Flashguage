@@ -82,15 +82,21 @@ export default function OnboardingPage() {
   const [aiBaseUrl, setAiBaseUrl] = useState<string>("");
   const [showAiKey, setShowAiKey] = useState<boolean>(false);
 
-  // Step 3: Speech & Pronunciation Key (OPTIONAL)
+  // Step 3: Text-to-Speech (TTS) Key (OPTIONAL)
   const [speechProvider, setSpeechProvider] = useState<string>("browser");
-  const [useSameAiKey, setUseSameAiKey] = useState<boolean>(false);
   const [speechApiKey, setSpeechApiKey] = useState<string>("");
   const [speechBaseUrl, setSpeechBaseUrl] = useState<string>("");
-  const [speechModel, setSpeechModel] = useState<string>("");
+  const [speechModel, setSpeechModel] = useState<string>("gemini-3.8-flash-tts");
   const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(true);
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [showSpeechKey, setShowSpeechKey] = useState<boolean>(false);
+
+  // Step 3: Speech-to-Text (STT) Key (OPTIONAL)
+  const [transcribeProvider, setTranscribeProvider] = useState<"gemini" | "groq" | "openai" | "custom">("gemini");
+  const [transcribeApiKey, setTranscribeApiKey] = useState<string>("");
+  const [transcribeBaseUrl, setTranscribeBaseUrl] = useState<string>("");
+  const [transcribeModel, setTranscribeModel] = useState<string>("gemini-3.5-flash");
+  const [showTranscribeKey, setShowTranscribeKey] = useState<boolean>(false);
 
   // Step 4: Timezone & Habits (OPTIONAL)
   const [allTimezones, setAllTimezones] = useState<string[]>([]);
@@ -141,16 +147,6 @@ export default function OnboardingPage() {
     setCustomDeckName(`${langInfo.name} Core Vocabulary`);
   }, [selectedLanguage]);
 
-  // Sync speech API key when "use same" is checked
-  useEffect(() => {
-    if (useSameAiKey) {
-      setSpeechApiKey(aiApiKey);
-      if (aiProvider === "gemini" || aiProvider === "openai" || aiProvider === "groq") {
-        setSpeechProvider(aiProvider);
-      }
-    }
-  }, [useSameAiKey, aiApiKey, aiProvider]);
-
   const handleNextStep = () => {
     if (step < 5) {
       setStep((prev) => prev + 1);
@@ -184,6 +180,9 @@ export default function OnboardingPage() {
         speechAutoPlay,
         speechSpeed,
         speechProvider,
+        speechModel,
+        transcribeProvider,
+        transcribeModel,
       };
 
       if (aiApiKey.trim() || aiProvider === "custom") {
@@ -195,13 +194,18 @@ export default function OnboardingPage() {
         if (aiProvider === "openai" && aiApiKey.trim()) settingsPayload.openaiKey = aiApiKey.trim();
       }
 
-      const effectiveSpeechKey = useSameAiKey ? aiApiKey.trim() : speechApiKey.trim();
-      if (effectiveSpeechKey) {
-        settingsPayload.speechApiKey = effectiveSpeechKey;
+      if (speechApiKey.trim()) {
+        settingsPayload.speechApiKey = speechApiKey.trim();
       }
-      if (speechProvider === "custom") {
-        if (speechBaseUrl.trim()) settingsPayload.speechBaseUrl = speechBaseUrl.trim();
-        if (speechModel.trim()) settingsPayload.speechModel = speechModel.trim();
+      if (speechProvider === "custom" && speechBaseUrl.trim()) {
+        settingsPayload.speechBaseUrl = speechBaseUrl.trim();
+      }
+
+      if (transcribeApiKey.trim()) {
+        settingsPayload.transcribeApiKey = transcribeApiKey.trim();
+      }
+      if (transcribeProvider === "custom" && transcribeBaseUrl.trim()) {
+        settingsPayload.transcribeBaseUrl = transcribeBaseUrl.trim();
       }
 
       await fetch("/api/settings", {
@@ -517,7 +521,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ──────────────── STEP 3: Speech & Pronunciation Key (OPTIONAL) ──────────────── */}
+          {/* ──────────────── STEP 3: Voice (TTS) & Microphone (STT) Setup (OPTIONAL) ──────────────── */}
           {step === 3 && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -525,85 +529,86 @@ export default function OnboardingPage() {
                   <span>🎙️ Step 3 of 5 (Optional)</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                  Speech & Native Audio
+                  Voice Pronunciation & Microphone Practice
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Hear authentic native pronunciations for your {selectedLangInfo.name} vocabulary and practice your spoken accent.
+                  Configure lifelike voices to hear pronunciation and speech recognition to evaluate your spoken {selectedLangInfo.name}.
                 </p>
               </div>
 
-              {/* Speech Provider Choice: Clean buttons without subtitles */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
-                  Audio & TTS Engine
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {[
-                    { id: "browser", name: "Browser Speech" },
-                    { id: "openai", name: "OpenAI" },
-                    { id: "gemini", name: "Gemini" },
-                    { id: "groq", name: "Groq" },
-                    { id: "elevenlabs", name: "ElevenLabs" },
-                    { id: "custom", name: "Custom" },
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSpeechProvider(p.id)}
-                      className={`h-11 px-3 rounded-xl border text-center font-bold text-xs sm:text-sm transition-all flex items-center justify-center ${
-                        speechProvider === p.id
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
-                          : "border-border/80 bg-card hover:bg-muted text-foreground"
-                      }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
+              {/* ── Sub-card 1: Text-to-Speech (TTS) ── */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg" aria-hidden="true">🔊</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      1. Text-to-Speech (TTS) — Voice Pronunciation
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Engine used to pronounce flashcard words and example sentences.
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Inputs based on Speech Provider */}
-              {speechProvider !== "browser" && (
-                <div className="space-y-3 pt-2">
-                  {speechProvider === "custom" && (
-                    <div className="space-y-1.5">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {[
+                      { id: "browser", name: "Browser (Free)" },
+                      { id: "gemini", name: "Gemini" },
+                      { id: "openai", name: "OpenAI" },
+                      { id: "elevenlabs", name: "ElevenLabs" },
+                      { id: "custom", name: "Custom" },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSpeechProvider(p.id);
+                          if (p.id === "gemini") setSpeechModel("gemini-3.8-flash-tts");
+                          else if (p.id === "openai") setSpeechModel("tts-1");
+                          else if (p.id === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
+                          else if (p.id === "custom") setSpeechModel("tts-1");
+                        }}
+                        className={`h-10 px-2 rounded-xl border text-center font-bold text-xs transition-all flex items-center justify-center ${
+                          speechProvider === p.id
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
+                            : "border-border/80 bg-card hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {speechProvider !== "browser" && (
+                  <div className="space-y-3 pt-1">
+                    {speechProvider === "custom" && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-foreground">
+                          Custom TTS Server Base URL
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. http://localhost:8000/v1 or https://my-tts.com/v1"
+                          value={speechBaseUrl}
+                          onChange={(e) => setSpeechBaseUrl(e.target.value)}
+                          className="text-xs rounded-xl font-mono"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
                       <label className="text-xs font-bold text-foreground">
-                        Custom Speech Base URL
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="e.g. http://localhost:8000/v1 or https://api.your-tts.com/v1"
-                        value={speechBaseUrl}
-                        onChange={(e) => setSpeechBaseUrl(e.target.value)}
-                        className="text-xs sm:text-sm rounded-xl font-mono"
-                      />
-                    </div>
-                  )}
-
-                  {aiApiKey.trim() && speechProvider !== "custom" && (
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground p-1">
-                      <input
-                        type="checkbox"
-                        checked={useSameAiKey}
-                        onChange={(e) => setUseSameAiKey(e.target.checked)}
-                        className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-                      />
-                      <span>Use the same API key configured in Step 2</span>
-                    </label>
-                  )}
-
-                  {(!useSameAiKey || speechProvider === "custom") && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-foreground">
-                        {speechProvider.toUpperCase()} Speech API Key {speechProvider === "custom" ? "(Optional)" : ""}
+                        {speechProvider.toUpperCase()} TTS API Key {speechProvider === "custom" ? "(Optional)" : ""}
                       </label>
                       <div className="relative">
                         <Input
                           type={showSpeechKey ? "text" : "password"}
-                          placeholder="Paste speech / audio API key..."
+                          placeholder={`Enter your ${speechProvider.toUpperCase()} key for TTS...`}
                           value={speechApiKey}
                           onChange={(e) => setSpeechApiKey(e.target.value)}
-                          className="pr-14 text-xs sm:text-sm rounded-xl font-mono"
+                          className="pr-14 text-xs rounded-xl font-mono"
                         />
                         <button
                           type="button"
@@ -614,19 +619,17 @@ export default function OnboardingPage() {
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Auto-pronounce toggle */}
-              <div className="space-y-3 pt-2 border-t border-border/50">
-                <label className="flex items-center justify-between p-3.5 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 cursor-pointer">
+                {/* Auto-pronounce toggle */}
+                <label className="flex items-center justify-between p-3 rounded-xl border border-border/70 bg-card hover:bg-muted/30 cursor-pointer">
                   <div>
-                    <p className="text-xs sm:text-sm font-bold text-foreground">
+                    <p className="text-xs font-bold text-foreground">
                       Auto-Pronounce on Reveal
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Automatically speak card pronunciations when flipping flashcards during study.
+                    <p className="text-[11px] text-muted-foreground">
+                      Automatically pronounce word when flipping card during study.
                     </p>
                   </div>
                   <input
@@ -636,6 +639,91 @@ export default function OnboardingPage() {
                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
                 </label>
+              </div>
+
+              {/* ── Sub-card 2: Speech-to-Text (STT) ── */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg" aria-hidden="true">🎙️</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      2. Speech-to-Text (STT) — Microphone Recognition & Practice
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Engine used to transcribe your voice when practicing pronunciation into the microphone.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: "gemini", name: "Gemini" },
+                      { id: "groq", name: "Groq (Whisper)" },
+                      { id: "openai", name: "OpenAI (Whisper)" },
+                      { id: "custom", name: "Custom" },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          const newP = p.id as any;
+                          setTranscribeProvider(newP);
+                          if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
+                          else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
+                          else if (newP === "openai") setTranscribeModel("whisper-1");
+                          else if (newP === "custom") setTranscribeModel("whisper-1");
+                        }}
+                        className={`h-10 px-2 rounded-xl border text-center font-bold text-xs transition-all flex items-center justify-center ${
+                          transcribeProvider === p.id
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/20 ring-2 ring-primary/30"
+                            : "border-border/80 bg-card hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {transcribeProvider === "custom" && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground">
+                        Custom Transcription Server Base URL
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. http://localhost:8000/v1 or https://my-whisper.com/v1"
+                        value={transcribeBaseUrl}
+                        onChange={(e) => setTranscribeBaseUrl(e.target.value)}
+                        className="text-xs rounded-xl font-mono"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-foreground">
+                      {transcribeProvider.toUpperCase()} STT API Key {transcribeProvider === "custom" ? "(Optional)" : ""}
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type={showTranscribeKey ? "text" : "password"}
+                        placeholder={`Enter your ${transcribeProvider.toUpperCase()} key for STT transcription...`}
+                        value={transcribeApiKey}
+                        onChange={(e) => setTranscribeApiKey(e.target.value)}
+                        className="pr-14 text-xs rounded-xl font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTranscribeKey(!showTranscribeKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-semibold px-1 py-0.5"
+                      >
+                        {showTranscribeKey ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Wizard Footer for Step 3 */}
