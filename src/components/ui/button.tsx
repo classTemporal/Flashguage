@@ -1,19 +1,22 @@
 import { type ButtonHTMLAttributes, type ReactNode, type AnchorHTMLAttributes } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "destructive" | "ghost";
-type ButtonSize = "sm" | "md" | "lg";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "destructive" | "ghost";
+export type ButtonSize = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-primary-foreground hover:opacity-90 active:opacity-100 active:brightness-95",
-  secondary: "border border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
-  destructive: "bg-destructive text-destructive-foreground hover:opacity-90 active:opacity-100 active:brightness-95",
-  ghost: "text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95 shadow-sm shadow-primary/20",
+  secondary: "border border-border bg-card hover:bg-muted text-foreground active:bg-muted/80 shadow-xs",
+  outline: "border border-border bg-transparent hover:bg-muted text-foreground active:bg-muted/80",
+  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/95 shadow-xs",
+  ghost: "text-muted-foreground hover:text-foreground hover:bg-muted active:bg-muted/80",
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-9 px-3.5 py-1.5 text-xs sm:text-sm rounded-xl",
-  md: "h-11 px-5 py-2.5 text-sm rounded-xl",
-  lg: "h-12 px-7 py-3 text-base rounded-xl",
+  sm: "h-8 px-3 text-xs rounded-xl",
+  md: "h-10 px-4 py-2 text-sm rounded-xl",
+  lg: "h-11 px-6 py-2.5 text-base rounded-xl",
+  icon: "h-10 w-10 p-0 rounded-xl shrink-0",
+  "icon-sm": "h-8 w-8 p-0 rounded-xl shrink-0",
 };
 
 interface ButtonProps {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "./button";
 
 type Theme = "light" | "dark" | "system";
 
@@ -65,12 +66,14 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <button
-        className="h-10 w-10 flex items-center justify-center rounded-xl border border-border bg-card/80 text-foreground"
+      <Button
+        variant="secondary"
+        size="icon"
         aria-label="Toggle theme"
+        disabled
       >
         <span className="block h-5 w-5" />
-      </button>
+      </Button>
     );
   }
 
@@ -90,13 +93,14 @@ export function ThemeToggle() {
     );
 
   return (
-    <button
+    <Button
+      variant="secondary"
+      size="icon"
       onClick={cycleTheme}
-      className="h-10 w-10 flex items-center justify-center rounded-xl border border-border bg-card/80 hover:bg-muted text-foreground active:scale-95 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label={`Current theme: ${theme}. Click to change theme.`}
       title={`Theme: ${theme}`}
     >
       {icon}
-    </button>
+    </Button>
   );
 }
