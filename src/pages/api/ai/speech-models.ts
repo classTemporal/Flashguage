@@ -55,17 +55,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           throw new Error(errData.error?.message || `Gemini error ${r.status}`);
         }
         const data = await r.json();
-        models = (data.models || [])
+        const detected = (data.models || [])
           .filter((m: any) => {
             const name = (m.name || "").toLowerCase();
-            return (
-              name.includes("flash") ||
-              name.includes("transcribe") ||
-              name.includes("tts")
-            );
+            return name.includes("tts");
           })
-          .map((m: any) => m.name.replace("models/", ""))
-          .sort();
+          .map((m: any) => m.name.replace("models/", ""));
+        const defaults = [
+          "gemini-3.8-flash-tts",
+          "gemini-3.8-flash-lite-tts",
+          "gemini-2.5-flash-preview-tts",
+          "gemini-2.5-pro-preview-tts",
+          "gemini-3.1-flash-tts-preview",
+        ];
+        models = Array.from(new Set([...detected, ...defaults])).sort();
         break;
       }
 

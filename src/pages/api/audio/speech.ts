@@ -11,6 +11,48 @@ import path from "path";
  * Operates reliably across all desktop and mobile browsers (Firefox, Chrome, Safari, Edge)
  * without requiring any external keys.
  */
+function wrapPcmInWav(pcmBuffer: Buffer, mimeType: string = ""): Buffer {
+  if (pcmBuffer.length >= 4 && pcmBuffer.subarray(0, 4).toString() === "RIFF") {
+    return pcmBuffer;
+  }
+
+  let sampleRate = 24000;
+  let channels = 1;
+
+  const rateMatch = mimeType.match(/rate=(\d+)/i);
+  if (rateMatch) {
+    sampleRate = parseInt(rateMatch[1], 10) || 24000;
+  }
+
+  const channelMatch = mimeType.match(/channels=(\d+)/i);
+  if (channelMatch) {
+    channels = parseInt(channelMatch[1], 10) || 1;
+  }
+
+  const bitDepth = 16;
+  const byteRate = (sampleRate * channels * bitDepth) / 8;
+  const blockAlign = (channels * bitDepth) / 8;
+  const dataSize = pcmBuffer.length;
+  const header = Buffer.alloc(44);
+
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write("WAVE", 8);
+
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitDepth, 34);
+
+  header.write("data", 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
 async function serveGoogleTTS(
   text: string,
   lang: string,
@@ -183,10 +225,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (geminiRes.ok) {
           const geminiData = await geminiRes.json();
-          const b64 = geminiData.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          const inline = geminiData.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          const b64 = inline?.data;
           if (b64) {
-            const buffer = Buffer.from(b64, "base64");
-            await fs.promises.writeFile(filePath, buffer);
+            const rawBuffer = Buffer.from(b64, "base64");
+            const audioBuffer = wrapPcmInWav(rawBuffer, inline?.mimeType || "");
+            await fs.promises.writeFile(filePath, audioBuffer);
             return res.status(200).json({
               success: true,
               audioUrl: publicUrl,
