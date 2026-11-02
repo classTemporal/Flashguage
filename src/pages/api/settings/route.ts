@@ -38,8 +38,9 @@ export const settingsSchema = z.object({
   soundEffects: z.boolean().optional(),
   plugins: z.array(z.string()).optional(),
   // Speech & Pronunciation settings
-  speechProvider: z.enum(["browser", "openai", "gemini", "groq", "elevenlabs"]).optional(),
+  speechProvider: z.enum(["browser", "openai", "gemini", "groq", "elevenlabs", "custom"]).optional(),
   speechApiKey: z.string().optional(),
+  speechBaseUrl: z.string().optional(),
   speechVoice: z.string().optional(),
   speechSpeed: z.number().min(0.5).max(2.0).optional(),
   speechAutoPlay: z.boolean().optional(),
@@ -122,8 +123,9 @@ export const pickSettings = (
     soundEffects: (data.soundEffects as boolean) ?? true,
     plugins: (data.plugins as string[]) ?? [],
     // Speech & Pronunciation Settings
-    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "openai" | "gemini" | "groq" | "elevenlabs",
+    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "openai" | "gemini" | "groq" | "elevenlabs" | "custom",
     speechApiKey: ((data.speechApiKey as string) ?? "").trim(),
+    speechBaseUrl: ((data.speechBaseUrl as string) ?? "").trim(),
     speechVoice: ((data.speechVoice as string) ?? "nova").trim(),
     speechSpeed: typeof data.speechSpeed === "number" ? data.speechSpeed : 1.0,
     speechAutoPlay: (data.speechAutoPlay as boolean) ?? false,

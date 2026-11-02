@@ -8,14 +8,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { provider, apiKey } = req.query;
+  const { provider, apiKey, baseUrl } = req.query;
 
   if (req.method !== "GET" || typeof provider !== "string") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  if (!apiKey || typeof apiKey !== "string") {
+  const key = typeof apiKey === "string" ? apiKey.trim() : "";
+  const urlBase = typeof baseUrl === "string" ? baseUrl.trim() : "";
+
+  if (provider !== "custom" && !key) {
     return res.status(400).json({ message: "Speech API key required" });
+  }
+
+  if (provider === "custom" && !urlBase) {
+    return res.status(400).json({ message: "Base URL required for custom speech provider" });
   }
 
   try {
@@ -24,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     switch (provider) {
       case "openai": {
         const r = await fetch("https://api.openai.com/v1/models", {
-          headers: { Authorization: `Bearer ${apiKey}` },
+          headers: { Authorization: `Bearer ${key}` },
         });
         if (!r.ok) {
           const errData = await r.json().catch(() => ({}));
@@ -41,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       case "gemini": {
         const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`
         );
         if (!r.ok) {
           const errData = await r.json().catch(() => ({}));
@@ -64,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       case "groq": {
         const r = await fetch("https://api.groq.com/openai/v1/models", {
-          headers: { Authorization: `Bearer ${apiKey}` },
+          headers: { Authorization: `Bearer ${key}` },
         });
         if (!r.ok) {
           const errData = await r.json().catch(() => ({}));
@@ -83,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       case "elevenlabs": {
         const r = await fetch("https://api.elevenlabs.io/v1/models", {
-          headers: { "xi-api-key": apiKey },
+          headers: { "xi-api-key": key },
         });
         if (!r.ok) {
           throw new Error(`ElevenLabs error ${r.status}`);
@@ -96,6 +103,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (models.length === 0) {
           models = ["eleven_multilingual_v2", "eleven_turbo_v2_5"];
         }
+        break;
+      }
+
+      case "custom": {
+        const url = urlBase.replace(/\/$/, "");
+        const endpoint = url.endsWith("/v1") ? `${url}/models` : `${url}/v1/models`;
+        const headers: Record<string, string> = {};
+        if (key) {
+          headers.Authorization = `Bearer ${key}`;
+        }
+        const r = await fetch(endpoint, { headers });
+        if (!r.ok) {
+          throw new Error(`Custom speech provider error ${r.status}`);
+        }
+        const data = await r.json();
+        models = (data.data || [])
+          .filter((m: any) => m.id)
+          .map((m: any) => m.id)
+          .sort();
         break;
       }
 

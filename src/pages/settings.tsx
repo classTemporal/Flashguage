@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/toast";
 import { playCardSpeech } from "@/lib/speech";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
-export type SpeechProvider = "browser" | "openai" | "gemini" | "groq" | "elevenlabs";
+export type SpeechProvider = "browser" | "openai" | "gemini" | "groq" | "elevenlabs" | "custom";
 
 interface SettingsData {
   name?: string;
@@ -49,6 +49,7 @@ interface SettingsData {
   plugins?: string[];
   speechProvider?: SpeechProvider;
   speechApiKey?: string;
+  speechBaseUrl?: string;
   speechVoice?: string;
   speechSpeed?: number;
   speechAutoPlay?: boolean;
@@ -153,6 +154,7 @@ export default function SettingsPage() {
   // Speech & Pronunciation Settings state
   const [speechProvider, setSpeechProvider] = useState<SpeechProvider>("browser");
   const [speechApiKey, setSpeechApiKey] = useState("");
+  const [speechBaseUrl, setSpeechBaseUrl] = useState("");
   const [showSpeechApiKey, setShowSpeechApiKey] = useState(false);
   const [speechVoice, setSpeechVoice] = useState("nova");
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
@@ -228,6 +230,9 @@ export default function SettingsPage() {
       }
       if (apiSettings.speechApiKey !== undefined) {
         setSpeechApiKey(apiSettings.speechApiKey);
+      }
+      if (apiSettings.speechBaseUrl !== undefined) {
+        setSpeechBaseUrl(apiSettings.speechBaseUrl);
       }
       if (apiSettings.speechVoice !== undefined) {
         setSpeechVoice(apiSettings.speechVoice);
@@ -569,6 +574,7 @@ export default function SettingsPage() {
       const payload = {
         speechProvider,
         speechApiKey: speechApiKey.trim(),
+        speechBaseUrl: speechBaseUrl.trim(),
         speechVoice: speechVoice.trim(),
         speechSpeed: Number(speechSpeed),
         speechAutoPlay,
@@ -628,7 +634,11 @@ export default function SettingsPage() {
   // Handler: Detect Speech Models
   const detectSpeechModels = async () => {
     if (speechProvider === "browser") return;
-    if (!speechApiKey.trim()) {
+    if (speechProvider === "custom" && !speechBaseUrl.trim()) {
+      showToast("Please enter a Base URL for your custom speech server first", "error");
+      return;
+    }
+    if (speechProvider !== "custom" && !speechApiKey.trim()) {
       showToast("Please enter a Speech API key first", "error");
       return;
     }
@@ -637,8 +647,10 @@ export default function SettingsPage() {
     try {
       const params = new URLSearchParams({
         provider: speechProvider,
-        apiKey: speechApiKey.trim(),
       });
+      if (speechApiKey.trim()) params.set("apiKey", speechApiKey.trim());
+      if (speechBaseUrl.trim()) params.set("baseUrl", speechBaseUrl.trim());
+
       const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -1130,6 +1142,7 @@ export default function SettingsPage() {
                     else if (newProvider === "gemini") setSpeechModel("gemini-3.5-flash-lite");
                     else if (newProvider === "groq") setSpeechModel("whisper-large-v3-turbo");
                     else if (newProvider === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
+                    else if (newProvider === "custom") setSpeechModel("whisper-1");
                   }}
                   options={[
                     { value: "browser", label: "Browser Web Speech (Free / Offline / No API Key required)" },
@@ -1137,6 +1150,7 @@ export default function SettingsPage() {
                     { value: "gemini", label: "Google Gemini (Multimodal Speech Transcription)" },
                     { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
                     { value: "elevenlabs", label: "ElevenLabs (Ultra-Realistic Generative Speech)" },
+                    { value: "custom", label: "Custom (OpenAI-Compatible Local / Self-Hosted Server)" },
                   ]}
                   hint="Select which engine Flashguage should use for pronunciation audio and speech transcription."
                 />
@@ -1144,9 +1158,28 @@ export default function SettingsPage() {
 
               {speechProvider !== "browser" && (
                 <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                  {speechProvider === "custom" && (
+                    <div>
+                      <label htmlFor="speech-base-url" className="block text-sm font-medium text-foreground mb-1">
+                        Speech Server Base URL *
+                      </label>
+                      <input
+                        id="speech-base-url"
+                        type="url"
+                        value={speechBaseUrl}
+                        onChange={(e) => setSpeechBaseUrl(e.target.value)}
+                        placeholder="e.g. http://localhost:8080/v1 or https://my-whisper-server.com/v1"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Compatible with LocalAI, Faster-Whisper, Kokoro TTS, LiteLLM, and any server implementing OpenAI /audio endpoints.
+                      </p>
+                    </div>
+                  )}
+
                   <div>
                     <label htmlFor="speech-api-key" className="block text-sm font-medium text-foreground mb-1">
-                      Dedicated Speech API Key *
+                      Dedicated Speech API Key {speechProvider === "custom" ? "(Optional for local servers)" : "*"}
                     </label>
                     <div className="relative">
                       <input
@@ -1154,7 +1187,11 @@ export default function SettingsPage() {
                         type={showSpeechApiKey ? "text" : "password"}
                         value={speechApiKey}
                         onChange={(e) => setSpeechApiKey(e.target.value)}
-                        placeholder={`Enter your ${speechProvider.toUpperCase()} API key`}
+                        placeholder={
+                          speechProvider === "custom"
+                            ? "Bearer token (optional for self-hosted)"
+                            : `Enter your ${speechProvider.toUpperCase()} API key`
+                        }
                         className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       />
                       <button
@@ -1174,7 +1211,10 @@ export default function SettingsPage() {
                         type="button"
                         variant="secondary"
                         onClick={detectSpeechModels}
-                        disabled={detectingSpeechModels || !speechApiKey.trim()}
+                        disabled={
+                          detectingSpeechModels ||
+                          (speechProvider === "custom" ? !speechBaseUrl.trim() : !speechApiKey.trim())
+                        }
                         className="text-xs border border-border"
                       >
                         {detectingSpeechModels ? "Detecting speech models..." : "🔍 Detect Speech Models"}

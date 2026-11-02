@@ -203,6 +203,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    if (provider === "custom") {
+      const baseUrl = (req.body.baseUrl || userSettings.speechBaseUrl || "").trim();
+      if (!baseUrl) {
+        return res.status(200).json({
+          fallback: true,
+          error: "No Base URL configured for custom speech provider.",
+        });
+      }
+
+      const apiKey = (overrideApiKey || userSettings.speechApiKey || "").trim();
+      const voice = (overrideVoice || userSettings.speechVoice || "alloy").trim();
+      const speed = typeof overrideSpeed === "number" ? overrideSpeed : (userSettings.speechSpeed ?? 1.0);
+      const model = (overrideModel || userSettings.speechModel || "tts-1").trim();
+
+      const cacheKey = `custom:${model}:${voice}:${speed.toFixed(2)}:${cleanText.toLowerCase()}`;
+      const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+      const fileName = `${hash}.mp3`;
+      const filePath = path.join(cacheDir, fileName);
+      const publicUrl = `/audio-cache/${fileName}`;
+
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: true,
+            provider: "custom",
+          });
+        }
+      }
+
+      const cleanUrl = baseUrl.replace(/\/$/, "");
+      const endpoint = cleanUrl.endsWith("/v1") ? `${cleanUrl}/audio/speech` : `${cleanUrl}/v1/audio/speech`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+      }
+
+      const customRes = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          input: cleanText,
+          voice,
+          speed,
+        }),
+      });
+
+      if (!customRes.ok) {
+        const errText = await customRes.text();
+        return res.status(200).json({
+          fallback: true,
+          error: `Custom TTS error (${customRes.status}): ${errText}`,
+        });
+      }
+
+      const arrayBuffer = await customRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      await fs.promises.writeFile(filePath, buffer);
+
+      return res.status(200).json({
+        success: true,
+        audioUrl: publicUrl,
+        cached: false,
+        provider: "custom",
+      });
+    }
+
     return res.status(200).json({
       fallback: true,
       message: `Unknown provider "${provider}". Falling back to browser speech.`,

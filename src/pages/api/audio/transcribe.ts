@@ -163,6 +163,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ text: result.text || "", provider: "openai" });
     }
 
+    // 4. Custom OpenAI-compatible Speech Server (LocalAI, Faster-Whisper, LiteLLM, etc.)
+    if (speechProvider === "custom") {
+      const baseUrl = (userSettings.speechBaseUrl || "").trim();
+      if (!baseUrl) {
+        return res.status(400).json({ error: "Base URL is required for custom speech provider." });
+      }
+
+      const model = speechModel || "whisper-1";
+      const audioBuffer = Buffer.from(cleanBase64, "base64");
+      const file = new File([audioBuffer], "recording.webm", { type: cleanMime });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("model", model);
+      if (language) {
+        formData.append("language", language.slice(0, 2).toLowerCase());
+      }
+
+      const cleanUrl = baseUrl.replace(/\/$/, "");
+      const endpoint = cleanUrl.endsWith("/v1")
+        ? `${cleanUrl}/audio/transcriptions`
+        : `${cleanUrl}/v1/audio/transcriptions`;
+
+      const headers: Record<string, string> = {};
+      if (speechApiKey) {
+        headers.Authorization = `Bearer ${speechApiKey}`;
+      }
+
+      const customRes = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (!customRes.ok) {
+        const errText = await customRes.text();
+        return res.status(400).json({
+          error: `Custom Speech API error (${customRes.status}): ${errText}`,
+        });
+      }
+
+      const result = await customRes.json();
+      return res.status(200).json({ text: result.text || "", provider: "custom" });
+    }
+
     return res.status(400).json({
       error: `El proveedor de voz seleccionado (${speechProvider}) no soporta transcripción por micrófono en este navegador. Selecciona OpenAI, Gemini o Groq en Ajustes.`,
     });
