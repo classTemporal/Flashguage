@@ -204,12 +204,12 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/90 backdrop-blur-md shadow-xs transition-colors">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-3 sm:px-6">
           {/* Logo & Desktop Nav */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 min-w-0">
             <Link
               href={logoHref}
-              className="group flex items-center gap-2.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+              className="group flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 shrink-0"
               aria-label="Flashguage Home"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-500 text-primary-foreground font-black shadow-sm group-hover:scale-105 transition-transform duration-200">
@@ -219,28 +219,31 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                 <span className="text-base font-bold tracking-tight text-foreground leading-tight">
                   {title}
                 </span>
-                <span className="text-[10px] font-medium text-muted-foreground hidden sm:inline -mt-0.5">
+                <span className="text-[10px] font-medium text-muted-foreground hidden xl:inline -mt-0.5">
                   Multi-Language Spaced Recall
                 </span>
               </div>
             </Link>
 
             {showNav && isLoggedIn && (
-              <nav className="hidden md:flex items-center gap-1.5 text-sm font-medium" aria-label="Main Navigation">
+              <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 text-xs lg:text-sm font-medium shrink-0" aria-label="Main Navigation">
                 {desktopNavItems.map((item) => {
                   const active = isRouteActive(item.baseRoute);
+                  const isSecondary = item.baseRoute === "/progress" || item.baseRoute === "/dictionaries";
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       onClick={item.onClick}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                      className={`items-center gap-1 lg:gap-1.5 px-2 py-1.5 lg:px-3 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                        isSecondary ? "hidden lg:inline-flex" : "inline-flex"
+                      } ${
                         active
                           ? "bg-primary/10 text-primary font-semibold shadow-xs"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                       }`}
                     >
-                      <span className="text-sm">{item.icon}</span>
+                      <span className="text-xs lg:text-sm">{item.icon}</span>
                       <span>{item.label}</span>
                     </Link>
                   );
@@ -251,7 +254,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => setMoreDropdownOpen((prev) => !prev)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                    className={`inline-flex items-center gap-1 px-2 py-1.5 lg:px-2.5 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                       isMoreActive
                         ? "bg-primary/10 text-primary font-semibold shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
@@ -301,19 +304,19 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
           </div>
 
           {/* Right Controls: Language Switcher (Desktop) + Theme Toggle + User Menu */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
             {/* Desktop Language Switcher */}
             {isLoggedIn && (
               <div className="relative hidden md:block" ref={langDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setLangDropdownOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1.5 sm:px-2.5 lg:px-3 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
                   aria-expanded={langDropdownOpen}
                   aria-label="Switch active language track"
                 >
                   <span className="text-sm">{currentLang.flag}</span>
-                  <span className="hidden lg:inline">{currentLang.name}</span>
+                  <span className="hidden xl:inline">{currentLang.name}</span>
                   <svg
                     className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${
                       langDropdownOpen ? "rotate-180" : ""
@@ -371,7 +374,7 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                 <button
                   type="button"
                   onClick={() => setUserDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-2.5 rounded-full border border-border bg-background p-1 pr-2.5 text-sm font-medium text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all"
+                  className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-border bg-background p-1 pr-1.5 xl:pr-2.5 text-sm font-medium text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all"
                   aria-expanded={userDropdownOpen}
                   aria-haspopup="true"
                   aria-label="Open user menu"
@@ -379,11 +382,11 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-indigo-600 text-white font-bold text-xs uppercase shadow-xs">
                     {session?.user?.name ? session.user.name.charAt(0) : session?.user?.email?.charAt(0) || "U"}
                   </div>
-                  <span className="text-xs font-semibold text-foreground hidden sm:inline max-w-[130px] truncate">
+                  <span className="text-xs font-semibold text-foreground hidden xl:inline max-w-[130px] truncate">
                     {session?.user?.name || session?.user?.email?.split("@")[0]}
                   </span>
                   <svg
-                    className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 hidden sm:block ${
+                    className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 hidden xl:block ${
                       userDropdownOpen ? "rotate-180" : ""
                     }`}
                     fill="none"
