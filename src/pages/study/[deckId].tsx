@@ -21,6 +21,8 @@ import { NoDueCards } from "@/components/study/study-no-due-cards";
 import { PronunciationChecker } from "@/components/study/pronunciation-checker";
 import { ContextChatModal } from "@/components/study/context-chat-modal";
 import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
+import { prefetchStudyQueueMedia, PreloadProgress } from "@/lib/offline-media";
+import { useSync } from "@/hooks/use-sync";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -189,6 +191,10 @@ export default function StudySessionPage({
   const [typingResult, setTypingResult] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
   const [isDictating, setIsDictating] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [mediaPreloadProgress, setMediaPreloadProgress] = useState<PreloadProgress | null>(null);
+
+  // ── Offline sync support ──
+  const { enqueue, isOnline } = useSync();
 
   // ── Queue state (supports re-appending failed cards for in-session mastery) ──
   const [queue, setQueue] = useState<Review[]>([]);
@@ -229,6 +235,23 @@ export default function StudySessionPage({
       setQueueInitialized(true);
     }
   }, [reviews, queueInitialized]);
+
+  // Pre-cache media (images and neural audio) for active study queue
+  useEffect(() => {
+    if (queueInitialized && queue.length > 0 && isOnline) {
+      const cardsToPreload = queue.map((r) => {
+        const media = parseCardMedia(r.card?.media);
+        return {
+          front: r.card?.front || "",
+          imageUrl: media.imageUrl || null,
+        };
+      });
+
+      prefetchStudyQueueMedia(cardsToPreload, activeLanguage, 15, (progress) => {
+        setMediaPreloadProgress(progress);
+      });
+    }
+  }, [queueInitialized, queue, activeLanguage, isOnline]);
 
   // Completion check
   useEffect(() => {
@@ -284,6 +307,33 @@ export default function StudySessionPage({
       setIsSubmitting(true);
       const currentReview = queue[currentIndex];
 
+      // Handle offline rating directly without failing
+      if (!isOnline) {
+        try {
+          await enqueue("create", "review", { cardId: currentReview.cardId, quality });
+          setTotalReviewed((n) => n + 1);
+
+          if (quality === 1) {
+            setAgainCount((n) => n + 1);
+            setStreak(0);
+          } else {
+            setStreak((s) => {
+              const next = s + 1;
+              setBestStreak((b) => Math.max(b, next));
+              return next;
+            });
+          }
+
+          showToast("Saved offline. Will sync when reconnected ⚡", "info");
+          goToNextCard();
+        } catch {
+          showToast("Error saving offline review", "error");
+        } finally {
+          setIsSubmitting(false);
+        }
+        return;
+      }
+
       try {
         const res = await fetch("/api/reviews", {
           method: "POST",
@@ -309,12 +359,20 @@ export default function StudySessionPage({
 
         goToNextCard();
       } catch {
-        showToast("Error saving review. Please try again.", "error");
+        // Network failure fallback: queue review for later sync
+        try {
+          await enqueue("create", "review", { cardId: currentReview.cardId, quality });
+          setTotalReviewed((n) => n + 1);
+          showToast("Saved offline. Will sync when reconnected ⚡", "info");
+          goToNextCard();
+        } catch {
+          showToast("Error saving review. Please try again.", "error");
+        }
       } finally {
         setIsSubmitting(false);
       }
     },
-    [queue, currentIndex, isSubmitting, goToNextCard, showToast]
+    [queue, currentIndex, isSubmitting, isOnline, enqueue, goToNextCard, showToast]
   );
 
   const currentReview = queue[currentIndex] || null;
@@ -636,8 +694,37 @@ export default function StudySessionPage({
             </button>
           </div>
 
-          {/* Controls: Audio auto-pronounce & Streak */}
+          {/* Controls: Audio auto-pronounce, Offline Status & Streak */}
           <div className="flex items-center gap-2">
+            {/* Offline Readiness Indicator */}
+            {!isOnline ? (
+              <div
+                className="flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-1 text-[10px] font-bold text-amber-500"
+                title="Offline Mode: practicing from locally cached cards and media"
+              >
+                <span>📶</span>
+                <span className="hidden xs:inline">Offline</span>
+              </div>
+            ) : mediaPreloadProgress && !mediaPreloadProgress.isComplete ? (
+              <div
+                className="flex items-center gap-1 rounded-full bg-sky-500/15 border border-sky-500/30 px-2 py-1 text-[10px] font-bold text-sky-400 animate-pulse"
+                title={`Caching study media offline (${mediaPreloadProgress.cachedCards}/${mediaPreloadProgress.totalCards})`}
+              >
+                <span>⚡</span>
+                <span className="hidden xs:inline">
+                  {mediaPreloadProgress.cachedCards}/{mediaPreloadProgress.totalCards}
+                </span>
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 text-[10px] font-bold text-emerald-400"
+                title="Offline Ready: queue media is cached locally for offline practice"
+              >
+                <span>⚡</span>
+                <span className="hidden xs:inline">Ready</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {

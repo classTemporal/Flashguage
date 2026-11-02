@@ -109,3 +109,5 @@ export function useSyncQueue() {
 
   return { pendingCount, isSyncing, isOnline, sync, enqueue, refreshCount };
 }
+
+export const useSync = useSyncQueue;

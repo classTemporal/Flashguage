@@ -47,9 +47,11 @@ export function speakInLanguageNative(text: string, languageCode: string = "en")
   }
 }
 
+import { getOfflineCachedAudio, setOfflineCachedAudio } from "./offline-media";
+
 /**
- * High-fidelity neural audio speech with server caching and automatic
- * client fallback to Web Speech Synthesis.
+ * High-fidelity neural audio speech with offline caching, Service Worker
+ * media retrieval, and automatic fallback to Web Speech Synthesis.
  */
 export async function playCardSpeech(
   text: string,
@@ -63,23 +65,11 @@ export async function playCardSpeech(
   try {
     options?.onStart?.();
 
-    const res = await fetch("/api/audio/speech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        language: languageCode,
-        provider: options?.provider,
-        apiKey: options?.apiKey,
-        voice: options?.voice,
-        speed: options?.speed,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.audioUrl) {
-        const audio = new Audio(data.audioUrl);
+    // 1. Check offline-cached audio mapping first (instant playback offline or online)
+    const cachedUrl = getOfflineCachedAudio(text, languageCode);
+    if (cachedUrl) {
+      try {
+        const audio = new Audio(cachedUrl);
         activeAudio = audio;
 
         audio.onended = () => {
@@ -89,16 +79,59 @@ export async function playCardSpeech(
 
         audio.onerror = () => {
           activeAudio = null;
+          // Fall back to native if audio file fails
           speakInLanguageNative(text, languageCode);
           options?.onEnd?.();
         };
 
         await audio.play();
         return;
+      } catch {
+        // Fall back to fetch below
       }
     }
 
-    // Fallback to browser's native speech synthesis
+    // 2. Fetch from server if online
+    if (typeof navigator === "undefined" || navigator.onLine) {
+      const res = await fetch("/api/audio/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          language: languageCode,
+          provider: options?.provider,
+          apiKey: options?.apiKey,
+          voice: options?.voice,
+          speed: options?.speed,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audioUrl) {
+          // Store mapping for future offline playback
+          setOfflineCachedAudio(text, languageCode, data.audioUrl);
+          const audio = new Audio(data.audioUrl);
+          activeAudio = audio;
+
+          audio.onended = () => {
+            activeAudio = null;
+            options?.onEnd?.();
+          };
+
+          audio.onerror = () => {
+            activeAudio = null;
+            speakInLanguageNative(text, languageCode);
+            options?.onEnd?.();
+          };
+
+          await audio.play();
+          return;
+        }
+      }
+    }
+
+    // 3. Fallback to browser's native speech synthesis (operates 100% offline)
     speakInLanguageNative(text, languageCode);
     setTimeout(() => {
       options?.onEnd?.();
