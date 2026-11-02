@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!speechApiKey) {
       return res.status(400).json({
         error:
-          "Se requiere una API Key dedicada de Speech para transcribir en este navegador. Ve a Ajustes > Speech & Pronunciation para configurar tu proveedor y clave de voz.",
+          "A dedicated Speech API Key is required for speech transcription in this browser. Go to Settings > Speech & Pronunciation to configure your provider and voice key.",
       });
     }
 
@@ -208,7 +208,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(400).json({
-      error: `El proveedor de voz seleccionado (${speechProvider}) no soporta transcripción por micrófono en este navegador. Selecciona OpenAI, Gemini o Groq en Ajustes.`,
+      error: `The selected speech provider (${speechProvider}) does not support microphone transcription in this browser. Please select OpenAI, Gemini, Groq, or a custom server in Settings.`,
     });
   } catch (error: any) {
     console.error("[Transcribe Handler Error]:", error);

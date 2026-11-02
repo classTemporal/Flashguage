@@ -254,10 +254,9 @@ export function PronunciationChecker({
               className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground px-3.5 py-1.5 rounded-full hover:opacity-90 active:scale-95 transition-all"
             >
               <span>🔄</span>
-              <span>Reintentar</span>
+              <span>Retry</span>
             </button>
-            {(errorMsg.includes("Ajustes") ||
-              errorMsg.includes("Settings") ||
+            {(errorMsg.includes("Settings") ||
               errorMsg.includes("API Key") ||
               errorMsg.includes("Speech")) && (
               <a
@@ -267,7 +266,7 @@ export function PronunciationChecker({
                 className="inline-flex items-center gap-1 text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground border border-border px-3.5 py-1.5 rounded-full transition-all"
               >
                 <span>⚙️</span>
-                <span>Configurar en Ajustes</span>
+                <span>Configure in Settings</span>
               </a>
             )}
           </div>

@@ -116,11 +116,11 @@ export function QuickAddCardModal({
         if (dictData.requiresAiKey || dictData.aiWarning) {
           setAiNotice({
             type: "warning",
-            title: "API Key de IA no configurada",
-            message: dictData.aiWarning || "Mostrando resultados del diccionario estándar. Para explicaciones profundas con IA, añade tu clave personal en Ajustes.",
+            title: "AI Key Not Configured",
+            message: dictData.aiWarning || "Showing standard dictionary results. For in-depth AI explanations, configure your personal key in Settings.",
             showSettingsLink: true,
           });
-          showToast(dictData.aiWarning || "Configura tu API Key en Ajustes para usar AI Explain", "warning");
+          showToast(dictData.aiWarning || "Configure your AI key in Settings to use AI Explain", "warning");
         }
 
         if (defs.length > 0) {
@@ -139,11 +139,11 @@ export function QuickAddCardModal({
         if (dictData.requiresAiKey) {
           setAiNotice({
             type: "warning",
-            title: "Sin resultados en diccionario estándar",
-            message: dictData.message || `"${prompt}" no se encontró en diccionarios estándar. Para que la IA analice modismos, expresiones inventadas o coloquiales, debes configurar tu API Key personal en Ajustes.`,
+            title: "Not Found in Standard Dictionary",
+            message: dictData.message || `"${prompt}" was not found in standard dictionaries. To analyze idioms, slang, or novel expressions with AI, configure your API key in Settings.`,
             showSettingsLink: true,
           });
-          showToast(`No se encontró en diccionarios. Configura tu API Key en Ajustes para analizar con IA.`, "warning");
+          showToast(`Not found in dictionary. Configure your API key in Settings to analyze with AI.`, "warning");
           setIsLookingUp(false);
           return;
         }
@@ -166,15 +166,15 @@ export function QuickAddCardModal({
         if (aiData.requiresAiKey) {
           setAiNotice({
             type: "warning",
-            title: "API Key requerida para IA",
-            message: aiData.message || `Para generar tarjetas de expresiones complejas con IA, configura tu clave personal en Ajustes.`,
+            title: "AI Key Required",
+            message: aiData.message || `To generate flashcards for complex expressions with AI, configure your personal key in Settings.`,
             showSettingsLink: true,
           });
-          showToast(aiData.message || "Configura tu API Key en Ajustes para generar tarjetas con IA", "warning");
+          showToast(aiData.message || "Configure your API key in Settings to generate cards with AI", "warning");
           setIsLookingUp(false);
           return;
         }
-        throw new Error(aiData.message || "No se encontraron definiciones para este término");
+        throw new Error(aiData.message || "No definitions found for this term");
       }
 
       const generated = aiData.cards?.[0];

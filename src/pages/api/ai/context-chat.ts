@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           hasConfiguredAI: false,
           provider: providerName,
           sourceNotice:
-            "Estás en modo básico sin IA. Configura tu API Key en Ajustes para generar escenarios personalizados y correcciones inteligentes.",
+            "Basic mode (No AI key configured). Add your API key in Settings for personalized scenarios and intelligent feedback.",
         });
       }
 
@@ -93,7 +93,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
           isAIPowered: false,
           hasConfiguredAI: true,
           provider: providerName,
-          sourceNotice: "La IA tardó en responder. Mostrando escenario estándar de respaldo.",
+          sourceNotice: "AI response timed out. Showing fallback practice scenario.",
         });
       }
     }
@@ -117,7 +117,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
           hasConfiguredAI: false,
           provider: providerName,
           sourceNotice:
-            "Evaluación básica por concordancia de texto. Configura tu API Key en Ajustes para corrección gramatical y réplica completa con IA.",
+            "Standard text-match evaluation. Configure your API key in Settings for complete grammar correction and conversational replies.",
         });
       }
 
@@ -169,7 +169,7 @@ Respond ONLY with a valid JSON object (no markdown, no backticks, raw JSON only)
           isAIPowered: false,
           hasConfiguredAI: true,
           provider: providerName,
-          sourceNotice: "Verificación básica de respaldo. La IA no pudo devolver el análisis detallado.",
+          sourceNotice: "Standard fallback evaluation. Detailed AI analysis was temporarily unavailable.",
         });
       }
     }

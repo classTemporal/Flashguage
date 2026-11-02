@@ -243,7 +243,7 @@ export class UniversalSpeechRecognizer {
               onResult(data.text || "");
             } catch (fetchErr: any) {
               if (typeof navigator !== "undefined" && !navigator.onLine) {
-                onError("Sin conexión a internet. Conéctate para transcribir voz.");
+                onError("Offline. Connect to the internet to transcribe speech.");
               } else {
                 onError(fetchErr?.message || "Transcription network error.");
               }

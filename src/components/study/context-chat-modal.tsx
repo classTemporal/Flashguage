@@ -136,7 +136,7 @@ export function ContextChatModal({
         aiReply: "Thanks for sharing! Keep practicing everyday expressions.",
         isAIPowered: false,
         hasConfiguredAI: false,
-        sourceNotice: "Evaluación local sin conexión. Conéctate para feedback con IA.",
+        sourceNotice: "Offline local evaluation. Reconnect to get AI-powered feedback.",
       });
       setIsSubmitting(false);
       return;
@@ -173,7 +173,7 @@ export function ContextChatModal({
         aiReply: "That's a very natural response! Keep practicing everyday expressions.",
         isAIPowered: false,
         hasConfiguredAI: false,
-        sourceNotice: "Verificación de respaldo por error de red.",
+        sourceNotice: "Fallback check due to network error.",
       });
     } finally {
       setIsSubmitting(false);
@@ -263,9 +263,9 @@ export function ContextChatModal({
               <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-500">
                 <span className="text-base leading-none">📶</span>
                 <div className="space-y-0.5">
-                  <p className="font-bold">Modo sin conexión a internet</p>
+                  <p className="font-bold">Offline Mode</p>
                   <p className="text-[11px] text-amber-500/90 leading-relaxed">
-                    Estás practicando con un escenario estándar de respaldo. Conéctate a internet para desbloquear escenarios dinámicos y evaluación por IA.
+                    You are practicing with a standard offline scenario. Reconnect to the internet for dynamic AI scenarios and real-time feedback.
                   </p>
                 </div>
               </div>
@@ -276,13 +276,13 @@ export function ContextChatModal({
                 <span className="text-base leading-none">💡</span>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sky-300">Modo de práctica estándar (Sin API Key)</span>
+                    <span className="font-bold text-sky-300">Standard Practice Mode (No AI Key)</span>
                     <span className="rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300">
-                      Plantilla
+                      Template
                     </span>
                   </div>
                   <p className="text-[11px] text-sky-200/80 leading-relaxed">
-                    Para desbloquear escenarios conversacionales únicos y correcciones inteligentes de gramática y fluidez, configura una clave gratuita (Gemini, Groq u OpenAI) en Ajustes.
+                    To unlock unique conversation scenarios for every word and real-time grammar feedback, configure a free API key (Gemini, Groq, or OpenAI) in Settings.
                   </p>
                   <a
                     href="/settings"
@@ -290,7 +290,7 @@ export function ContextChatModal({
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 font-bold text-xs text-sky-300 hover:text-white underline pt-0.5"
                   >
-                    ⚙️ Configurar API Key en Ajustes &rarr;
+                    ⚙️ Configure AI Key in Settings &rarr;
                   </a>
                 </div>
               </div>
@@ -306,11 +306,11 @@ export function ContextChatModal({
                   {scenarioData.isAIPowered ? (
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-bold text-emerald-400 flex items-center gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>✨ IA ({scenarioData.provider?.toUpperCase() || "GEMINI"})</span>
+                      <span>✨ AI ({scenarioData.provider?.toUpperCase() || "GEMINI"})</span>
                     </span>
                   ) : (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      Básico
+                      Basic
                     </span>
                   )}
                 </div>
@@ -448,14 +448,14 @@ export function ContextChatModal({
                 {/* Evaluation Source / Fallback Notice */}
                 {!evaluation.isAIPowered && (
                   <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
-                    <span>💡 Evaluación básica. Configura tu API key para análisis de tono, fluidez y corrección.</span>
+                    <span>💡 Basic evaluation. Configure an AI key in Settings for fluency tips and grammar analysis.</span>
                     <a
                       href="/settings"
                       target="_blank"
                       rel="noreferrer"
                       className="text-primary hover:underline font-semibold whitespace-nowrap"
                     >
-                      Ajustes &rarr;
+                      Settings &rarr;
                     </a>
                   </div>
                 )}
