@@ -92,20 +92,20 @@ function StatCard({
   icon?: string;
 }) {
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md flex flex-col justify-between">
+    <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md flex flex-col justify-between">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
         {icon && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary text-base" aria-hidden="true">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-primary/10 text-primary text-sm sm:text-base" aria-hidden="true">
             {icon}
           </div>
         )}
       </div>
-      <div className="mt-3">
-        <p className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+      <div className="mt-2.5">
+        <p className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
           {value}
         </p>
-        {subtitle && <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{subtitle}</p>}
       </div>
     </div>
   );
@@ -1054,7 +1054,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-20 md:pb-0">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-24 md:pb-6">
       <OfflineBanner
         pendingCount={pendingCount}
         isOnline={isOnline}
@@ -1063,7 +1063,7 @@ export default function Dashboard() {
       />
       <Header />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Top Navigation: Switch Language & Active Indicator */}
         <div className="flex items-center justify-between -mb-2">
           <BackButton href="/tracks" label="Switch Language Track" />
@@ -1097,16 +1097,16 @@ export default function Dashboard() {
         </div>
 
         {/* Welcome Banner Card with Quick Actions */}
-        <div className="rounded-3xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-6 sm:p-8 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+        <div className="rounded-3xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-5 sm:p-7 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
                 <span>👋 Welcome Back</span>
               </div>
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground">
+              <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
                 {session?.user?.name || session?.user?.email?.split("@")[0]}
               </h1>
-              <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
                 Ready to level up your language vocabulary? Review your daily flashcards and maintain your streak.
               </p>
             </div>

@@ -606,7 +606,7 @@ export default function DictionariesPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-24 md:pb-6">
       <Header title="Flashguage" />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 space-y-6">

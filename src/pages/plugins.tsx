@@ -54,7 +54,7 @@ export default function PluginsPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-24 md:pb-6">
       <Header title="Plugins & Extensions" />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 space-y-6">

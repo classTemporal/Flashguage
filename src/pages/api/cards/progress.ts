@@ -7,6 +7,7 @@ import {
   getTimeUntilReview,
   CardMastery,
 } from "@/lib/sm2";
+import { parseCardMedia, parseCardTags } from "@/lib/card-utils";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -65,18 +66,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const mastery: CardMastery = calculateCardMastery(repetitions, interval, hasBeenReviewed);
         const timeUntil = getTimeUntilReview(rev?.dueDate || null);
 
-        let parsedMedia: any = null;
-        try {
-          if (c.media) parsedMedia = JSON.parse(c.media);
-        } catch {}
-
-        let parsedTags: string[] = [];
-        try {
-          if (c.tags) {
-            const parsed = JSON.parse(c.tags);
-            parsedTags = Array.isArray(parsed) ? parsed : [];
-          }
-        } catch {}
+        const parsedMedia = parseCardMedia(c.media);
+        const parsedTags = parseCardTags(c.tags);
 
         return {
           id: c.id,

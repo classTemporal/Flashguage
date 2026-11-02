@@ -146,7 +146,7 @@ export default function TracksPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-24 md:pb-6">
       <Header />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6 space-y-10">

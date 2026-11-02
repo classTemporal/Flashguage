@@ -6,6 +6,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { ImagePicker } from "@/components/card/image-picker";
 import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
+import { parseCardMedia, parseCardTags } from "@/lib/card-utils";
 
 interface EditCardModalProps {
   isOpen: boolean;
@@ -45,42 +46,14 @@ export function EditCardModal({
       setFront(card.front || "");
       setBack(card.back || "");
 
-      let parsedTags = "";
-      try {
-        if (card.tags && card.tags !== "[]") {
-          const t = JSON.parse(card.tags);
-          if (Array.isArray(t)) parsedTags = t.join(", ");
-        }
-      } catch {
-        parsedTags = card.tags || "";
-      }
-      setTags(parsedTags);
+      const tagsList = parseCardTags(card.tags);
+      setTags(tagsList.join(", "));
 
-      try {
-        if (card.media) {
-          const media = JSON.parse(card.media);
-          setImageUrl(media.imageUrl || media.image || "");
-          setPhonetic(media.phonetic || "");
-          setPartOfSpeech(media.partOfSpeech || "");
-          if (Array.isArray(media.examples)) {
-            setExamples(media.examples.join("\n"));
-          } else if (typeof media.examples === "string") {
-            setExamples(media.examples);
-          } else if (typeof media.example === "string") {
-            setExamples(media.example);
-          }
-        } else {
-          setImageUrl("");
-          setPhonetic("");
-          setPartOfSpeech("");
-          setExamples("");
-        }
-      } catch {
-        setImageUrl("");
-        setPhonetic("");
-        setPartOfSpeech("");
-        setExamples("");
-      }
+      const media = parseCardMedia(card.media);
+      setImageUrl(media.imageUrl || "");
+      setPhonetic(media.phonetic || "");
+      setPartOfSpeech(media.partOfSpeech || "");
+      setExamples(media.examples.join("\n"));
     }
   }, [card]);
 

@@ -20,6 +20,7 @@ import { QuickAddCardModal } from "@/components/card/quick-add-card-modal";
 import { EditCardModal } from "@/components/card/edit-card-modal";
 import { invalidateAppCache } from "@/lib/cache";
 import { getLanguage } from "@/lib/languages";
+import { parseCardMedia, parseCardTags } from "@/lib/card-utils";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -287,7 +288,7 @@ export default function DeckDetail() {
   const dueCount = Array.isArray(dueReviews) ? dueReviews.length : 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-24 md:pb-6">
       <Header title={deckData.name} />
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">
@@ -340,14 +341,15 @@ export default function DeckDetail() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Primary Action Button (Clear CTA) */}
             {dueCount > 0 ? (
               <Button
                 href={`/study/${deckId}`}
                 as="link"
                 size="md"
-                className="font-bold shadow-md bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
+                className="font-black shadow-md bg-gradient-to-r from-primary to-indigo-600 text-white hover:opacity-95 gap-2 px-5 py-2.5"
               >
-                <span>🧠</span>
+                <span className="text-base">🧠</span>
                 <span>Study Now ({dueCount} Due)</span>
               </Button>
             ) : cardCount > 0 ? (
@@ -355,46 +357,48 @@ export default function DeckDetail() {
                 href={`/study/${deckId}?mode=all`}
                 as="link"
                 size="md"
-                className="font-bold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                className="font-black shadow-md bg-gradient-to-r from-primary to-indigo-600 text-white hover:opacity-95 gap-2 px-5 py-2.5"
               >
-                <span>🎯</span>
+                <span className="text-base">🎯</span>
                 <span>Free Practice ({cardCount})</span>
               </Button>
             ) : null}
 
+            {/* Quick Add Card */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => setIsAddCardOpen(true)}
+              className="font-bold gap-1.5 border-border/80 hover:bg-muted"
+            >
+              <span className="text-primary font-black">+</span>
+              <span>Add Card</span>
+            </Button>
+
+            {/* Secondary Utilities */}
             {cardCount > 0 && dueCount > 0 && (
               <Button
                 href={`/study/${deckId}?mode=all`}
                 as="link"
-                variant="secondary"
-                size="md"
-                className="text-xs font-semibold"
+                variant="ghost"
+                size="sm"
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
                 title="Practice all cards in this deck regardless of review schedule"
               >
-                Free Practice
+                🎯 Free Practice
               </Button>
             )}
 
             <Button
               href={`/progress?deckId=${deckId}`}
               as="link"
-              variant="secondary"
-              size="md"
-              className="text-xs font-semibold gap-1"
+              variant="ghost"
+              size="sm"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground gap-1"
             >
               <span>📈</span>
-              <span>Learning Progress</span>
-            </Button>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={() => setIsAddCardOpen(true)}
-              className="font-semibold gap-1"
-            >
-              <span>⚡</span>
-              <span>+ Add Card</span>
+              <span>Progress</span>
             </Button>
           </div>
         </div>
@@ -680,22 +684,8 @@ export default function DeckDetail() {
 
                 <div className="space-y-4">
                   {filteredCards.map((card) => {
-                    let tagsList: string[] = [];
-                    try {
-                      if (card.tags && card.tags !== "[]") {
-                        const parsed = JSON.parse(card.tags);
-                        if (Array.isArray(parsed)) tagsList = parsed;
-                      }
-                    } catch {
-                      tagsList = [];
-                    }
-
-                    let mediaObj: any = {};
-                    try {
-                      if (card.media) mediaObj = JSON.parse(card.media);
-                    } catch {
-                      mediaObj = {};
-                    }
+                    const tagsList = parseCardTags(card.tags);
+                    const mediaObj = parseCardMedia(card.media);
 
                     return (
                       <div
