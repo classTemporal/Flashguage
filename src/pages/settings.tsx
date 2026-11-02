@@ -1262,7 +1262,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
 
-                    {(speechProvider === "openai" || speechProvider === "elevenlabs") && (
+                    {(speechProvider === "openai" || speechProvider === "elevenlabs" || speechProvider === "gemini") && (
                       <div>
                         <Select
                           id="speech-voice"
@@ -1270,7 +1270,15 @@ export default function SettingsPage() {
                           value={speechVoice}
                           onChange={(e) => setSpeechVoice(e.target.value)}
                           options={
-                            speechProvider === "openai"
+                            speechProvider === "gemini"
+                              ? [
+                                  { value: "Puck", label: "Puck (Neutral • Natural & conversational — Recommended)" },
+                                  { value: "Aoede", label: "Aoede (Female • Clear & expressive)" },
+                                  { value: "Charon", label: "Charon (Male • Deep & calm)" },
+                                  { value: "Kore", label: "Kore (Female • Warm & friendly)" },
+                                  { value: "Fenrir", label: "Fenrir (Male • Authoritative & confident)" },
+                                ]
+                              : speechProvider === "openai"
                               ? [
                                   { value: "nova", label: "Nova (Female • Energetic & natural — Recommended)" },
                                   { value: "alloy", label: "Alloy (Neutral • Balanced & versatile)" },

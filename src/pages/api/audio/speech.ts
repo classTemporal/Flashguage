@@ -6,6 +6,70 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
+/**
+ * Fallback to Google Cloud Translation TTS stream (generates standard MP3 audio).
+ * Operates reliably across all desktop and mobile browsers (Firefox, Chrome, Safari, Edge)
+ * without requiring any external keys.
+ */
+async function serveGoogleTTS(
+  text: string,
+  lang: string,
+  cacheDir: string,
+  res: NextApiResponse
+) {
+  try {
+    const cleanLang = (lang || "en").slice(0, 2).toLowerCase();
+    const cleanText = text.trim();
+    const cacheKey = `gtts:${cleanLang}:${cleanText.toLowerCase()}`;
+    const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+    const fileName = `${hash}.mp3`;
+    const filePath = path.join(cacheDir, fileName);
+    const publicUrl = `/audio-cache/${fileName}`;
+
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      if (stats.size > 0) {
+        return res.status(200).json({
+          success: true,
+          audioUrl: publicUrl,
+          cached: true,
+          provider: "google-tts",
+        });
+      }
+    }
+
+    const gttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(
+      cleanLang
+    )}&client=tw-ob&q=${encodeURIComponent(cleanText.slice(0, 250))}`;
+
+    const gttsRes = await fetch(gttsUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    });
+
+    if (gttsRes.ok) {
+      const arrayBuf = await gttsRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuf);
+      if (buffer.length > 0) {
+        await fs.promises.writeFile(filePath, buffer);
+        return res.status(200).json({
+          success: true,
+          audioUrl: publicUrl,
+          cached: false,
+          provider: "google-tts",
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[Google TTS Error]:", err);
+  }
+
+  return res.status(200).json({
+    fallback: true,
+    provider: "browser",
+    message: "Using browser speech synthesis.",
+  });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
@@ -41,15 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
 
     const provider = overrideProvider || userSettings.speechProvider || "browser";
-
-    // If provider is browser, notify client to use Web Speech API immediately
-    if (provider === "browser") {
-      return res.status(200).json({
-        fallback: true,
-        provider: "browser",
-        message: "Browser TTS selected. Use client Web Speech API.",
-      });
-    }
+    const cleanText = text.trim();
 
     // Ensure audio cache directory exists
     const cacheDir = path.join(process.cwd(), "public", "audio-cache");
@@ -57,30 +113,116 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fs.mkdirSync(cacheDir, { recursive: true });
     }
 
-    const cleanText = text.trim();
-
-    if (provider === "openai") {
-      const apiKey = (overrideApiKey || userSettings.speechApiKey || "").trim();
+    // 1. Gemini TTS Integration
+    if (provider === "gemini") {
+      const apiKey = (
+        overrideApiKey ||
+        userSettings.speechApiKey ||
+        userSettings.geminiKey ||
+        userSettings.aiApiKey ||
+        ""
+      ).trim();
 
       if (!apiKey) {
-        return res.status(200).json({
-          fallback: true,
-          error: "No dedicated Speech API key configured for OpenAI TTS. Falling back to browser speech.",
-        });
+        return await serveGoogleTTS(cleanText, language, cacheDir, res);
+      }
+
+      const voice = (overrideVoice || userSettings.speechVoice || "Puck").trim();
+      const rawModel = (overrideModel || userSettings.speechModel || "gemini-3.8-flash-tts").trim();
+      const ttsModel = rawModel.includes("tts") ? rawModel : "gemini-3.8-flash-tts";
+      const validVoices = ["Puck", "Aoede", "Charon", "Kore", "Fenrir"];
+      const selectedVoice = validVoices.includes(voice) ? voice : "Puck";
+
+      const cacheKey = `gemini:${ttsModel}:${selectedVoice}:${cleanText.toLowerCase()}`;
+      const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+      const fileName = `${hash}.wav`;
+      const filePath = path.join(cacheDir, fileName);
+      const publicUrl = `/audio-cache/${fileName}`;
+
+      if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: true,
+            provider: "gemini",
+          });
+        }
+      }
+
+      try {
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${encodeURIComponent(
+            apiKey
+          )}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: cleanText }] }],
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: selectedVoice,
+                    },
+                  },
+                },
+              },
+            }),
+          }
+        );
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const b64 = geminiData.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          if (b64) {
+            const buffer = Buffer.from(b64, "base64");
+            await fs.promises.writeFile(filePath, buffer);
+            return res.status(200).json({
+              success: true,
+              audioUrl: publicUrl,
+              cached: false,
+              provider: "gemini",
+            });
+          }
+        } else {
+          const errText = await geminiRes.text();
+          console.warn("[Gemini TTS Error]:", geminiRes.status, errText);
+        }
+      } catch (geminiErr) {
+        console.warn("[Gemini TTS Fetch Error]:", geminiErr);
+      }
+
+      // Fallback to Google Cloud stream if Gemini request failed
+      return await serveGoogleTTS(cleanText, language, cacheDir, res);
+    }
+
+    // 2. OpenAI TTS Integration
+    if (provider === "openai") {
+      const apiKey = (
+        overrideApiKey ||
+        userSettings.speechApiKey ||
+        userSettings.openaiKey ||
+        ""
+      ).trim();
+
+      if (!apiKey) {
+        return await serveGoogleTTS(cleanText, language, cacheDir, res);
       }
 
       const voice = (overrideVoice || userSettings.speechVoice || "nova").trim();
       const speed = typeof overrideSpeed === "number" ? overrideSpeed : (userSettings.speechSpeed ?? 1.0);
       const model = (overrideModel || userSettings.speechModel || "tts-1").trim();
 
-      // Cache key & hash
       const cacheKey = `openai:${model}:${voice}:${speed.toFixed(2)}:${cleanText.toLowerCase()}`;
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.mp3`;
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/audio-cache/${fileName}`;
 
-      // Check cache hit
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
@@ -93,7 +235,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Generate via OpenAI TTS API
       const openAiRes = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: {
@@ -108,27 +249,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
 
-      if (!openAiRes.ok) {
-        const errText = await openAiRes.text();
-        console.error("[TTS OpenAI Error]:", openAiRes.status, errText);
+      if (openAiRes.ok) {
+        const arrayBuffer = await openAiRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        await fs.promises.writeFile(filePath, buffer);
+
         return res.status(200).json({
-          fallback: true,
-          error: `OpenAI TTS error (${openAiRes.status}): ${errText}`,
+          success: true,
+          audioUrl: publicUrl,
+          cached: false,
+          provider: "openai",
         });
       }
 
-      const arrayBuffer = await openAiRes.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      await fs.promises.writeFile(filePath, buffer);
-
-      return res.status(200).json({
-        success: true,
-        audioUrl: publicUrl,
-        cached: false,
-        provider: "openai",
-      });
+      console.warn("[OpenAI TTS Error]:", openAiRes.status);
+      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
+    // 3. ElevenLabs TTS Integration
     if (provider === "elevenlabs") {
       const apiKey = (
         overrideApiKey ||
@@ -138,10 +276,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ).trim();
 
       if (!apiKey) {
-        return res.status(200).json({
-          fallback: true,
-          error: "No ElevenLabs API key found for TTS. Falling back to browser speech.",
-        });
+        return await serveGoogleTTS(cleanText, language, cacheDir, res);
       }
 
       const voice = (overrideVoice || userSettings.speechVoice || "21m00Tcm4TlvDq8ikWAM").trim();
@@ -151,7 +286,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const filePath = path.join(cacheDir, fileName);
       const publicUrl = `/audio-cache/${fileName}`;
 
-      // Check cache hit
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
         if (stats.size > 0) {
@@ -164,7 +298,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Generate via ElevenLabs
       const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
         method: "POST",
         headers: {
@@ -182,34 +315,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
 
-      if (!elevenRes.ok) {
-        const errText = await elevenRes.text();
-        console.error("[TTS ElevenLabs Error]:", elevenRes.status, errText);
+      if (elevenRes.ok) {
+        const arrayBuffer = await elevenRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        await fs.promises.writeFile(filePath, buffer);
+
         return res.status(200).json({
-          fallback: true,
-          error: `ElevenLabs TTS error (${elevenRes.status}): ${errText}`,
+          success: true,
+          audioUrl: publicUrl,
+          cached: false,
+          provider: "elevenlabs",
         });
       }
 
-      const arrayBuffer = await elevenRes.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      await fs.promises.writeFile(filePath, buffer);
-
-      return res.status(200).json({
-        success: true,
-        audioUrl: publicUrl,
-        cached: false,
-        provider: "elevenlabs",
-      });
+      console.warn("[ElevenLabs TTS Error]:", elevenRes.status);
+      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
+    // 4. Custom TTS Integration
     if (provider === "custom") {
       const baseUrl = (req.body.baseUrl || userSettings.speechBaseUrl || "").trim();
       if (!baseUrl) {
-        return res.status(200).json({
-          fallback: true,
-          error: "No Base URL configured for custom speech provider.",
-        });
+        return await serveGoogleTTS(cleanText, language, cacheDir, res);
       }
 
       const apiKey = (overrideApiKey || userSettings.speechApiKey || "").trim();
@@ -253,35 +380,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
 
-      if (!customRes.ok) {
-        const errText = await customRes.text();
+      if (customRes.ok) {
+        const arrayBuffer = await customRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        await fs.promises.writeFile(filePath, buffer);
+
         return res.status(200).json({
-          fallback: true,
-          error: `Custom TTS error (${customRes.status}): ${errText}`,
+          success: true,
+          audioUrl: publicUrl,
+          cached: false,
+          provider: "custom",
         });
       }
 
-      const arrayBuffer = await customRes.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      await fs.promises.writeFile(filePath, buffer);
-
-      return res.status(200).json({
-        success: true,
-        audioUrl: publicUrl,
-        cached: false,
-        provider: "custom",
-      });
+      console.warn("[Custom TTS Error]:", customRes.status);
+      return await serveGoogleTTS(cleanText, language, cacheDir, res);
     }
 
-    return res.status(200).json({
-      fallback: true,
-      message: `Unknown provider "${provider}". Falling back to browser speech.`,
-    });
+    // 5. Default / "browser" provider: Return reliable audio stream so all browsers (including Firefox) work out of the box
+    return await serveGoogleTTS(cleanText, language, cacheDir, res);
   } catch (error: any) {
     console.error("[Audio Speech Handler Error]:", error);
-    return res.status(200).json({
-      fallback: true,
-      error: error?.message || "Internal server error during TTS generation.",
-    });
+    const cacheDir = path.join(process.cwd(), "public", "audio-cache");
+    return await serveGoogleTTS(req.body?.text || "", req.body?.language || "en", cacheDir, res);
   }
 }

@@ -1,6 +1,7 @@
 import { getLanguage } from "./languages";
 
 let activeAudio: HTMLAudioElement | null = null;
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 export interface SpeechPlayOptions {
   onStart?: () => void;
@@ -27,21 +28,62 @@ export function stopCurrentSpeech() {
       window.speechSynthesis.cancel();
     } catch {}
   }
+  activeUtterance = null;
 }
 
 /**
  * Universal browser text-to-speech fallback using SpeechSynthesis.
+ * Specifically hardened for Firefox, Chrome, and Safari memory/autoplay management.
  */
 export function speakInLanguageNative(text: string, languageCode: string = "en"): void {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
   try {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const lang = getLanguage(languageCode);
-    utterance.lang = lang.speechVoice;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+
+    // Firefox fix: A brief delay prevents cancel() from aborting the new speech queue
+    setTimeout(() => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        activeUtterance = utterance; // Prevent SpiderMonkey/V8 garbage collection mid-playback
+
+        const lang = getLanguage(languageCode);
+        utterance.lang = lang.speechVoice || "en-US";
+        utterance.rate = 0.95;
+
+        // In Firefox on desktop/Linux, explicitly matching a loaded voice prevents silent dispatcher failures
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) {
+          const targetLang = (lang.speechVoice || "en-US").toLowerCase();
+          const targetPrefix = languageCode.toLowerCase();
+          const matched =
+            voices.find((v) => v.lang.toLowerCase() === targetLang) ||
+            voices.find((v) => v.lang.toLowerCase().startsWith(targetPrefix)) ||
+            voices.find((v) => v.default);
+          if (matched) {
+            utterance.voice = matched;
+          }
+        }
+
+        utterance.onend = () => {
+          activeUtterance = null;
+        };
+
+        utterance.onerror = (e) => {
+          console.warn("[SpeechSynthesis notice]:", e);
+          activeUtterance = null;
+        };
+
+        window.speechSynthesis.speak(utterance);
+
+        // Firefox wake-up: Kickstart synthesizer if queued in paused state
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      } catch (innerErr) {
+        console.error("SpeechSynthesis dispatch error:", innerErr);
+      }
+    }, 25);
   } catch (err) {
     console.error("Speech synthesis error:", err);
   }
@@ -70,6 +112,7 @@ export async function playCardSpeech(
     if (cachedUrl) {
       try {
         const audio = new Audio(cachedUrl);
+        audio.preload = "auto";
         activeAudio = audio;
 
         audio.onended = () => {
@@ -79,7 +122,6 @@ export async function playCardSpeech(
 
         audio.onerror = () => {
           activeAudio = null;
-          // Fall back to native if audio file fails
           speakInLanguageNative(text, languageCode);
           options?.onEnd?.();
         };
@@ -87,47 +129,51 @@ export async function playCardSpeech(
         await audio.play();
         return;
       } catch {
-        // Fall back to fetch below
+        // Fall through to server fetch
       }
     }
 
     // 2. Fetch from server if online
     if (typeof navigator === "undefined" || navigator.onLine) {
-      const res = await fetch("/api/audio/speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          language: languageCode,
-          provider: options?.provider,
-          apiKey: options?.apiKey,
-          voice: options?.voice,
-          speed: options?.speed,
-        }),
-      });
+      try {
+        const res = await fetch("/api/audio/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            language: languageCode,
+            provider: options?.provider,
+            apiKey: options?.apiKey,
+            voice: options?.voice,
+            speed: options?.speed,
+          }),
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audioUrl) {
-          // Store mapping for future offline playback
-          setOfflineCachedAudio(text, languageCode, data.audioUrl);
-          const audio = new Audio(data.audioUrl);
-          activeAudio = audio;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audioUrl) {
+            setOfflineCachedAudio(text, languageCode, data.audioUrl);
+            const audio = new Audio(data.audioUrl);
+            audio.preload = "auto";
+            activeAudio = audio;
 
-          audio.onended = () => {
-            activeAudio = null;
-            options?.onEnd?.();
-          };
+            audio.onended = () => {
+              activeAudio = null;
+              options?.onEnd?.();
+            };
 
-          audio.onerror = () => {
-            activeAudio = null;
-            speakInLanguageNative(text, languageCode);
-            options?.onEnd?.();
-          };
+            audio.onerror = () => {
+              activeAudio = null;
+              speakInLanguageNative(text, languageCode);
+              options?.onEnd?.();
+            };
 
-          await audio.play();
-          return;
+            await audio.play();
+            return;
+          }
         }
+      } catch (fetchErr) {
+        console.warn("[Speech API request notice]:", fetchErr);
       }
     }
 
@@ -135,7 +181,7 @@ export async function playCardSpeech(
     speakInLanguageNative(text, languageCode);
     setTimeout(() => {
       options?.onEnd?.();
-    }, 1000);
+    }, 1200);
   } catch (err) {
     speakInLanguageNative(text, languageCode);
     options?.onEnd?.();
