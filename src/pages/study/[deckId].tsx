@@ -19,7 +19,7 @@ import { ProgressRing } from "@/components/study/study-progress-ring";
 import { CompletionScreen } from "@/components/study/study-completion-screen";
 import { NoDueCards } from "@/components/study/study-no-due-cards";
 import { PronunciationChecker } from "@/components/study/pronunciation-checker";
-import { playCardSpeech } from "@/lib/speech";
+import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -469,30 +469,29 @@ export default function StudySessionPage({
     }
   }, [card, typedAnswer, autoPronounce, handleSpeak, showToast]);
 
-  const handleDictateAnswer = useCallback(() => {
+  const handleDictateAnswer = useCallback(async () => {
     if (typeof window === "undefined") return;
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      showToast("Speech recognition not supported in this browser. Try Chrome.", "error");
-      return;
-    }
     try {
-      const rec = new SpeechRec();
-      rec.lang = getSpeechVoice(deckLang) || "en-US";
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.onstart = () => setIsDictating(true);
-      rec.onresult = (e: any) => {
-        const text = e.results[0]?.[0]?.transcript || "";
-        if (text) {
-          setTypedAnswer(text);
-          showToast(`Captured: "${text}"`, "info");
+      const recognizer = new UniversalSpeechRecognizer();
+      showToast("Listening... speak the word now", "info");
+      await recognizer.start(
+        {
+          languageCode: getSpeechVoice(deckLang) || "en-US",
+          onListeningStart: () => setIsDictating(true),
+          onListeningEnd: () => setIsDictating(false),
+        },
+        (text) => {
+          if (text) {
+            setTypedAnswer(text);
+            showToast(`Captured: "${text}"`, "info");
+          }
+          setIsDictating(false);
+        },
+        (err) => {
+          setIsDictating(false);
+          showToast(err, "error");
         }
-        setIsDictating(false);
-      };
-      rec.onerror = () => setIsDictating(false);
-      rec.onend = () => setIsDictating(false);
-      rec.start();
+      );
     } catch {
       setIsDictating(false);
     }

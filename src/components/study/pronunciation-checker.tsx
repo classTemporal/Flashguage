@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getSpeechVoice } from "@/lib/languages";
+import { UniversalSpeechRecognizer } from "@/lib/speech";
 
 interface PronunciationCheckerProps {
   targetWord: string;
@@ -59,87 +60,66 @@ export function PronunciationChecker({
   const [spokenTranscript, setSpokenTranscript] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  // Check Web Speech Recognition support
+  // Check Web Speech Recognition or MediaRecorder support
   const isSupported =
     typeof window !== "undefined" &&
-    ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
+    ("webkitSpeechRecognition" in window ||
+      "SpeechRecognition" in window ||
+      (typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia));
 
   // Stop recognition on unmount or targetWord change
   useEffect(() => {
     setSpokenTranscript(null);
     setScore(null);
     setErrorMsg(null);
-    if (recognitionRef.current) {
+    if (cleanupRef.current) {
       try {
-        recognitionRef.current.abort();
+        cleanupRef.current();
       } catch {}
-      recognitionRef.current = null;
+      cleanupRef.current = null;
     }
     setIsListening(false);
   }, [targetWord]);
 
-  const startListening = () => {
+  const startListening = async () => {
     if (!isSupported) {
-      setErrorMsg("Microphone recognition is not supported in this browser. Please use Chrome or Safari.");
+      setErrorMsg("Microphone audio is not supported in this browser.");
       return;
     }
 
-    try {
-      setErrorMsg(null);
-      setSpokenTranscript(null);
-      setScore(null);
+    setErrorMsg(null);
+    setSpokenTranscript(null);
+    setScore(null);
 
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-
-      recognition.lang = getSpeechVoice(langCode) || "en-US";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0]?.[0]?.transcript || "";
+    const recognizer = new UniversalSpeechRecognizer();
+    const cleanup = await recognizer.start(
+      {
+        languageCode: getSpeechVoice(langCode) || "en-US",
+        onListeningStart: () => setIsListening(true),
+        onListeningEnd: () => setIsListening(false),
+      },
+      (transcript) => {
         setSpokenTranscript(transcript);
         const calculatedScore = computePronunciationScore(transcript, targetWord);
         setScore(calculatedScore);
         setIsListening(false);
-      };
-
-      recognition.onerror = (event: any) => {
+      },
+      (err) => {
         setIsListening(false);
-        if (event.error === "no-speech") {
-          setErrorMsg("No voice detected. Please speak closer to your microphone.");
-        } else if (event.error === "not-allowed") {
-          setErrorMsg("Microphone access was denied. Please allow microphone permissions.");
-        } else {
-          setErrorMsg(`Recognition error: ${event.error}`);
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.start();
-    } catch (err: any) {
-      setIsListening(false);
-      setErrorMsg(err?.message || "Failed to start microphone recognition.");
-    }
+        setErrorMsg(err);
+      }
+    );
+    cleanupRef.current = cleanup;
   };
 
   const stopListening = () => {
-    if (recognitionRef.current) {
+    if (cleanupRef.current) {
       try {
-        recognitionRef.current.stop();
+        cleanupRef.current();
       } catch {}
+      cleanupRef.current = null;
     }
     setIsListening(false);
   };
