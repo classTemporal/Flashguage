@@ -147,70 +147,9 @@ export async function getDueReviews(req: NextApiRequest, res: NextApiResponse) {
     // New cards come first, then due reviews ordered by due date
     const combined = [...newCardReviews, ...dueReviews];
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { settings: true, dailyGoal: true },
-    });
-    let timezone = "UTC";
-    if (user?.settings) {
-      try {
-        const parsed = JSON.parse(user.settings as string);
-        if (parsed.timezone && typeof parsed.timezone === "string") {
-          timezone = parsed.timezone;
-        }
-      } catch {}
-    }
-    const targetDailyGoal = user?.dailyGoal ?? 20;
-    const goalProgress = await getDailyGoalProgress(session.user.id, targetDailyGoal, language, timezone);
-    const remainingToGoal = Math.max(0, goalProgress.goal - goalProgress.current);
-
-    let effectiveLimit = req.query.limit ? Number(req.query.limit) : undefined;
-    if (!isAllMode && remainingToGoal > 0) {
-      effectiveLimit = effectiveLimit ? Math.min(effectiveLimit, remainingToGoal) : remainingToGoal;
-    }
-
-    // If working towards daily goal, ensure batch has enough cards to fulfill remainingToGoal
-    if (!isAllMode && effectiveLimit && combined.length < effectiveLimit && combined.length > 0) {
-      const deficit = effectiveLimit - combined.length;
-      const allDeckCards = await prisma.card.findMany({
-        where: {
-          ...(deckFilter || {}),
-          ...(deckFilter ? {} : { deck: { userId: session.user.id } }),
-        },
-        include: {
-          deck: { select: { id: true, name: true, targetLanguage: true } },
-          reviews: { where: { userId: session.user.id } },
-        },
-      });
-
-      if (allDeckCards.length > 0) {
-        const sortedCandidates = [...allDeckCards].sort((a, b) => {
-          const repA = a.reviews[0]?.repetitions ?? 0;
-          const repB = b.reviews[0]?.repetitions ?? 0;
-          if (repA !== repB) return repA - repB;
-          return (a.reviews[0]?.interval ?? 0) - (b.reviews[0]?.interval ?? 0);
-        });
-
-        for (let i = 0; i < deficit; i++) {
-          const cand = sortedCandidates[i % sortedCandidates.length];
-          const rev = cand.reviews[0];
-          combined.push({
-            id: rev ? `${rev.id}_repeat_${i}` : `new_${cand.id}_repeat_${i}`,
-            cardId: cand.id,
-            easeFactor: rev?.easeFactor ?? 2.5,
-            interval: rev?.interval ?? 0,
-            repetitions: rev?.repetitions ?? 0,
-            dueDate: rev?.dueDate?.toISOString() ?? new Date().toISOString(),
-            lastReview: rev?.lastReview?.toISOString() ?? null,
-            card: cand,
-            isNew: !rev,
-          } as any);
-        }
-      }
-    }
-
-    if (effectiveLimit !== undefined && effectiveLimit > 0) {
-      return res.status(200).json(combined.slice(0, effectiveLimit));
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    if (limit && limit > 0) {
+      return res.status(200).json(combined.slice(0, limit));
     }
 
     return res.status(200).json(combined);

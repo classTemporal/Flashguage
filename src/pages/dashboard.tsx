@@ -388,7 +388,9 @@ function GoalProgress({
           </div>
         ) : dueCount === 0 ? (
           <div className="flex items-center gap-2">
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">0 cards due today</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm">
+              0 cards due today
+            </span>
             <Button
               href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
               as="link"
@@ -396,13 +398,13 @@ function GoalProgress({
               size="sm"
               className="h-6 text-[11px] px-2 py-0"
             >
-              Practice Any →
+              {current < goal ? `Practice to Goal (${goal - current} left) →` : "Practice Any →"}
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-primary font-semibold">
-              {Math.min(dueCount, Math.max(goal - current, 0))} cards due
+            <span className="text-primary font-semibold text-xs sm:text-sm">
+              {dueCount} {dueCount === 1 ? "card" : "cards"} due
             </span>
             <Button
               href={`/study?lang=${encodeURIComponent(activeLanguage)}`}

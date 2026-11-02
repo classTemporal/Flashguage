@@ -9,6 +9,8 @@ interface NoDueCardsProps {
   activeLanguage?: string;
   onAdvanceDay: () => void;
   isAdvancing: boolean;
+  dailyGoalTarget?: number;
+  dailyGoalCurrent?: number;
 }
 
 export function NoDueCards({
@@ -17,10 +19,13 @@ export function NoDueCards({
   activeLanguage = "en",
   onAdvanceDay,
   isAdvancing,
+  dailyGoalTarget = 20,
+  dailyGoalCurrent = 0,
 }: NoDueCardsProps) {
   const currentLang = getLanguage(activeLanguage);
   const backUrl = deckId === "all" ? `/dashboard?lang=${encodeURIComponent(activeLanguage)}` : `/deck/${deckId}`;
   const backLabel = deckId === "all" ? `${currentLang.name} Dashboard` : "Deck";
+  const remainingGoal = Math.max(0, dailyGoalTarget - dailyGoalCurrent);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-center animate-in fade-in duration-300">
@@ -31,18 +36,31 @@ export function NoDueCards({
       <h1 className="text-2xl sm:text-3xl font-black text-foreground mb-2">
         All cards caught up!
       </h1>
-      <p className="text-muted-foreground mb-8 max-w-sm text-sm">
+      <p className="text-muted-foreground mb-4 max-w-sm text-sm">
         {deckId === "all"
           ? `According to your spaced repetition schedule, all cards in your ${currentLang.name} track are currently up to date.`
           : `According to your spaced repetition memory schedule, all vocabulary in ${deckName} is currently reviewed.`}
       </p>
+
+      {remainingGoal > 0 ? (
+        <div className="mb-6 rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 max-w-sm text-xs text-foreground font-medium flex items-center justify-between gap-3">
+          <span>🎯 Daily Goal Progress:</span>
+          <span className="font-bold text-primary font-mono">
+            {dailyGoalCurrent} / {dailyGoalTarget} ({remainingGoal} to goal)
+          </span>
+        </div>
+      ) : (
+        <div className="mb-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+          ✨ 100% Daily Goal Achieved!
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <Link
           href={deckId === "all" ? `/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all` : `/study/${deckId}?mode=all`}
           className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 py-3.5 text-white font-bold text-center transition-colors shadow-md flex items-center justify-center gap-2"
         >
-          <span>🎯</span> Free Practice Mode
+          <span>🎯</span> {remainingGoal > 0 ? `Practice Ahead (${remainingGoal} to goal)` : "Free Practice Mode"}
         </Link>
 
         <Link

@@ -635,18 +635,6 @@ export default function StudySessionPage({
     );
   }
 
-  if (Array.isArray(reviews) && reviews.length === 0) {
-    return (
-      <NoDueCards
-        deckId={deck.id}
-        deckName={deck.name}
-        activeLanguage={activeLanguage}
-        onAdvanceDay={handleAdvanceDay}
-        isAdvancing={isAdvancing}
-      />
-    );
-  }
-
   if (completed) {
     return (
       <CompletionScreen
@@ -667,7 +655,21 @@ export default function StudySessionPage({
     );
   }
 
-  if (!queueInitialized || queue.length === 0 || !card) return null;
+  if (queueInitialized && queue.length === 0) {
+    return (
+      <NoDueCards
+        deckId={deck.id}
+        deckName={deck.name}
+        activeLanguage={activeLanguage}
+        onAdvanceDay={handleAdvanceDay}
+        isAdvancing={isAdvancing}
+        dailyGoalTarget={dailyGoalTarget}
+        dailyGoalCurrent={initialDailyGoalCurrent + totalReviewed}
+      />
+    );
+  }
+
+  if (!queueInitialized || !card) return null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
