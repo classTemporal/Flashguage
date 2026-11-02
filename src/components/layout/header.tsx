@@ -64,11 +64,21 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [currentTrackLang, setCurrentTrackLang] = useState<string>("en");
   const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [deviceTz, setDeviceTz] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) setDeviceTz(tz);
+    } catch {}
+  }, []);
 
   const { data: stats } = useSWR<{
     dailyGoal?: { current: number; goal: number; percentage: number };
   }>(
-    isLoggedIn ? `/api/stats?lang=${encodeURIComponent(currentTrackLang)}` : null,
+    isLoggedIn
+      ? `/api/stats?lang=${encodeURIComponent(currentTrackLang)}${deviceTz ? `&tz=${encodeURIComponent(deviceTz)}` : ""}`
+      : null,
     statsFetcher,
     { revalidateOnFocus: true }
   );

@@ -559,10 +559,20 @@ export default function Dashboard() {
   }, [allDecks, activeLanguage]);
 
   const currentLang = getLanguage(activeLanguage);
+  const [deviceTz, setDeviceTz] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) setDeviceTz(tz);
+    } catch {}
+  }, []);
 
   // Scoped queries to active language track
   const decksUrl = status === "authenticated" ? `/api/decks?lang=${encodeURIComponent(activeLanguage)}` : null;
-  const statsUrl = status === "authenticated" ? `/api/stats?lang=${encodeURIComponent(activeLanguage)}` : null;
+  const statsUrl = status === "authenticated"
+    ? `/api/stats?lang=${encodeURIComponent(activeLanguage)}${deviceTz ? `&tz=${encodeURIComponent(deviceTz)}` : ""}`
+    : null;
   const dueReviewsUrl = status === "authenticated" ? `/api/reviews/due?lang=${encodeURIComponent(activeLanguage)}` : null;
   const progressUrl = status === "authenticated" ? `/api/cards/progress?lang=${encodeURIComponent(activeLanguage)}` : null;
 

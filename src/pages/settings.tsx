@@ -63,6 +63,8 @@ const POPULAR_TIMEZONES = [
   { value: "America/Los_Angeles", label: "America/Los Angeles (Pacific Time - US & Canada)" },
   { value: "America/Anchorage", label: "America/Anchorage (Alaska Time)" },
   { value: "Pacific/Honolulu", label: "Pacific/Honolulu (Hawaii Time)" },
+  { value: "America/Hermosillo", label: "America/Hermosillo (Sonora / MST - Mexico)" },
+  { value: "America/Tijuana", label: "America/Tijuana (Baja California / PST - Mexico)" },
   { value: "America/Mexico_City", label: "America/Mexico City (Central Mexico)" },
   { value: "America/Bogota", label: "America/Bogotá (Colombia, Ecuador, Peru)" },
   { value: "America/Lima", label: "America/Lima (Peru)" },
@@ -1028,9 +1030,23 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label htmlFor="study-timezone" className="block text-sm font-medium text-foreground mb-1">
-                  Study Timezone (Default: UTC)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="study-timezone" className="block text-sm font-medium text-foreground">
+                    Study Timezone
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        if (detected) setTimezone(detected);
+                      } catch {}
+                    }}
+                    className="text-xs text-primary hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>📍</span> Detect Device Timezone
+                  </button>
+                </div>
                 <select
                   id="study-timezone"
                   value={timezone}

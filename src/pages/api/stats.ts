@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       select: { dailyGoal: true, settings: true },
     });
 
-    let timezone = "UTC";
+    let timezone: string | undefined;
     if (user?.settings) {
       try {
         const parsed = JSON.parse(user.settings as string);
@@ -39,6 +39,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           timezone = parsed.timezone;
         }
       } catch {}
+    }
+
+    if (!timezone) {
+      const queryTz = req.query.tz as string | undefined;
+      if (queryTz && typeof queryTz === "string") {
+        timezone = queryTz;
+      } else {
+        timezone = "UTC";
+      }
     }
 
     const [reviews, totalCards, cardsLearned, mastery, weeklyActivity, goalProgress] =
