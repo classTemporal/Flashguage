@@ -38,30 +38,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
 
     // 1. Resolve Transcription Provider
-    let speechProvider = (userSettings.transcribeProvider || "same").trim().toLowerCase();
+    let speechProvider = (userSettings.transcribeProvider || "gemini").trim().toLowerCase();
     if (speechProvider === "same" || !speechProvider || speechProvider === "auto") {
-      if (
-        userSettings.speechProvider &&
-        userSettings.speechProvider !== "elevenlabs" &&
-        userSettings.speechProvider !== "browser"
-      ) {
-        speechProvider = userSettings.speechProvider;
-      } else if (
-        userSettings.aiProvider &&
-        ["openai", "gemini", "groq", "custom"].includes(userSettings.aiProvider)
-      ) {
-        speechProvider = userSettings.aiProvider;
-      } else {
-        speechProvider = "gemini";
-      }
+      speechProvider = "gemini";
     }
 
     // 2. Resolve Transcription API Key
     let speechApiKey = (userSettings.transcribeApiKey || "").trim();
     if (!speechApiKey) {
-      if (speechProvider === userSettings.speechProvider && userSettings.speechApiKey) {
-        speechApiKey = userSettings.speechApiKey.trim();
-      } else if (speechProvider === "gemini") {
+      if (speechProvider === "gemini") {
         speechApiKey = (userSettings.geminiKey || userSettings.speechApiKey || userSettings.aiApiKey || "").trim();
       } else if (speechProvider === "groq") {
         speechApiKey = (userSettings.groqKey || userSettings.speechApiKey || "").trim();
@@ -96,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!speechApiKey && speechProvider !== "custom") {
       return res.status(400).json({
         error:
-          "An API key (OpenAI, Gemini, or Groq) or a Custom server is required for microphone transcription. Configure it in Settings > Speech & Pronunciation.",
+          `An API key for ${speechProvider.toUpperCase()} is required for microphone transcription. Configure it in Settings > Speech-to-Text (STT).`,
       });
     }
 

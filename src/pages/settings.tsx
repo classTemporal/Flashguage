@@ -17,7 +17,8 @@ import { useToast } from "@/components/ui/toast";
 import { playCardSpeech } from "@/lib/speech";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
-export type SpeechProvider = "browser" | "openai" | "gemini" | "groq" | "elevenlabs" | "custom";
+export type SpeechProvider = "browser" | "gemini" | "openai" | "elevenlabs" | "custom";
+export type TranscribeProvider = "gemini" | "groq" | "openai" | "custom";
 
 interface SettingsData {
   name?: string;
@@ -54,7 +55,7 @@ interface SettingsData {
   speechSpeed?: number;
   speechAutoPlay?: boolean;
   speechModel?: string;
-  transcribeProvider?: "same" | "gemini" | "groq" | "openai" | "custom";
+  transcribeProvider?: TranscribeProvider | "same";
   transcribeApiKey?: string;
   transcribeBaseUrl?: string;
   transcribeModel?: string;
@@ -155,7 +156,7 @@ export default function SettingsPage() {
   const [soundEffects, setSoundEffects] = useState<boolean>(true);
   const [savingNotifications, setSavingNotifications] = useState(false);
 
-  // Speech & Pronunciation Settings state
+  // Text-to-Speech (TTS) Settings state
   const [speechProvider, setSpeechProvider] = useState<SpeechProvider>("browser");
   const [speechApiKey, setSpeechApiKey] = useState("");
   const [speechBaseUrl, setSpeechBaseUrl] = useState("");
@@ -163,20 +164,21 @@ export default function SettingsPage() {
   const [speechVoice, setSpeechVoice] = useState("nova");
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(true);
-  const [speechModel, setSpeechModel] = useState("tts-1");
+  const [speechModel, setSpeechModel] = useState("gemini-3.8-flash-tts");
   const [detectedSpeechModels, setDetectedSpeechModels] = useState<string[]>([]);
   const [detectingSpeechModels, setDetectingSpeechModels] = useState(false);
-  const [savingSpeech, setSavingSpeech] = useState(false);
+  const [savingTTS, setSavingTTS] = useState(false);
   const [testingSpeech, setTestingSpeech] = useState(false);
 
-  // Speech-to-Text / Transcription Practice state
-  const [transcribeProvider, setTranscribeProvider] = useState<"same" | "gemini" | "groq" | "openai" | "custom">("same");
+  // Speech-to-Text (STT) Settings state
+  const [transcribeProvider, setTranscribeProvider] = useState<TranscribeProvider>("gemini");
   const [transcribeApiKey, setTranscribeApiKey] = useState("");
   const [transcribeBaseUrl, setTranscribeBaseUrl] = useState("");
   const [showTranscribeApiKey, setShowTranscribeApiKey] = useState(false);
-  const [transcribeModel, setTranscribeModel] = useState("");
+  const [transcribeModel, setTranscribeModel] = useState("gemini-3.5-flash");
   const [detectedTranscribeModels, setDetectedTranscribeModels] = useState<string[]>([]);
   const [detectingTranscribeModels, setDetectingTranscribeModels] = useState(false);
+  const [savingSTT, setSavingSTT] = useState(false);
 
   // Keep state in sync with fetched settings or session
   useEffect(() => {
@@ -259,8 +261,10 @@ export default function SettingsPage() {
       if (apiSettings.speechModel !== undefined) {
         setSpeechModel(apiSettings.speechModel);
       }
-      if (apiSettings.transcribeProvider !== undefined) {
-        setTranscribeProvider(apiSettings.transcribeProvider);
+      if (apiSettings.transcribeProvider && (apiSettings.transcribeProvider as any) !== "same") {
+        setTranscribeProvider(apiSettings.transcribeProvider as TranscribeProvider);
+      } else {
+        setTranscribeProvider("gemini");
       }
       if (apiSettings.transcribeApiKey !== undefined) {
         setTranscribeApiKey(apiSettings.transcribeApiKey);
@@ -592,9 +596,9 @@ export default function SettingsPage() {
     }
   };
 
-  // Handler: Save Speech & Pronunciation Settings
-  const handleSaveSpeechSettings = async () => {
-    setSavingSpeech(true);
+  // Handler: Save Text-to-Speech (TTS) Settings
+  const handleSaveTTSSettings = async () => {
+    setSavingTTS(true);
     try {
       const payload = {
         speechProvider,
@@ -604,6 +608,40 @@ export default function SettingsPage() {
         speechSpeed: Number(speechSpeed),
         speechAutoPlay,
         speechModel: speechModel.trim(),
+      };
+
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update TTS settings");
+      }
+
+      const updated = await res.json();
+      await mutateSettings(updated, false);
+      try {
+        localStorage.setItem("flashguage_auto_pronounce", String(speechAutoPlay));
+      } catch {}
+      showToast("Text-to-Speech (TTS) settings saved successfully!", "success");
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Failed to update TTS settings. Please try again.",
+        "error"
+      );
+    } finally {
+      setSavingTTS(false);
+    }
+  };
+
+  // Handler: Save Speech-to-Text (STT) Settings
+  const handleSaveSTTSettings = async () => {
+    setSavingSTT(true);
+    try {
+      const payload = {
         transcribeProvider,
         transcribeApiKey: transcribeApiKey.trim(),
         transcribeBaseUrl: transcribeBaseUrl.trim(),
@@ -618,22 +656,19 @@ export default function SettingsPage() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update speech settings");
+        throw new Error(errorData.message || "Failed to update STT settings");
       }
 
       const updated = await res.json();
       await mutateSettings(updated, false);
-      try {
-        localStorage.setItem("flashguage_auto_pronounce", String(speechAutoPlay));
-      } catch {}
-      showToast("Speech & Pronunciation settings saved successfully!", "success");
+      showToast("Speech-to-Text (STT) settings saved successfully!", "success");
     } catch (err) {
       showToast(
-        err instanceof Error ? err.message : "Failed to update speech settings. Please try again.",
+        err instanceof Error ? err.message : "Failed to update STT settings. Please try again.",
         "error"
       );
     } finally {
-      setSavingSpeech(false);
+      setSavingSTT(false);
     }
   };
 
@@ -664,15 +699,15 @@ export default function SettingsPage() {
     }
   };
 
-  // Handler: Detect Speech Models
+  // Handler: Detect Text-to-Speech (TTS) Models
   const detectSpeechModels = async () => {
     if (speechProvider === "browser") return;
     if (speechProvider === "custom" && !speechBaseUrl.trim()) {
-      showToast("Please enter a Base URL for your custom speech server first", "error");
+      showToast("Please enter a Base URL for your custom TTS server first", "error");
       return;
     }
     if (speechProvider !== "custom" && !speechApiKey.trim()) {
-      showToast("Please enter a Speech API key first", "error");
+      showToast("Please enter a TTS API key first", "error");
       return;
     }
 
@@ -680,6 +715,7 @@ export default function SettingsPage() {
     try {
       const params = new URLSearchParams({
         provider: speechProvider,
+        mode: "tts",
       });
       if (speechApiKey.trim()) params.set("apiKey", speechApiKey.trim());
       if (speechBaseUrl.trim()) params.set("baseUrl", speechBaseUrl.trim());
@@ -687,7 +723,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect speech models (${res.status})`);
+        throw new Error(data.message || `Failed to detect TTS models (${res.status})`);
       }
       const data = await res.json();
       if (data.models && data.models.length > 0) {
@@ -695,55 +731,42 @@ export default function SettingsPage() {
         if (!speechModel || !data.models.includes(speechModel)) {
           setSpeechModel(data.models[0]);
         }
-        showToast(`Found ${data.models.length} speech models`, "success");
+        showToast(`Found ${data.models.length} TTS models`, "success");
       } else {
         setDetectedSpeechModels([]);
-        showToast("No speech models found for this speech provider", "error");
+        showToast("No TTS models found for this provider", "error");
       }
     } catch (err: any) {
-      showToast(err.message || "Failed to detect speech models", "error");
+      showToast(err.message || "Failed to detect TTS models", "error");
     } finally {
       setDetectingSpeechModels(false);
     }
   };
 
-  // Handler: Detect Speech Recognition / STT Models
+  // Handler: Detect Speech-to-Text (STT) Models
   const detectTranscribeModels = async () => {
-    const activeProvider =
-      transcribeProvider === "same"
-        ? speechProvider === "browser" || speechProvider === "elevenlabs"
-          ? "gemini"
-          : speechProvider
-        : transcribeProvider;
-
-    const activeKey =
-      transcribeApiKey.trim() ||
-      speechApiKey.trim() ||
-      (activeProvider === "gemini" ? geminiKey : activeProvider === "openai" ? openaiKey : "");
-    const activeUrl = transcribeBaseUrl.trim() || speechBaseUrl.trim();
-
-    if (activeProvider === "custom" && !activeUrl) {
-      showToast("Please enter a Base URL for your custom transcription server first", "error");
+    if (transcribeProvider === "custom" && !transcribeBaseUrl.trim()) {
+      showToast("Please enter a Base URL for your custom STT server first", "error");
       return;
     }
-    if (activeProvider !== "custom" && !activeKey) {
-      showToast(`Please enter an API key for ${activeProvider.toUpperCase()} first`, "error");
+    if (transcribeProvider !== "custom" && !transcribeApiKey.trim()) {
+      showToast(`Please enter an API key for ${transcribeProvider.toUpperCase()} first`, "error");
       return;
     }
 
     setDetectingTranscribeModels(true);
     try {
       const params = new URLSearchParams({
-        provider: activeProvider,
+        provider: transcribeProvider,
         mode: "stt",
       });
-      if (activeKey) params.set("apiKey", activeKey);
-      if (activeUrl) params.set("baseUrl", activeUrl);
+      if (transcribeApiKey.trim()) params.set("apiKey", transcribeApiKey.trim());
+      if (transcribeBaseUrl.trim()) params.set("baseUrl", transcribeBaseUrl.trim());
 
       const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect transcription models (${res.status})`);
+        throw new Error(data.message || `Failed to detect STT models (${res.status})`);
       }
       const data = await res.json();
       if (data.models && data.models.length > 0) {
@@ -754,10 +777,10 @@ export default function SettingsPage() {
         showToast(`Found ${data.models.length} speech recognition models`, "success");
       } else {
         setDetectedTranscribeModels([]);
-        showToast("No transcription models found for this provider", "error");
+        showToast("No speech recognition models found for this provider", "error");
       }
     } catch (err: any) {
-      showToast(err.message || "Failed to detect transcription models", "error");
+      showToast(err.message || "Failed to detect STT models", "error");
     } finally {
       setDetectingTranscribeModels(false);
     }
@@ -1200,14 +1223,14 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* 3. Speech, Voice & Audio (TTS & STT) Section */}
+          {/* 3. Text-to-Speech (TTS) Section */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl" aria-hidden="true">🎙️</span>
-              <h2 className="text-lg font-semibold text-foreground">Speech, Voice & Audio (TTS & Speech-to-Text)</h2>
+              <span className="text-xl" aria-hidden="true">🔊</span>
+              <h2 className="text-lg font-semibold text-foreground">3. Text-to-Speech (TTS) — Voice & Pronunciation</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Configure lifelike neural voices (Text-to-Speech) and microphone speech recognition (STT) for pronunciation evaluation.
+              Configure lifelike neural voices to pronounce flashcards, example sentences, and conversation dialogues.
             </p>
 
             <div className="space-y-4">
@@ -1221,7 +1244,7 @@ export default function SettingsPage() {
               <div>
                 <Select
                   id="speech-provider"
-                  label="Speech Engine Provider"
+                  label="TTS Engine Provider"
                   value={speechProvider}
                   onChange={(e) => {
                     const newProvider = e.target.value as SpeechProvider;
@@ -1229,19 +1252,17 @@ export default function SettingsPage() {
                     setDetectedSpeechModels([]);
                     if (newProvider === "openai") setSpeechModel("tts-1");
                     else if (newProvider === "gemini") setSpeechModel("gemini-3.8-flash-tts");
-                    else if (newProvider === "groq") setSpeechModel("whisper-large-v3-turbo");
                     else if (newProvider === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
                     else if (newProvider === "custom") setSpeechModel("tts-1");
                   }}
                   options={[
                     { value: "browser", label: "Browser Web Speech (Free / Universal Cloud Audio / No API Key required)" },
-                    { value: "openai", label: "OpenAI (TTS Audio & Whisper Transcription)" },
-                    { value: "gemini", label: "Google Gemini (TTS Audio & Speech Transcription)" },
-                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT Transcription)" },
-                    { value: "elevenlabs", label: "ElevenLabs (Ultra-Realistic Generative Speech)" },
+                    { value: "gemini", label: "Google Gemini TTS (Ultra-Realistic Neural Audio)" },
+                    { value: "openai", label: "OpenAI TTS (tts-1 / tts-1-hd)" },
+                    { value: "elevenlabs", label: "ElevenLabs (Generative Voice Synthesis)" },
                     { value: "custom", label: "Custom (OpenAI-Compatible Local / Self-Hosted Server)" },
                   ]}
-                  hint="Select which engine Flashguage should use for pronunciation audio and speech transcription."
+                  hint="Select which engine Flashguage should use for pronouncing words and conversation audio."
                 />
               </div>
 
@@ -1250,25 +1271,25 @@ export default function SettingsPage() {
                   {speechProvider === "custom" && (
                     <div>
                       <label htmlFor="speech-base-url" className="block text-sm font-medium text-foreground mb-1">
-                        Speech Server Base URL *
+                        TTS Server Base URL *
                       </label>
                       <input
                         id="speech-base-url"
                         type="url"
                         value={speechBaseUrl}
                         onChange={(e) => setSpeechBaseUrl(e.target.value)}
-                        placeholder="e.g. http://localhost:8080/v1 or https://my-whisper-server.com/v1"
+                        placeholder="e.g. http://localhost:8080/v1 or https://my-tts-server.com/v1"
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Compatible with LocalAI, Faster-Whisper, Kokoro TTS, LiteLLM, and any server implementing OpenAI /audio endpoints.
+                        Compatible with LocalAI, Kokoro TTS, LiteLLM, and any server implementing the OpenAI /v1/audio/speech endpoint.
                       </p>
                     </div>
                   )}
 
                   <div>
                     <label htmlFor="speech-api-key" className="block text-sm font-medium text-foreground mb-1">
-                      Dedicated Speech API Key {speechProvider === "custom" ? "(Optional for local servers)" : "*"}
+                      TTS API Key {speechProvider === "custom" ? "(Optional for local servers)" : "*"}
                     </label>
                     <div className="relative">
                       <input
@@ -1292,7 +1313,7 @@ export default function SettingsPage() {
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Separate API key strictly dedicated to speech and audio generation/transcription.
+                      API key used exclusively for synthesizing voice and pronunciation audio.
                     </p>
 
                     <div className="pt-2">
@@ -1306,14 +1327,14 @@ export default function SettingsPage() {
                         }
                         className="text-xs border border-border"
                       >
-                        {detectingSpeechModels ? "Detecting speech models..." : "🔍 Detect Speech Models"}
+                        {detectingSpeechModels ? "Detecting TTS models..." : "🔍 Detect TTS Models"}
                       </Button>
                     </div>
                   </div>
 
                   {detectedSpeechModels.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Available speech models from your key:</p>
+                      <p className="text-xs font-medium text-muted-foreground">Available TTS models from your key:</p>
                       <div className="flex flex-wrap gap-1.5">
                         {detectedSpeechModels.map((m) => (
                           <button
@@ -1336,18 +1357,18 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="speech-model" className="block text-sm font-medium text-foreground mb-1">
-                        Speech Model
+                        TTS Model
                       </label>
                       <input
                         id="speech-model"
                         type="text"
                         value={speechModel}
                         onChange={(e) => setSpeechModel(e.target.value)}
-                        placeholder="e.g. tts-1, whisper-1, gemini-3.5-flash-lite"
+                        placeholder="e.g. gemini-3.8-flash-tts, tts-1, eleven_multilingual_v2"
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Selected model for voice synthesis or transcription.
+                        Selected model for voice generation.
                       </p>
                     </div>
 
@@ -1434,154 +1455,14 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              {/* Speech Recognition / Microphone Practice (STT) Section */}
-              <div className="border-t border-border pt-6 mt-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl" aria-hidden="true">🎤</span>
-                  <div>
-                    <h3 className="text-base font-semibold text-foreground">
-                      Speech Recognition & Microphone Practice (STT)
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Configure the model and API used to evaluate pronunciation and transcribe speech when you talk into the microphone.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <Select
-                    id="transcribe-provider"
-                    label="Speech Recognition Provider"
-                    value={transcribeProvider}
-                    onChange={(e) => {
-                      const newP = e.target.value as any;
-                      setTranscribeProvider(newP);
-                      setDetectedTranscribeModels([]);
-                      if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
-                      else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
-                      else if (newP === "openai") setTranscribeModel("whisper-1");
-                      else if (newP === "custom") setTranscribeModel("whisper-1");
-                      else setTranscribeModel("");
-                    }}
-                    options={[
-                      { value: "same", label: "Auto / Inherit (Use Speech Key or AI Provider Key)" },
-                      { value: "gemini", label: "Google Gemini (Multimodal Audio Transcription)" },
-                      { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
-                      { value: "openai", label: "OpenAI (Whisper STT)" },
-                      { value: "custom", label: "Custom (OpenAI-compatible Whisper / Local Server)" },
-                    ]}
-                    hint="Choose which provider transcribes your microphone when practicing pronunciation or dictating answers."
-                  />
-                </div>
-
-                <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
-                  {transcribeProvider === "custom" && (
-                    <div>
-                      <label htmlFor="transcribe-base-url" className="block text-sm font-medium text-foreground mb-1">
-                        Transcription Server Base URL *
-                      </label>
-                      <input
-                        id="transcribe-base-url"
-                        type="url"
-                        value={transcribeBaseUrl}
-                        onChange={(e) => setTranscribeBaseUrl(e.target.value)}
-                        placeholder="e.g. http://localhost:8080/v1"
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label htmlFor="transcribe-api-key" className="block text-sm font-medium text-foreground mb-1">
-                      Dedicated Transcription API Key (Optional)
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="transcribe-api-key"
-                        type={showTranscribeApiKey ? "text" : "password"}
-                        value={transcribeApiKey}
-                        onChange={(e) => setTranscribeApiKey(e.target.value)}
-                        placeholder={
-                          transcribeProvider === "same"
-                            ? "Leave blank to reuse Speech or AI API key"
-                            : `Enter dedicated ${transcribeProvider.toUpperCase()} key (or leave empty to reuse)`
-                        }
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowTranscribeApiKey((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1"
-                      >
-                        {showTranscribeApiKey ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      If left blank, Flashguage will automatically reuse your configured Google Gemini, Groq, or OpenAI API key.
-                    </p>
-
-                    <div className="pt-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={detectTranscribeModels}
-                        disabled={detectingTranscribeModels}
-                        className="text-xs border border-border"
-                      >
-                        {detectingTranscribeModels ? "Detecting STT models..." : "🔍 Detect Transcription Models"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {detectedTranscribeModels.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Available transcription models from your key:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detectedTranscribeModels.map((m) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setTranscribeModel(m)}
-                            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                              transcribeModel === m
-                                ? "border-primary bg-primary/10 text-primary font-bold"
-                                : "border-border bg-background text-foreground hover:bg-accent"
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label htmlFor="transcribe-model" className="block text-sm font-medium text-foreground mb-1">
-                      Transcription Model
-                    </label>
-                    <input
-                      id="transcribe-model"
-                      type="text"
-                      value={transcribeModel}
-                      onChange={(e) => setTranscribeModel(e.target.value)}
-                      placeholder="e.g. gemini-3.5-flash, gemini-3.5-transcribe, whisper-large-v3-turbo, whisper-1"
-                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Default for Gemini is <code>gemini-3.5-flash</code>. Default for Groq is <code>whisper-large-v3-turbo</code>.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions: Test Voice & Save */}
+              {/* Actions: Save TTS & Test Voice */}
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <Button
-                  onClick={handleSaveSpeechSettings}
-                  disabled={savingSpeech}
+                  onClick={handleSaveTTSSettings}
+                  disabled={savingTTS}
                   className="w-full sm:w-auto"
                 >
-                  {savingSpeech ? "Saving..." : "Save Speech Settings"}
+                  {savingTTS ? "Saving..." : "Save TTS Settings"}
                 </Button>
 
                 <Button
@@ -1596,11 +1477,164 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* 4. Study Settings Section */}
+          {/* 4. Speech-to-Text (STT) Section */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl" aria-hidden="true">🎙️</span>
+              <h2 className="text-lg font-semibold text-foreground">4. Speech-to-Text (STT) — Voice Recognition & Practice</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure speech recognition to evaluate pronunciation and transcribe your voice when practicing with the microphone.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <Select
+                  id="transcribe-provider"
+                  label="Speech Recognition Provider"
+                  value={transcribeProvider}
+                  onChange={(e) => {
+                    const newP = e.target.value as TranscribeProvider;
+                    setTranscribeProvider(newP);
+                    setDetectedTranscribeModels([]);
+                    if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
+                    else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
+                    else if (newP === "openai") setTranscribeModel("whisper-1");
+                    else if (newP === "custom") setTranscribeModel("whisper-1");
+                  }}
+                  options={[
+                    { value: "gemini", label: "Google Gemini (Multimodal Audio Transcription)" },
+                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
+                    { value: "openai", label: "OpenAI (Whisper Speech-to-Text)" },
+                    { value: "custom", label: "Custom (OpenAI-compatible Whisper / Local Server)" },
+                  ]}
+                  hint="Choose which provider transcribes your microphone when practicing pronunciation or dictating answers."
+                />
+              </div>
+
+              <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                {transcribeProvider === "custom" && (
+                  <div>
+                    <label htmlFor="transcribe-base-url" className="block text-sm font-medium text-foreground mb-1">
+                      Transcription Server Base URL *
+                    </label>
+                    <input
+                      id="transcribe-base-url"
+                      type="url"
+                      value={transcribeBaseUrl}
+                      onChange={(e) => setTranscribeBaseUrl(e.target.value)}
+                      placeholder="e.g. http://localhost:8080/v1 or https://my-whisper-server.com/v1"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Compatible with LocalAI, Faster-Whisper, and any server implementing the OpenAI /v1/audio/transcriptions endpoint.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="transcribe-api-key" className="block text-sm font-medium text-foreground mb-1">
+                    STT API Key {transcribeProvider === "custom" ? "(Optional for local servers)" : "*"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="transcribe-api-key"
+                      type={showTranscribeApiKey ? "text" : "password"}
+                      value={transcribeApiKey}
+                      onChange={(e) => setTranscribeApiKey(e.target.value)}
+                      placeholder={
+                        transcribeProvider === "custom"
+                          ? "Bearer token (optional for self-hosted)"
+                          : `Enter your ${transcribeProvider.toUpperCase()} API key`
+                      }
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTranscribeApiKey((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                    >
+                      {showTranscribeApiKey ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Dedicated API key for transcribing microphone audio during pronunciation evaluation.
+                  </p>
+
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={detectTranscribeModels}
+                      disabled={
+                        detectingTranscribeModels ||
+                        (transcribeProvider === "custom" ? !transcribeBaseUrl.trim() : !transcribeApiKey.trim())
+                      }
+                      className="text-xs border border-border"
+                    >
+                      {detectingTranscribeModels ? "Detecting STT models..." : "🔍 Detect STT Models"}
+                    </Button>
+                  </div>
+                </div>
+
+                {detectedTranscribeModels.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Available STT models from your key:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detectedTranscribeModels.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setTranscribeModel(m)}
+                          className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                            transcribeModel === m
+                              ? "border-primary bg-primary/10 text-primary font-bold"
+                              : "border-border bg-background text-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="transcribe-model" className="block text-sm font-medium text-foreground mb-1">
+                    STT Model
+                  </label>
+                  <input
+                    id="transcribe-model"
+                    type="text"
+                    value={transcribeModel}
+                    onChange={(e) => setTranscribeModel(e.target.value)}
+                    placeholder="e.g. gemini-3.5-flash, whisper-large-v3-turbo, whisper-1"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Selected model for microphone audio transcription.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions: Save STT Settings */}
+              <div className="pt-2">
+                <Button
+                  onClick={handleSaveSTTSettings}
+                  disabled={savingSTT}
+                  className="w-full sm:w-auto"
+                >
+                  {savingSTT ? "Saving..." : "Save STT Settings"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* 5. Study Settings Section */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl" aria-hidden="true">📚</span>
-              <h2 className="text-lg font-semibold text-foreground">Study Settings</h2>
+              <h2 className="text-lg font-semibold text-foreground">5. Study Settings</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Customize your daily study goals and review limits.
@@ -1722,11 +1756,11 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* 4. Notification Settings Section */}
+          {/* 6. Notification Settings Section */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xl" aria-hidden="true">🔔</span>
-              <h2 className="text-lg font-semibold text-foreground">Notification Settings</h2>
+              <h2 className="text-lg font-semibold text-foreground">6. Notification Settings</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Control study reminders and email notifications.

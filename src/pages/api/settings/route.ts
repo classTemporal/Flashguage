@@ -131,16 +131,16 @@ export const pickSettings = (
     plugins: (data.plugins as string[]) ?? [],
     onboarded: typeof data.onboarded === "boolean" ? data.onboarded : false,
     initialLanguage: ((data.initialLanguage as string) || "en").trim(),
-    // Speech & Pronunciation Settings
-    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "openai" | "gemini" | "groq" | "elevenlabs" | "custom",
+    // Speech & Pronunciation Settings (TTS)
+    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "gemini" | "openai" | "elevenlabs" | "custom",
     speechApiKey: ((data.speechApiKey as string) ?? "").trim(),
     speechBaseUrl: ((data.speechBaseUrl as string) ?? "").trim(),
     speechVoice: ((data.speechVoice as string) ?? "nova").trim(),
     speechSpeed: typeof data.speechSpeed === "number" ? data.speechSpeed : 1.0,
     speechAutoPlay: typeof data.speechAutoPlay === "boolean" ? data.speechAutoPlay : true,
     speechModel: ((data.speechModel as string) ?? "").trim(),
-    // Speech-to-Text / Microphone Transcription
-    transcribeProvider: ((data.transcribeProvider as string) ?? "same") as "same" | "gemini" | "groq" | "openai" | "custom",
+    // Speech-to-Text / Microphone Transcription (STT)
+    transcribeProvider: (data.transcribeProvider === "same" || !data.transcribeProvider ? "gemini" : (data.transcribeProvider as string)) as "gemini" | "groq" | "openai" | "custom",
     transcribeApiKey: ((data.transcribeApiKey as string) ?? "").trim(),
     transcribeBaseUrl: ((data.transcribeBaseUrl as string) ?? "").trim(),
     transcribeModel: ((data.transcribeModel as string) ?? "").trim(),
