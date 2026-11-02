@@ -87,17 +87,20 @@ export default function TracksPage() {
     return map;
   }, [decks, dueReviews]);
 
-  // All active and pinned track codes
-  const displayTrackCodes = useMemo(() => {
-    const set = new Set<string>();
-    userTrackStats.forEach((_, code) => set.add(code));
-    pinnedTracks.forEach((code) => set.add(code));
-    return Array.from(set);
-  }, [userTrackStats, pinnedTracks]);
+  // Only language tracks where the user has created at least 1 deck are considered active
+  const activeTrackCodes = useMemo(() => {
+    const list: string[] = [];
+    userTrackStats.forEach((stats, code) => {
+      if (stats.deckCount > 0) {
+        list.push(code);
+      }
+    });
+    return list;
+  }, [userTrackStats]);
 
-  // Sort: Pinned first -> Most recently accessed / updated -> Most cards -> Alphabetical
+  // Sort active tracks: Pinned favorites first -> Most recently accessed / updated -> Most cards -> Alphabetical
   const sortedTrackCodes = useMemo(() => {
-    return [...displayTrackCodes].sort((a, b) => {
+    return [...activeTrackCodes].sort((a, b) => {
       const aPinned = pinnedTracks.includes(a);
       const bPinned = pinnedTracks.includes(b);
 
@@ -117,7 +120,7 @@ export default function TracksPage() {
 
       return a.localeCompare(b);
     });
-  }, [displayTrackCodes, pinnedTracks, accessTimes, userTrackStats]);
+  }, [activeTrackCodes, pinnedTracks, accessTimes, userTrackStats]);
 
   const handleTogglePin = (code: string) => {
     const lang = getLanguage(code);
@@ -163,13 +166,18 @@ export default function TracksPage() {
           </p>
         </div>
 
-        {/* Section 1: Your Active Learning Tracks & Pinned Favorites */}
-        {sortedTrackCodes.length > 0 && (
+        {/* Section 1: Your Active Learning Tracks */}
+        {sortedTrackCodes.length > 0 ? (
           <section className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Your Active Tracks ({sortedTrackCodes.length})
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Your Active Tracks ({sortedTrackCodes.length})
+                </h2>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  {sortedTrackCodes.length} Initiated
+                </span>
+              </div>
               <span className="text-[11px] font-semibold text-muted-foreground/80 bg-muted/60 px-2.5 py-0.5 rounded-full border border-border/60 self-start sm:self-auto flex items-center gap-1.5">
                 <span>📌 Pinned first</span>
                 <span>•</span>
@@ -201,6 +209,9 @@ export default function TracksPage() {
                               <h3 className="text-lg font-black text-foreground group-hover:text-primary transition-colors">
                                 {lang.name}
                               </h3>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                Active Track
+                              </span>
                               {isPinned && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
                                   📌 Pinned
@@ -263,14 +274,23 @@ export default function TracksPage() {
                       </div>
                     </div>
 
-                    <div className="mt-6 pt-3">
+                    <div className="mt-6 pt-3 flex gap-2">
                       <Button
                         type="button"
                         onClick={() => handleSelectTrack(code)}
-                        className="w-full font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
+                        className="flex-1 font-bold shadow-xs bg-primary text-primary-foreground hover:opacity-90 gap-1.5"
                       >
-                        <span>Open {lang.name} Dashboard</span>
+                        <span>Open {lang.name}</span>
                         <span aria-hidden="true">→</span>
+                      </Button>
+                      <Button
+                        href={`/decks?lang=${encodeURIComponent(code)}`}
+                        as="link"
+                        variant="secondary"
+                        className="font-bold text-xs"
+                        title="View decks in this track"
+                      >
+                        🗂️
                       </Button>
                     </div>
                   </div>
@@ -278,57 +298,82 @@ export default function TracksPage() {
               })}
             </div>
           </section>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center space-y-3">
+            <div className="text-4xl">🌱</div>
+            <h2 className="text-lg font-bold text-foreground">No Active Tracks Yet</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
+              Language tracks are considered inactive until you start generating or importing decks. Choose an available language below to start your journey!
+            </p>
+          </div>
         )}
 
-        {/* Section 2: Explore Other Languages to Learn */}
+        {/* Section 2: Explore Other Languages to Learn (Inactive / Available) */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {sortedTrackCodes.length > 0 ? "Start Another Language Track" : "Available Languages"}
-            </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {sortedTrackCodes.length > 0 ? `Available Tracks to Start (${SUPPORTED_LANGUAGES.length - sortedTrackCodes.length})` : `All Available Languages (${SUPPORTED_LANGUAGES.length})`}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tracks activate automatically as soon as you create or import decks in that language.
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {SUPPORTED_LANGUAGES.filter((l) => !sortedTrackCodes.includes(l.code)).map((lang) => (
               <div
                 key={lang.code}
-                className="bg-card border border-border rounded-3xl p-5 shadow-xs hover:border-primary/40 hover:shadow-md transition-all flex items-center justify-between gap-4"
+                className="bg-card border border-border/80 rounded-3xl p-5 shadow-xs hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between gap-3"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-3xl shrink-0" role="img" aria-label={lang.name}>
-                    {lang.flag}
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-base font-bold text-foreground truncate">
-                      {lang.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground truncate font-medium">
-                      {lang.nativeName}
-                    </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-3xl shrink-0" role="img" aria-label={lang.name}>
+                      {lang.flag}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-base font-bold text-foreground truncate">
+                          {lang.name}
+                        </h3>
+                        <span className="text-[10px] font-semibold text-muted-foreground bg-muted/80 px-1.5 py-0.2 rounded border border-border/50 shrink-0">
+                          Inactive
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate font-medium">
+                        {lang.nativeName}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => handleTogglePin(lang.code)}
-                    className="p-2 rounded-xl border border-border/60 text-muted-foreground hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/10 transition-all text-xs"
-                    title={`Pin ${lang.name} as favorite`}
-                    aria-label={`Pin ${lang.name}`}
+                    className="p-1.5 rounded-xl border border-border/60 text-muted-foreground hover:text-amber-500 hover:border-amber-500/40 hover:bg-amber-500/10 transition-all text-xs shrink-0"
+                    title={`Bookmark ${lang.name}`}
+                    aria-label={`Bookmark ${lang.name}`}
                   >
-                    <span>🤍</span>
+                    <span>{pinnedTracks.includes(lang.code) ? "📌" : "🤍"}</span>
                   </button>
+                </div>
 
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleSelectTrack(lang.code)}
-                    className="font-bold text-xs gap-1 hover:border-primary/40"
-                  >
-                    <span>Start Track</span>
-                    <span>→</span>
-                  </Button>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 gap-2">
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    0 decks created
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleSelectTrack(lang.code)}
+                      className="font-bold text-xs gap-1 hover:border-primary/40 shadow-xs"
+                    >
+                      <span>Start Track</span>
+                      <span>→</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession, signOut } from "next-auth/react";
@@ -86,6 +86,38 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
   const isDailyGoalAchieved = Boolean(
     stats?.dailyGoal && stats.dailyGoal.goal > 0 && stats.dailyGoal.current >= stats.dailyGoal.goal
   );
+
+  // Fetch all user decks to detect which language tracks have been initiated with decks
+  const { data: userDecks } = useSWR<Array<{ id: string; targetLanguage?: string }>>(
+    isLoggedIn ? "/api/decks" : null,
+    statsFetcher,
+    { revalidateOnFocus: false }
+  );
+
+  // Active language tracks: strictly only tracks where the user has created or imported decks
+  const { activeTrackList, activeCount } = useMemo(() => {
+    const deckCountMap = new Map<string, number>();
+    if (Array.isArray(userDecks)) {
+      userDecks.forEach((d) => {
+        const lang = d.targetLanguage || "en";
+        deckCountMap.set(lang, (deckCountMap.get(lang) || 0) + 1);
+      });
+    }
+
+    const activeList = SUPPORTED_LANGUAGES.filter(
+      (l) => (deckCountMap.get(l.code) || 0) > 0
+    ).map((l) => ({
+      ...l,
+      deckCount: deckCountMap.get(l.code) || 0,
+    }));
+
+    return {
+      activeTrackList: activeList,
+      activeCount: activeList.length,
+    };
+  }, [userDecks]);
+
+  const isCurrentLangActive = activeTrackList.some((t) => t.code === currentTrackLang);
 
   useEffect(() => {
     const handleOpen = () => setGoalModalOpen(true);
@@ -305,18 +337,21 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
 
           {/* Right Controls: Language Switcher (Desktop) + Theme Toggle + User Menu */}
           <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
-            {/* Desktop Language Switcher */}
+            {/* Language Switcher: Active Tracks only */}
             {isLoggedIn && (
-              <div className="relative hidden md:block" ref={langDropdownRef}>
+              <div className="relative" ref={langDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setLangDropdownOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1.5 sm:px-2.5 lg:px-3 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-border bg-card/80 hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs"
                   aria-expanded={langDropdownOpen}
-                  aria-label="Switch active language track"
+                  aria-label={`Active track: ${currentLang.name} (${activeCount} active)`}
                 >
                   <span className="text-sm">{currentLang.flag}</span>
-                  <span className="hidden xl:inline">{currentLang.name}</span>
+                  <span className="hidden sm:inline">{currentLang.name}</span>
+                  <span className="hidden xl:inline text-[10px] font-bold text-muted-foreground bg-muted/80 px-1.5 py-0.5 rounded-full border border-border/60">
+                    {activeCount || 1} {activeCount === 1 ? "track" : "tracks"}
+                  </span>
                   <svg
                     className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${
                       langDropdownOpen ? "rotate-180" : ""
@@ -331,9 +366,9 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                 </button>
 
                 {langDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card p-1.5 shadow-xl ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95">
-                    <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/60 mb-1 flex items-center justify-between">
-                      <span>Active Track</span>
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-border bg-card p-2 shadow-xl ring-1 ring-black/5 z-50 animate-in fade-in zoom-in-95">
+                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/60 mb-1.5 flex items-center justify-between">
+                      <span>Active Tracks ({activeCount || 1})</span>
                       <Link
                         href="/tracks"
                         onClick={() => setLangDropdownOpen(false)}
@@ -342,25 +377,70 @@ export function Header({ title = "Flashguage", showNav = true }: HeaderProps) {
                         All Tracks →
                       </Link>
                     </div>
-                    <div className="max-h-64 overflow-y-auto space-y-0.5">
-                      {SUPPORTED_LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => handleSelectLanguage(lang.code)}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                            currentTrackLang === lang.code
-                              ? "bg-primary text-primary-foreground font-bold"
-                              : "text-foreground hover:bg-muted/80"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="text-base">{lang.flag}</span>
-                            <span className="truncate">{lang.name}</span>
+
+                    <div className="max-h-60 overflow-y-auto space-y-1">
+                      {activeTrackList.length > 0 ? (
+                        activeTrackList.map((track) => (
+                          <button
+                            key={track.code}
+                            type="button"
+                            onClick={() => handleSelectLanguage(track.code)}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                              currentTrackLang === track.code
+                                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                                : "text-foreground hover:bg-muted/80"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-base">{track.flag}</span>
+                              <span className="truncate">{track.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                                  currentTrackLang === track.code
+                                    ? "bg-white/20 text-white"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {track.deckCount} {track.deckCount === 1 ? "deck" : "decks"}
+                              </span>
+                              {currentTrackLang === track.code && <span className="text-xs">✓</span>}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-2.5 text-center text-xs text-muted-foreground">
+                          No active tracks yet.
+                        </div>
+                      )}
+
+                      {/* If user is currently on an uninitiated track (0 decks) */}
+                      {!isCurrentLangActive && (
+                        <div className="p-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 font-bold text-amber-700 dark:text-amber-400">
+                              <span className="text-base">{currentLang.flag}</span>
+                              <span className="truncate">{currentLang.name}</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                              Inactive (0 decks)
+                            </span>
                           </div>
-                          {currentTrackLang === lang.code && <span>✓</span>}
-                        </button>
-                      ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer: Start New Track */}
+                    <div className="pt-2 mt-1.5 border-t border-border/60">
+                      <Link
+                        href="/tracks"
+                        onClick={() => setLangDropdownOpen(false)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-primary hover:bg-primary/10 transition-colors border border-primary/20 bg-primary/5"
+                      >
+                        <span>➕</span>
+                        <span>Start New Track ({SUPPORTED_LANGUAGES.length - activeCount} available)</span>
+                      </Link>
                     </div>
                   </div>
                 )}

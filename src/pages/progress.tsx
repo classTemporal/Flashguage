@@ -92,6 +92,16 @@ export default function ProgressPage() {
   // Fetch decks for filtering dropdown
   const { data: decks } = useSWR<Deck[]>("/api/decks", fetcher);
 
+  const availableTrackLanguages = useMemo(() => {
+    const set = new Set<string>();
+    if (Array.isArray(decks)) {
+      decks.forEach((d) => set.add(d.targetLanguage || "en"));
+    }
+    if (selectedLanguage !== "all") set.add(selectedLanguage);
+    if (set.size === 0) set.add("en");
+    return SUPPORTED_LANGUAGES.filter((l) => set.has(l.code));
+  }, [decks, selectedLanguage]);
+
   const filteredDecks = useMemo(() => {
     if (!Array.isArray(decks)) return [];
     if (selectedLanguage === "all") return decks;
@@ -287,8 +297,8 @@ export default function ProgressPage() {
                 }}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="all">🌐 All Languages</option>
-                {SUPPORTED_LANGUAGES.map((l) => (
+                <option value="all">🌐 All Languages ({availableTrackLanguages.length} active)</option>
+                {availableTrackLanguages.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.flag} {l.name}
                   </option>

@@ -1083,6 +1083,15 @@ export default function Dashboard() {
             <span className="text-xs font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border flex items-center gap-1.5 shadow-xs">
               <span role="img" aria-label={currentLang.name}>{currentLang.flag}</span>
               <span>{currentLang.name} Track</span>
+              {(decks?.length || 0) === 0 ? (
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  Inactive • 0 Decks
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Active Track
+                </span>
+              )}
             </span>
             <Button
               href="/tracks"
@@ -1158,6 +1167,42 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Inactive Track Notice: Shown when the selected language has 0 decks */}
+        {!decksLoading && (decks?.length || 0) === 0 && (
+          <div className="rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl sm:text-3xl">🌱</span>
+              <div>
+                <p className="text-sm font-bold text-foreground">
+                  {currentLang.name} Track is Currently Inactive
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Tracks activate automatically as soon as you generate or import your first deck in this language.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                href={`/decks?lang=${encodeURIComponent(activeLanguage)}&tab=starter-kits`}
+                as="link"
+                variant="secondary"
+                size="sm"
+                className="text-xs font-bold shadow-xs"
+              >
+                <span>📦</span> Starter Kits
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setIsCreateDeckOpen(true)}
+                size="sm"
+                className="text-xs font-bold shadow-xs"
+              >
+                <span>➕</span> Create Deck
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── Dynamic Modular Dashboard Sections ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
