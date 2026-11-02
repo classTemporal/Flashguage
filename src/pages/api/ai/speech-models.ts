@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { provider, apiKey, baseUrl } = req.query;
+  const { provider, apiKey, baseUrl, mode = "tts" } = req.query;
 
   if (req.method !== "GET" || typeof provider !== "string") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const key = typeof apiKey === "string" ? apiKey.trim() : "";
   const urlBase = typeof baseUrl === "string" ? baseUrl.trim() : "";
+  const isStt = mode === "stt" || mode === "transcribe";
 
   if (provider !== "custom" && !key) {
     return res.status(400).json({ message: "Speech API key required" });
@@ -38,11 +39,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           throw new Error(errData.error?.message || `OpenAI error ${r.status}`);
         }
         const data = await r.json();
-        const detected = (data.data || [])
-          .filter((m: any) => m.id && (m.id.includes("tts") || m.id.includes("whisper")))
-          .map((m: any) => m.id);
-        const defaults = ["tts-1", "tts-1-hd", "whisper-1"];
-        models = Array.from(new Set([...detected, ...defaults])).sort();
+        if (isStt) {
+          const detected = (data.data || [])
+            .filter((m: any) => m.id && m.id.includes("whisper"))
+            .map((m: any) => m.id);
+          models = Array.from(new Set([...detected, "whisper-1"])).sort();
+        } else {
+          const detected = (data.data || [])
+            .filter((m: any) => m.id && m.id.includes("tts"))
+            .map((m: any) => m.id);
+          const defaults = ["tts-1", "tts-1-hd"];
+          models = Array.from(new Set([...detected, ...defaults])).sort();
+        }
         break;
       }
 
@@ -55,20 +63,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           throw new Error(errData.error?.message || `Gemini error ${r.status}`);
         }
         const data = await r.json();
-        const detected = (data.models || [])
-          .filter((m: any) => {
-            const name = (m.name || "").toLowerCase();
-            return name.includes("tts");
-          })
-          .map((m: any) => m.name.replace("models/", ""));
-        const defaults = [
-          "gemini-3.8-flash-tts",
-          "gemini-3.8-flash-lite-tts",
-          "gemini-2.5-flash-preview-tts",
-          "gemini-2.5-pro-preview-tts",
-          "gemini-3.1-flash-tts-preview",
-        ];
-        models = Array.from(new Set([...detected, ...defaults])).sort();
+        if (isStt) {
+          const detected = (data.models || [])
+            .filter((m: any) => {
+              const name = (m.name || "").toLowerCase();
+              return (
+                m.supportedGenerationMethods?.includes("generateContent") &&
+                (name.includes("transcribe") || name.includes("flash")) &&
+                !name.includes("tts") &&
+                !name.includes("image") &&
+                !name.includes("robotics") &&
+                !name.includes("computer-use") &&
+                !name.includes("preview-10") &&
+                !name.includes("2.5-flash-preview")
+              );
+            })
+            .map((m: any) => m.name.replace("models/", ""));
+          const defaults = [
+            "gemini-3.5-flash",
+            "gemini-3.5-transcribe",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
+          ];
+          models = Array.from(new Set([...detected, ...defaults])).sort();
+        } else {
+          const detected = (data.models || [])
+            .filter((m: any) => {
+              const name = (m.name || "").toLowerCase();
+              return name.includes("tts");
+            })
+            .map((m: any) => m.name.replace("models/", ""));
+          const defaults = [
+            "gemini-3.8-flash-tts",
+            "gemini-3.8-flash-lite-tts",
+            "gemini-3.1-flash-tts-preview",
+          ];
+          models = Array.from(new Set([...detected, ...defaults])).sort();
+        }
         break;
       }
 

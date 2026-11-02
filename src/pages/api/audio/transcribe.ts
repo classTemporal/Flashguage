@@ -37,16 +37,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
 
-    const speechProvider = userSettings.speechProvider || (userSettings.aiProvider ? userSettings.aiProvider : "browser");
-    const speechApiKey = (
-      userSettings.speechApiKey ||
-      userSettings.groqKey ||
-      userSettings.openaiKey ||
-      userSettings.geminiKey ||
-      userSettings.aiApiKey ||
-      ""
-    ).trim();
-    const speechModel = (userSettings.speechModel || "").trim();
+    // 1. Resolve Transcription Provider
+    let speechProvider = (userSettings.transcribeProvider || "same").trim().toLowerCase();
+    if (speechProvider === "same" || !speechProvider || speechProvider === "auto") {
+      if (
+        userSettings.speechProvider &&
+        userSettings.speechProvider !== "elevenlabs" &&
+        userSettings.speechProvider !== "browser"
+      ) {
+        speechProvider = userSettings.speechProvider;
+      } else if (
+        userSettings.aiProvider &&
+        ["openai", "gemini", "groq", "custom"].includes(userSettings.aiProvider)
+      ) {
+        speechProvider = userSettings.aiProvider;
+      } else {
+        speechProvider = "gemini";
+      }
+    }
+
+    // 2. Resolve Transcription API Key
+    let speechApiKey = (userSettings.transcribeApiKey || "").trim();
+    if (!speechApiKey) {
+      if (speechProvider === userSettings.speechProvider && userSettings.speechApiKey) {
+        speechApiKey = userSettings.speechApiKey.trim();
+      } else if (speechProvider === "gemini") {
+        speechApiKey = (userSettings.geminiKey || userSettings.speechApiKey || userSettings.aiApiKey || "").trim();
+      } else if (speechProvider === "groq") {
+        speechApiKey = (userSettings.groqKey || userSettings.speechApiKey || "").trim();
+      } else if (speechProvider === "openai") {
+        speechApiKey = (userSettings.openaiKey || userSettings.speechApiKey || userSettings.aiApiKey || "").trim();
+      } else if (speechProvider === "custom") {
+        speechApiKey = (userSettings.customApiKey || userSettings.speechApiKey || "").trim();
+      } else {
+        speechApiKey = (userSettings.speechApiKey || userSettings.aiApiKey || "").trim();
+      }
+    }
+
+    // 3. Resolve Transcription Model
+    let speechModel = (userSettings.transcribeModel || "").trim();
+    if (!speechModel) {
+      if (speechProvider === "gemini") {
+        speechModel = "gemini-3.5-flash";
+      } else if (speechProvider === "groq") {
+        speechModel = "whisper-large-v3-turbo";
+      } else if (speechProvider === "openai" || speechProvider === "custom") {
+        speechModel = "whisper-1";
+      }
+    }
+
+    // Guard against TTS models or obsolete previews in Gemini STT
+    if (speechProvider === "gemini") {
+      if (speechModel.includes("-tts") || speechModel.includes("2.5-flash")) {
+        speechModel = "gemini-3.5-flash";
+      }
+    }
 
     if (!speechApiKey && speechProvider !== "custom") {
       return res.status(400).json({
@@ -99,12 +144,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 1. Google Gemini Speech Provider
     if (speechProvider === "gemini") {
-      let model = speechModel || userSettings.aiModel || "gemini-2.5-flash";
-      if (model.includes("-tts")) {
-        model = model.replace(/-tts.*$/, "") || "gemini-2.5-flash";
-      }
-      if (model.includes("3.5-flash-lite")) {
-        model = "gemini-2.5-flash";
+      let model = speechModel || "gemini-3.5-flash";
+      if (model.includes("-tts") || model.includes("2.5-flash")) {
+        model = "gemini-3.5-flash";
       }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
         model
@@ -236,7 +278,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Custom OpenAI-compatible Speech Server (LocalAI, Faster-Whisper, LiteLLM, etc.)
     if (speechProvider === "custom") {
-      const baseUrl = (userSettings.speechBaseUrl || "").trim();
+      const baseUrl = (userSettings.transcribeBaseUrl || userSettings.speechBaseUrl || "").trim();
       if (!baseUrl) {
         return res.status(400).json({ error: "Base URL is required for custom speech provider." });
       }

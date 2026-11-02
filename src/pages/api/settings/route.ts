@@ -47,6 +47,11 @@ export const settingsSchema = z.object({
   speechSpeed: z.number().min(0.5).max(2.0).optional(),
   speechAutoPlay: z.boolean().optional(),
   speechModel: z.string().optional(),
+  // Speech-to-Text / Transcription settings
+  transcribeProvider: z.enum(["same", "gemini", "groq", "openai", "custom"]).optional(),
+  transcribeApiKey: z.string().optional(),
+  transcribeBaseUrl: z.string().optional(),
+  transcribeModel: z.string().optional(),
 });
 
 export const pickSettings = (
@@ -134,6 +139,11 @@ export const pickSettings = (
     speechSpeed: typeof data.speechSpeed === "number" ? data.speechSpeed : 1.0,
     speechAutoPlay: typeof data.speechAutoPlay === "boolean" ? data.speechAutoPlay : true,
     speechModel: ((data.speechModel as string) ?? "").trim(),
+    // Speech-to-Text / Microphone Transcription
+    transcribeProvider: ((data.transcribeProvider as string) ?? "same") as "same" | "gemini" | "groq" | "openai" | "custom",
+    transcribeApiKey: ((data.transcribeApiKey as string) ?? "").trim(),
+    transcribeBaseUrl: ((data.transcribeBaseUrl as string) ?? "").trim(),
+    transcribeModel: ((data.transcribeModel as string) ?? "").trim(),
   };
 };
 
