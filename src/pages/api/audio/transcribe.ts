@@ -37,67 +37,98 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userSettings = user?.settings ? JSON.parse(user.settings as string) : {};
 
+    const speechProvider = userSettings.speechProvider || "browser";
+    const speechApiKey = (userSettings.speechApiKey || "").trim();
+    const speechModel = (userSettings.speechModel || "").trim();
+
+    if (!speechApiKey) {
+      return res.status(400).json({
+        error:
+          "Se requiere una API Key dedicada de Speech para transcribir en este navegador. Ve a Ajustes > Speech & Pronunciation para configurar tu proveedor y clave de voz.",
+      });
+    }
+
     const cleanBase64 = audio.replace(/^data:audio\/[a-z0-9-+.]+;base64,/, "");
     const cleanMime = mimeType.split(";")[0] || "audio/webm";
 
-    // 1. Prefer Gemini if user has a Gemini key (most users configure Gemini)
-    const geminiKey = (userSettings.geminiKey || (userSettings.aiProvider === "gemini" ? userSettings.aiApiKey : "") || "").trim();
-    if (geminiKey) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(
-          geminiKey
-        )}`;
+    // 1. Google Gemini Speech Provider
+    if (speechProvider === "gemini") {
+      const model = speechModel || "gemini-3.5-flash-lite";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        model
+      )}:generateContent?key=${encodeURIComponent(speechApiKey)}`;
 
-        const geminiRes = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    inlineData: {
-                      mimeType: cleanMime,
-                      data: cleanBase64,
-                    },
+      const geminiRes = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: cleanMime,
+                    data: cleanBase64,
                   },
-                  {
-                    text: `Transcribe the speech in this audio snippet (language: ${language}). Output ONLY the exact transcribed spoken words, in lowercase, without any quotes, punctuation, or conversational filler.`,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 60,
+                },
+                {
+                  text: `Transcribe the speech in this audio clip (language: ${language}). Output ONLY the exact transcribed spoken words, in lowercase, without quotes, punctuation, or any conversational text.`,
+                },
+              ],
             },
-          }),
-        });
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 60,
+          },
+        }),
+      });
 
-        if (geminiRes.ok) {
-          const data = await geminiRes.json();
-          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          const text = rawText.trim().replace(/^["']|["']$/g, "").trim();
-          return res.status(200).json({ text, provider: "gemini" });
-        } else {
-          console.error("[Transcribe Gemini Error]:", geminiRes.status, await geminiRes.text());
-        }
-      } catch (geminiErr) {
-        console.error("[Transcribe Gemini Catch]:", geminiErr);
+      if (!geminiRes.ok) {
+        const errText = await geminiRes.text();
+        console.error("[Transcribe Gemini Error]:", geminiRes.status, errText);
+        return res.status(400).json({
+          error: `Gemini Speech API error (${geminiRes.status}): ${errText}`,
+        });
       }
+
+      const data = await geminiRes.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const text = rawText.trim().replace(/^["']|["']$/g, "").trim();
+      return res.status(200).json({ text, provider: "gemini" });
     }
 
-    // 2. Fall back to OpenAI Whisper if an OpenAI key is present
-    const openaiKey = (
-      userSettings.speechApiKey ||
-      userSettings.openaiKey ||
-      (userSettings.aiProvider === "openai" ? userSettings.aiApiKey : "") ||
-      process.env.OPENAI_API_KEY ||
-      ""
-    ).trim();
+    // 2. Groq Whisper Speech Provider
+    if (speechProvider === "groq") {
+      const model = speechModel || "whisper-large-v3-turbo";
+      const audioBuffer = Buffer.from(cleanBase64, "base64");
+      const file = new File([audioBuffer], "recording.webm", { type: cleanMime });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("model", model);
+      if (language) {
+        formData.append("language", language.slice(0, 2).toLowerCase());
+      }
 
-    if (openaiKey && openaiKey !== "test123") {
+      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${speechApiKey}` },
+        body: formData,
+      });
+
+      if (!groqRes.ok) {
+        const errText = await groqRes.text();
+        return res.status(400).json({ error: `Groq Speech API error (${groqRes.status}): ${errText}` });
+      }
+
+      const result = await groqRes.json();
+      return res.status(200).json({ text: result.text || "", provider: "groq" });
+    }
+
+    // 3. OpenAI Whisper Speech Provider
+    if (speechProvider === "openai") {
+      const model = speechModel || "whisper-1";
       const audioBuffer = Buffer.from(cleanBase64, "base64");
       const ext = cleanMime.includes("ogg")
         ? "ogg"
@@ -110,33 +141,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const file = new File([audioBuffer], `recording.${ext}`, { type: cleanMime });
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("model", "whisper-1");
+      formData.append("model", model);
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
 
       const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
         method: "POST",
-        headers: { Authorization: `Bearer ${openaiKey}` },
+        headers: { Authorization: `Bearer ${speechApiKey}` },
         body: formData,
       });
 
-      if (whisperRes.ok) {
-        const result = await whisperRes.json();
-        return res.status(200).json({ text: result.text || "", provider: "openai" });
-      } else {
+      if (!whisperRes.ok) {
         const errText = await whisperRes.text();
-        console.error("[Whisper Transcribe Error]:", whisperRes.status, errText);
+        return res.status(400).json({
+          error: `OpenAI Speech API error (${whisperRes.status}): ${errText}`,
+        });
       }
+
+      const result = await whisperRes.json();
+      return res.status(200).json({ text: result.text || "", provider: "openai" });
     }
 
     return res.status(400).json({
-      error: "Para usar reconocimiento de voz en Firefox, configura tu clave de Gemini u OpenAI en Ajustes.",
+      error: `El proveedor de voz seleccionado (${speechProvider}) no soporta transcripción por micrófono en este navegador. Selecciona OpenAI, Gemini o Groq en Ajustes.`,
     });
   } catch (error: any) {
     console.error("[Transcribe Handler Error]:", error);
     return res.status(500).json({
-      error: error?.message || "Internal server error during audio transcription.",
+      error: error?.message || "Internal server error during speech transcription.",
     });
   }
 }

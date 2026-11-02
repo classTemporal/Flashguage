@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/toast";
 import { playCardSpeech } from "@/lib/speech";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
-export type SpeechProvider = "browser" | "openai" | "elevenlabs";
+export type SpeechProvider = "browser" | "openai" | "gemini" | "groq" | "elevenlabs";
 
 interface SettingsData {
   name?: string;
@@ -158,6 +158,8 @@ export default function SettingsPage() {
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.0);
   const [speechAutoPlay, setSpeechAutoPlay] = useState<boolean>(false);
   const [speechModel, setSpeechModel] = useState("tts-1");
+  const [detectedSpeechModels, setDetectedSpeechModels] = useState<string[]>([]);
+  const [detectingSpeechModels, setDetectingSpeechModels] = useState(false);
   const [savingSpeech, setSavingSpeech] = useState(false);
   const [testingSpeech, setTestingSpeech] = useState(false);
 
@@ -623,6 +625,43 @@ export default function SettingsPage() {
     }
   };
 
+  // Handler: Detect Speech Models
+  const detectSpeechModels = async () => {
+    if (speechProvider === "browser") return;
+    if (!speechApiKey.trim()) {
+      showToast("Please enter a Speech API key first", "error");
+      return;
+    }
+
+    setDetectingSpeechModels(true);
+    try {
+      const params = new URLSearchParams({
+        provider: speechProvider,
+        apiKey: speechApiKey.trim(),
+      });
+      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `Failed to detect speech models (${res.status})`);
+      }
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        setDetectedSpeechModels(data.models);
+        if (!speechModel || !data.models.includes(speechModel)) {
+          setSpeechModel(data.models[0]);
+        }
+        showToast(`Found ${data.models.length} speech models`, "success");
+      } else {
+        setDetectedSpeechModels([]);
+        showToast("No speech models found for this speech provider", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to detect speech models", "error");
+    } finally {
+      setDetectingSpeechModels(false);
+    }
+  };
+
   if (status === "loading" || (isSettingsLoading && !apiSettings)) {
     return <LoadingPage message="Loading settings..." />;
   }
@@ -1083,21 +1122,31 @@ export default function SettingsPage() {
                   id="speech-provider"
                   label="Speech Engine Provider"
                   value={speechProvider}
-                  onChange={(e) => setSpeechProvider(e.target.value as SpeechProvider)}
+                  onChange={(e) => {
+                    const newProvider = e.target.value as SpeechProvider;
+                    setSpeechProvider(newProvider);
+                    setDetectedSpeechModels([]);
+                    if (newProvider === "openai") setSpeechModel("tts-1");
+                    else if (newProvider === "gemini") setSpeechModel("gemini-3.5-flash-lite");
+                    else if (newProvider === "groq") setSpeechModel("whisper-large-v3-turbo");
+                    else if (newProvider === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
+                  }}
                   options={[
                     { value: "browser", label: "Browser Web Speech (Free / Offline / No API Key required)" },
-                    { value: "openai", label: "OpenAI TTS (Neural / High Fidelity Voices)" },
+                    { value: "openai", label: "OpenAI (TTS Audio & Whisper Transcription)" },
+                    { value: "gemini", label: "Google Gemini (Multimodal Speech Transcription)" },
+                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
                     { value: "elevenlabs", label: "ElevenLabs (Ultra-Realistic Generative Speech)" },
                   ]}
-                  hint="Select which engine Flashguage should use to pronounce words and sentences."
+                  hint="Select which engine Flashguage should use for pronunciation audio and speech transcription."
                 />
               </div>
 
-              {speechProvider === "openai" && (
+              {speechProvider !== "browser" && (
                 <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
                   <div>
                     <label htmlFor="speech-api-key" className="block text-sm font-medium text-foreground mb-1">
-                      Dedicated OpenAI Speech API Key (Optional)
+                      Dedicated Speech API Key *
                     </label>
                     <div className="relative">
                       <input
@@ -1105,7 +1154,7 @@ export default function SettingsPage() {
                         type={showSpeechApiKey ? "text" : "password"}
                         value={speechApiKey}
                         onChange={(e) => setSpeechApiKey(e.target.value)}
-                        placeholder="sk-... (Leave empty to reuse general OpenAI key)"
+                        placeholder={`Enter your ${speechProvider.toUpperCase()} API key`}
                         className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       />
                       <button
@@ -1117,90 +1166,92 @@ export default function SettingsPage() {
                       </button>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      If left blank, Flashguage automatically reuses your primary OpenAI API key from AI Configuration.
+                      Separate API key strictly dedicated to speech and audio generation/transcription.
                     </p>
+
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={detectSpeechModels}
+                        disabled={detectingSpeechModels || !speechApiKey.trim()}
+                        className="text-xs border border-border"
+                      >
+                        {detectingSpeechModels ? "Detecting speech models..." : "🔍 Detect Speech Models"}
+                      </Button>
+                    </div>
                   </div>
+
+                  {detectedSpeechModels.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Available speech models from your key:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detectedSpeechModels.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSpeechModel(m)}
+                            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              speechModel === m
+                                ? "border-primary bg-primary/10 text-primary font-bold"
+                                : "border-border bg-background text-foreground hover:bg-accent"
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Select
-                        id="speech-voice"
-                        label="Voice Persona"
-                        value={speechVoice}
-                        onChange={(e) => setSpeechVoice(e.target.value)}
-                        options={[
-                          { value: "nova", label: "Nova (Female • Energetic & natural — Recommended)" },
-                          { value: "alloy", label: "Alloy (Neutral • Balanced & versatile)" },
-                          { value: "echo", label: "Echo (Male • Warm, calm & confident)" },
-                          { value: "fable", label: "Fable (British Accent • Expressive)" },
-                          { value: "onyx", label: "Onyx (Male • Deep & authoritative)" },
-                          { value: "shimmer", label: "Shimmer (Female • Clear & resonant)" },
-                        ]}
-                        hint="Choose the voice persona that best suits your listening practice."
-                      />
-                    </div>
-
-                    <div>
-                      <Select
+                      <label htmlFor="speech-model" className="block text-sm font-medium text-foreground mb-1">
+                        Speech Model
+                      </label>
+                      <input
                         id="speech-model"
-                        label="TTS Model Quality"
+                        type="text"
                         value={speechModel}
                         onChange={(e) => setSpeechModel(e.target.value)}
-                        options={[
-                          { value: "tts-1", label: "tts-1 (Standard • Fast & cost-effective)" },
-                          { value: "tts-1-hd", label: "tts-1-hd (High Definition • Studio quality)" },
-                        ]}
-                        hint="Standard is ideal for flashcards with fast latency."
+                        placeholder="e.g. tts-1, whisper-1, gemini-3.5-flash-lite"
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Selected model for voice synthesis or transcription.
+                      </p>
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {speechProvider === "elevenlabs" && (
-                <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <label htmlFor="elevenlabs-speech-key" className="block text-sm font-medium text-foreground mb-1">
-                      ElevenLabs API Key *
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="elevenlabs-speech-key"
-                        type={showSpeechApiKey ? "text" : "password"}
-                        value={speechApiKey}
-                        onChange={(e) => setSpeechApiKey(e.target.value)}
-                        placeholder="xi-..."
-                        className="w-full rounded-md border border-border bg-background px-3 py-2 pr-20 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSpeechApiKey((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground px-2 py-1"
-                      >
-                        {showSpeechApiKey ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Dedicated API key from your ElevenLabs dashboard.
-                    </p>
-                  </div>
-
-                  <div>
-                    <Select
-                      id="elevenlabs-voice"
-                      label="Voice Persona"
-                      value={speechVoice}
-                      onChange={(e) => setSpeechVoice(e.target.value)}
-                      options={[
-                        { value: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (Female • Calm & natural)" },
-                        { value: "AZnzlk1XvdvUeBnXmlld", label: "Domi (Female • Strong & engaging)" },
-                        { value: "EXAVITQu4vr4xnSDxMaL", label: "Bella (Female • Soft & pleasant)" },
-                        { value: "ErXwobaYiN019PkySvjV", label: "Antoni (Male • Warm & friendly)" },
-                        { value: "MF3mGyEYCl7XYWbV9V6O", label: "Elli (Female • Clear & youthful)" },
-                        { value: "TxGEqnHWrfWFTfGW9XjX", label: "Josh (Male • Conversational)" },
-                      ]}
-                      hint="Choose an ElevenLabs premade voice or input a custom voice ID."
-                    />
+                    {(speechProvider === "openai" || speechProvider === "elevenlabs") && (
+                      <div>
+                        <Select
+                          id="speech-voice"
+                          label="Voice Persona"
+                          value={speechVoice}
+                          onChange={(e) => setSpeechVoice(e.target.value)}
+                          options={
+                            speechProvider === "openai"
+                              ? [
+                                  { value: "nova", label: "Nova (Female • Energetic & natural — Recommended)" },
+                                  { value: "alloy", label: "Alloy (Neutral • Balanced & versatile)" },
+                                  { value: "echo", label: "Echo (Male • Warm, calm & confident)" },
+                                  { value: "fable", label: "Fable (British Accent • Expressive)" },
+                                  { value: "onyx", label: "Onyx (Male • Deep & authoritative)" },
+                                  { value: "shimmer", label: "Shimmer (Female • Clear & resonant)" },
+                                ]
+                              : [
+                                  { value: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (Female • Calm & natural)" },
+                                  { value: "AZnzlk1XvdvUeBnXmlld", label: "Domi (Female • Strong & engaging)" },
+                                  { value: "EXAVITQu4vr4xnSDxMaL", label: "Bella (Female • Soft & pleasant)" },
+                                  { value: "ErXwobaYiN019PkySvjV", label: "Antoni (Male • Warm & friendly)" },
+                                  { value: "MF3mGyEYCl7XYWbV9V6O", label: "Elli (Female • Clear & youthful)" },
+                                  { value: "TxGEqnHWrfWFTfGW9XjX", label: "Josh (Male • Conversational)" },
+                                ]
+                          }
+                          hint="Voice timbre and speaker persona for audio playback."
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

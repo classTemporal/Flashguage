@@ -60,19 +60,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cleanText = text.trim();
 
     if (provider === "openai") {
-      const apiKey = (
-        overrideApiKey ||
-        userSettings.speechApiKey ||
-        userSettings.openaiKey ||
-        userSettings.aiApiKey ||
-        process.env.OPENAI_API_KEY ||
-        ""
-      ).trim();
+      const apiKey = (overrideApiKey || userSettings.speechApiKey || "").trim();
 
       if (!apiKey) {
         return res.status(200).json({
           fallback: true,
-          error: "No OpenAI API key found for TTS. Falling back to browser speech.",
+          error: "No dedicated Speech API key configured for OpenAI TTS. Falling back to browser speech.",
         });
       }
 
