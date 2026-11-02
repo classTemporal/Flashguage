@@ -24,7 +24,7 @@ async function serveGoogleTTS(
     const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
     const fileName = `${hash}.mp3`;
     const filePath = path.join(cacheDir, fileName);
-    const publicUrl = `/audio-cache/${fileName}`;
+    const publicUrl = `/api/audio/play/${fileName}`;
 
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath);
@@ -137,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.wav`;
       const filePath = path.join(cacheDir, fileName);
-      const publicUrl = `/audio-cache/${fileName}`;
+      const publicUrl = `/api/audio/play/${fileName}`;
 
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
@@ -222,7 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.mp3`;
       const filePath = path.join(cacheDir, fileName);
-      const publicUrl = `/audio-cache/${fileName}`;
+      const publicUrl = `/api/audio/play/${fileName}`;
 
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
@@ -285,7 +285,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.mp3`;
       const filePath = path.join(cacheDir, fileName);
-      const publicUrl = `/audio-cache/${fileName}`;
+      const publicUrl = `/api/audio/play/${fileName}`;
 
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
@@ -349,7 +349,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.mp3`;
       const filePath = path.join(cacheDir, fileName);
-      const publicUrl = `/audio-cache/${fileName}`;
+      const publicUrl = `/api/audio/play/${fileName}`;
 
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath);
