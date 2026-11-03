@@ -43,8 +43,8 @@ export interface STTProviderConfig {
 export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "browser",
-    name: "Browser (Free)",
-    label: "Browser Web Speech (Free / Universal Cloud Audio / No API Key required)",
+    name: "Browser",
+    label: "Browser Web Speech",
     defaultModel: "",
     defaultVoice: "",
     requiresApiKey: false,
@@ -52,7 +52,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "gemini",
     name: "Gemini",
-    label: "Google Gemini TTS (Ultra-Realistic Neural Audio)",
+    label: "Google Gemini TTS",
     defaultModel: "gemini-3.8-flash-tts",
     defaultVoice: "Puck",
     requiresApiKey: true,
@@ -67,7 +67,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "openai",
     name: "OpenAI",
-    label: "OpenAI TTS (tts-1 / tts-1-hd)",
+    label: "OpenAI TTS",
     defaultModel: "tts-1",
     defaultVoice: "nova",
     requiresApiKey: true,
@@ -83,7 +83,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "elevenlabs",
     name: "ElevenLabs",
-    label: "ElevenLabs (Generative Voice Synthesis)",
+    label: "ElevenLabs",
     defaultModel: "eleven_multilingual_v2",
     defaultVoice: "21m00Tcm4TlvDq8ikWAM",
     requiresApiKey: true,
@@ -99,7 +99,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "cartesia",
     name: "Cartesia",
-    label: "Cartesia (Sonic ultra-fast & expressive TTS)",
+    label: "Cartesia",
     defaultModel: "sonic-3.6",
     defaultVoice: "a0e99841-438c-4a64-b679-ae501e7d6091",
     requiresApiKey: true,
@@ -114,7 +114,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "deepgram",
     name: "Deepgram",
-    label: "Deepgram (Aura / Aura-2 low-latency voice)",
+    label: "Deepgram",
     defaultModel: "aura-2-thalia-en",
     defaultVoice: "aura-2-thalia-en",
     requiresApiKey: true,
@@ -133,7 +133,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "fishaudio",
     name: "Fish Audio",
-    label: "Fish Audio (Leading multilingual voice clone & synthesis)",
+    label: "Fish Audio",
     defaultModel: "s2.1-pro",
     defaultVoice: "",
     requiresApiKey: true,
@@ -146,7 +146,7 @@ export const TTS_PROVIDERS: TTSProviderConfig[] = [
   {
     id: "custom",
     name: "Custom",
-    label: "Custom (OpenAI-Compatible Local / Self-Hosted Server)",
+    label: "Custom Server",
     defaultModel: "tts-1",
     defaultVoice: "alloy",
     requiresApiKey: false,
@@ -158,35 +158,35 @@ export const STT_PROVIDERS: STTProviderConfig[] = [
   {
     id: "gemini",
     name: "Gemini",
-    label: "Google Gemini Audio (Multimodal Native Speech Recognition)",
+    label: "Google Gemini Audio",
     defaultModel: "gemini-3.5-flash",
     requiresApiKey: true,
   },
   {
     id: "groq",
     name: "Groq",
-    label: "Groq Whisper (Ultra-Fast LPUs • Recommended for Speech-to-Text)",
+    label: "Groq Whisper",
     defaultModel: "whisper-large-v3-turbo",
     requiresApiKey: true,
   },
   {
     id: "openai",
     name: "OpenAI",
-    label: "OpenAI Whisper (whisper-1)",
+    label: "OpenAI Whisper",
     defaultModel: "whisper-1",
     requiresApiKey: true,
   },
   {
     id: "deepgram",
     name: "Deepgram",
-    label: "Deepgram Nova (Nova-3 / Nova-2 Industry-Leading Speech-to-Text)",
+    label: "Deepgram Nova",
     defaultModel: "nova-3",
     requiresApiKey: true,
   },
   {
     id: "custom",
     name: "Custom",
-    label: "Custom (OpenAI-Compatible Local / Self-Hosted Whisper)",
+    label: "Custom Whisper",
     defaultModel: "whisper-1",
     requiresApiKey: false,
     requiresBaseUrl: true,

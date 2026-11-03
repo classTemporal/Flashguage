@@ -1389,9 +1389,9 @@ export default function SettingsPage() {
                   className="w-full accent-primary cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
-                  <span>0.75x (Careful)</span>
-                  <span>1.0x (Standard)</span>
-                  <span>1.25x (Native fluent)</span>
+                  <span>0.75x Careful</span>
+                  <span>1.0x Standard</span>
+                  <span>1.25x Fast</span>
                 </div>
               </div>
 
