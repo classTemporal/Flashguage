@@ -18,6 +18,15 @@ import {
   recordTrackAccess,
 } from "@/lib/languages";
 import { playCardSpeech } from "@/lib/speech";
+import {
+  TTSProviderId,
+  STTProviderId,
+  TTS_PROVIDERS,
+  STT_PROVIDERS,
+  getTTSProvider,
+  getSTTProvider,
+  fetchSpeechModels,
+} from "@/lib/speech-config";
 
 const fetcher = (url: string) => fetch(url).then((res) => (res.ok ? res.json() : null));
 
@@ -88,7 +97,7 @@ export default function OnboardingPage() {
   const [testingAi, setTestingAi] = useState<boolean>(false);
 
   // Step 3: Text-to-Speech (TTS) Key (OPTIONAL)
-  const [speechProvider, setSpeechProvider] = useState<string>("browser");
+  const [speechProvider, setSpeechProvider] = useState<TTSProviderId>("browser");
   const [speechApiKey, setSpeechApiKey] = useState<string>("");
   const [speechBaseUrl, setSpeechBaseUrl] = useState<string>("");
   const [speechVoice, setSpeechVoice] = useState<string>("nova");
@@ -101,7 +110,7 @@ export default function OnboardingPage() {
   const [testingSpeech, setTestingSpeech] = useState<boolean>(false);
 
   // Step 3: Speech-to-Text (STT) Key (OPTIONAL)
-  const [transcribeProvider, setTranscribeProvider] = useState<"gemini" | "groq" | "openai" | "custom">("gemini");
+  const [transcribeProvider, setTranscribeProvider] = useState<STTProviderId>("gemini");
   const [transcribeApiKey, setTranscribeApiKey] = useState<string>("");
   const [transcribeBaseUrl, setTranscribeBaseUrl] = useState<string>("");
   const [transcribeModel, setTranscribeModel] = useState<string>("gemini-3.5-flash");
@@ -270,25 +279,13 @@ export default function OnboardingPage() {
 
     setDetectingSpeechModels(true);
     try {
-      const params = new URLSearchParams({
-        provider: speechProvider,
-        mode: "tts",
-      });
-      if (speechApiKey.trim()) params.set("apiKey", speechApiKey.trim());
-      if (speechBaseUrl.trim()) params.set("baseUrl", speechBaseUrl.trim());
-
-      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect TTS models (${res.status})`);
-      }
-      const data = await res.json();
-      if (data.models && data.models.length > 0) {
-        setDetectedSpeechModels(data.models);
-        if (!speechModel || !data.models.includes(speechModel)) {
-          setSpeechModel(data.models[0]);
+      const models = await fetchSpeechModels(speechProvider, speechApiKey, speechBaseUrl, "tts");
+      if (models.length > 0) {
+        setDetectedSpeechModels(models);
+        if (!speechModel || !models.includes(speechModel)) {
+          setSpeechModel(models[0]);
         }
-        showToast(`Found ${data.models.length} TTS models`, "success");
+        showToast(`Found ${models.length} TTS models`, "success");
       } else {
         setDetectedSpeechModels([]);
         showToast("No TTS models found for this provider", "error");
@@ -313,25 +310,13 @@ export default function OnboardingPage() {
 
     setDetectingTranscribeModels(true);
     try {
-      const params = new URLSearchParams({
-        provider: transcribeProvider,
-        mode: "stt",
-      });
-      if (transcribeApiKey.trim()) params.set("apiKey", transcribeApiKey.trim());
-      if (transcribeBaseUrl.trim()) params.set("baseUrl", transcribeBaseUrl.trim());
-
-      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect STT models (${res.status})`);
-      }
-      const data = await res.json();
-      if (data.models && data.models.length > 0) {
-        setDetectedTranscribeModels(data.models);
-        if (!transcribeModel || !data.models.includes(transcribeModel)) {
-          setTranscribeModel(data.models[0]);
+      const models = await fetchSpeechModels(transcribeProvider, transcribeApiKey, transcribeBaseUrl, "stt");
+      if (models.length > 0) {
+        setDetectedTranscribeModels(models);
+        if (!transcribeModel || !models.includes(transcribeModel)) {
+          setTranscribeModel(models[0]);
         }
-        showToast(`Found ${data.models.length} speech recognition models`, "success");
+        showToast(`Found ${models.length} speech recognition models`, "success");
       } else {
         setDetectedTranscribeModels([]);
         showToast("No speech recognition models found for this provider", "error");
@@ -849,44 +834,16 @@ export default function OnboardingPage() {
 
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { id: "browser", name: "Browser (Free)" },
-                      { id: "gemini", name: "Gemini" },
-                      { id: "openai", name: "OpenAI" },
-                      { id: "elevenlabs", name: "ElevenLabs" },
-                      { id: "cartesia", name: "Cartesia" },
-                      { id: "deepgram", name: "Deepgram" },
-                      { id: "fishaudio", name: "Fish Audio" },
-                      { id: "custom", name: "Custom" },
-                    ].map((p) => (
+                    {TTS_PROVIDERS.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => {
                           setSpeechProvider(p.id);
                           setDetectedSpeechModels([]);
-                          if (p.id === "gemini") {
-                            setSpeechModel("gemini-3.8-flash-tts");
-                            setSpeechVoice("Puck");
-                          } else if (p.id === "openai") {
-                            setSpeechModel("tts-1");
-                            setSpeechVoice("nova");
-                          } else if (p.id === "elevenlabs") {
-                            setSpeechModel("eleven_multilingual_v2");
-                            setSpeechVoice("21m00Tcm4TlvDq8ikWAM");
-                          } else if (p.id === "cartesia") {
-                            setSpeechModel("sonic-3.6");
-                            setSpeechVoice("a0e99841-438c-4a64-b679-ae501e7d6091");
-                          } else if (p.id === "deepgram") {
-                            setSpeechModel("aura-2-thalia-en");
-                            setSpeechVoice("aura-2-thalia-en");
-                          } else if (p.id === "fishaudio") {
-                            setSpeechModel("s2.1-pro");
-                            setSpeechVoice("");
-                          } else if (p.id === "custom") {
-                            setSpeechModel("tts-1");
-                            setSpeechVoice("alloy");
-                          }
+                          const cfg = getTTSProvider(p.id);
+                          setSpeechModel(cfg.defaultModel);
+                          setSpeechVoice(cfg.defaultVoice);
                         }}
                         className={`h-10 px-2 rounded-xl border text-center font-bold text-xs transition-all flex items-center justify-center ${
                           speechProvider === p.id
@@ -988,6 +945,29 @@ export default function OnboardingPage() {
                         className="text-xs rounded-xl font-mono"
                       />
                     </div>
+
+                    {(() => {
+                      const cfg = getTTSProvider(speechProvider);
+                      if (!cfg.voices || cfg.voices.length === 0) return null;
+                      return (
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-foreground">
+                            Voice Persona
+                          </label>
+                          <select
+                            value={speechVoice}
+                            onChange={(e) => setSpeechVoice(e.target.value)}
+                            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {cfg.voices.map((v) => (
+                              <option key={v.value} value={v.value}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1025,24 +1005,16 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { id: "gemini", name: "Gemini" },
-                      { id: "groq", name: "Groq (Whisper)" },
-                      { id: "openai", name: "OpenAI (Whisper)" },
-                      { id: "custom", name: "Custom" },
-                    ].map((p) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {STT_PROVIDERS.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          const newP = p.id as any;
-                          setTranscribeProvider(newP);
+                          setTranscribeProvider(p.id);
                           setDetectedTranscribeModels([]);
-                          if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
-                          else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
-                          else if (newP === "openai") setTranscribeModel("whisper-1");
-                          else if (newP === "custom") setTranscribeModel("whisper-1");
+                          const cfg = getSTTProvider(p.id);
+                          setTranscribeModel(cfg.defaultModel);
                         }}
                         className={`h-10 px-2 rounded-xl border text-center font-bold text-xs transition-all flex items-center justify-center ${
                           transcribeProvider === p.id

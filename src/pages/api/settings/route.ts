@@ -48,7 +48,7 @@ export const settingsSchema = z.object({
   speechAutoPlay: z.boolean().optional(),
   speechModel: z.string().optional(),
   // Speech-to-Text / Transcription settings
-  transcribeProvider: z.enum(["same", "gemini", "groq", "openai", "custom"]).optional(),
+  transcribeProvider: z.enum(["same", "gemini", "groq", "openai", "deepgram", "custom"]).optional(),
   transcribeApiKey: z.string().optional(),
   transcribeBaseUrl: z.string().optional(),
   transcribeModel: z.string().optional(),
@@ -140,7 +140,7 @@ export const pickSettings = (
     speechAutoPlay: typeof data.speechAutoPlay === "boolean" ? data.speechAutoPlay : true,
     speechModel: ((data.speechModel as string) ?? "").trim(),
     // Speech-to-Text / Microphone Transcription (STT)
-    transcribeProvider: (data.transcribeProvider === "same" || !data.transcribeProvider ? "gemini" : (data.transcribeProvider as string)) as "gemini" | "groq" | "openai" | "custom",
+    transcribeProvider: (data.transcribeProvider === "same" || !data.transcribeProvider ? "gemini" : (data.transcribeProvider as string)) as "gemini" | "groq" | "openai" | "deepgram" | "custom",
     transcribeApiKey: ((data.transcribeApiKey as string) ?? "").trim(),
     transcribeBaseUrl: ((data.transcribeBaseUrl as string) ?? "").trim(),
     transcribeModel: ((data.transcribeModel as string) ?? "").trim(),

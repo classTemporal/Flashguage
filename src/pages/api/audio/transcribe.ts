@@ -52,6 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         speechApiKey = (userSettings.groqKey || userSettings.speechApiKey || "").trim();
       } else if (speechProvider === "openai") {
         speechApiKey = (userSettings.openaiKey || userSettings.speechApiKey || userSettings.aiApiKey || "").trim();
+      } else if (speechProvider === "deepgram") {
+        speechApiKey = (userSettings.deepgramKey || userSettings.transcribeApiKey || userSettings.speechApiKey || process.env.DEEPGRAM_API_KEY || "").trim();
       } else if (speechProvider === "custom") {
         speechApiKey = (userSettings.customApiKey || userSettings.speechApiKey || "").trim();
       } else {
@@ -66,6 +68,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         speechModel = "gemini-3.5-flash";
       } else if (speechProvider === "groq") {
         speechModel = "whisper-large-v3-turbo";
+      } else if (speechProvider === "deepgram") {
+        speechModel = "nova-3";
       } else if (speechProvider === "openai" || speechProvider === "custom") {
         speechModel = "whisper-1";
       }
@@ -261,7 +265,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ text: result.text || "", provider: "openai" });
     }
 
-    // 4. Custom OpenAI-compatible Speech Server (LocalAI, Faster-Whisper, LiteLLM, etc.)
+    // 4. Deepgram Nova Speech-to-Text Integration
+    if (speechProvider === "deepgram") {
+      const model = speechModel || "nova-3";
+      const audioBuffer = Buffer.from(cleanBase64, "base64");
+      const langParam = language ? `&language=${encodeURIComponent(language.slice(0, 2).toLowerCase())}` : "";
+      const deepgramUrl = `https://api.deepgram.com/v1/listen?model=${encodeURIComponent(model)}&smart_format=true${langParam}`;
+
+      const dgRes = await fetch(deepgramUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${speechApiKey}`,
+          "Content-Type": cleanMime || "audio/webm",
+        },
+        body: audioBuffer,
+      });
+
+      if (!dgRes.ok) {
+        let errText = await dgRes.text();
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed?.err_msg || parsed?.error?.message || parsed?.error) {
+            errText = parsed.err_msg || parsed.error?.message || parsed.error;
+          }
+        } catch {}
+        if (errText.length > 200) {
+          errText = errText.slice(0, 197) + "...";
+        }
+        return res.status(400).json({ error: `Deepgram Speech API error (${dgRes.status}): ${errText}` });
+      }
+
+      const result = await dgRes.json();
+      const transcript =
+        result.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+      return res.status(200).json({ text: transcript.trim(), provider: "deepgram" });
+    }
+
+    // 5. Custom OpenAI-compatible Speech Server (LocalAI, Faster-Whisper, LiteLLM, etc.)
     if (speechProvider === "custom") {
       const baseUrl = (userSettings.transcribeBaseUrl || userSettings.speechBaseUrl || "").trim();
       if (!baseUrl) {
@@ -315,7 +355,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(400).json({
-      error: `The selected speech provider (${speechProvider}) does not support microphone transcription in this browser. Please select OpenAI, Gemini, Groq, or a custom server in Settings.`,
+      error: `The selected speech provider (${speechProvider}) does not support microphone transcription in this browser. Please select OpenAI, Gemini, Groq, Deepgram, or a custom server in Settings.`,
     });
   } catch (error: any) {
     console.error("[Transcribe Handler Error]:", error);

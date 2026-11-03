@@ -159,23 +159,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       case "deepgram": {
-        models = [
-          "aura-2-thalia-en",
-          "aura-2-andromeda-en",
-          "aura-2-helena-en",
-          "aura-asteria-en",
-          "aura-luna-en",
-          "aura-stella-en",
-          "aura-athena-en",
-          "aura-hera-en",
-          "aura-orion-en",
-          "aura-arcas-en",
-          "aura-perseus-en",
-          "aura-angus-en",
-          "aura-orpheus-en",
-          "aura-helios-en",
-          "aura-zeus-en",
-        ];
+        if (isStt) {
+          models = [
+            "nova-3",
+            "nova-3-general",
+            "nova-2",
+            "nova-2-general",
+            "nova-2-meeting",
+            "nova-2-phonecall",
+            "enhanced",
+            "base",
+          ];
+        } else {
+          models = [
+            "aura-2-thalia-en",
+            "aura-2-andromeda-en",
+            "aura-2-helena-en",
+            "aura-asteria-en",
+            "aura-luna-en",
+            "aura-stella-en",
+            "aura-athena-en",
+            "aura-hera-en",
+            "aura-orion-en",
+            "aura-arcas-en",
+            "aura-perseus-en",
+            "aura-angus-en",
+            "aura-orpheus-en",
+            "aura-helios-en",
+            "aura-zeus-en",
+          ];
+        }
         break;
       }
 

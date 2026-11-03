@@ -16,9 +16,19 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { playCardSpeech } from "@/lib/speech";
 
+import {
+  TTSProviderId,
+  STTProviderId,
+  TTS_PROVIDERS,
+  STT_PROVIDERS,
+  getTTSProvider,
+  getSTTProvider,
+  fetchSpeechModels,
+} from "@/lib/speech-config";
+
 export type AIProvider = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
-export type SpeechProvider = "browser" | "gemini" | "openai" | "elevenlabs" | "cartesia" | "deepgram" | "fishaudio" | "custom";
-export type TranscribeProvider = "gemini" | "groq" | "openai" | "custom";
+export type SpeechProvider = TTSProviderId;
+export type TranscribeProvider = STTProviderId;
 
 interface SettingsData {
   name?: string;
@@ -713,25 +723,13 @@ export default function SettingsPage() {
 
     setDetectingSpeechModels(true);
     try {
-      const params = new URLSearchParams({
-        provider: speechProvider,
-        mode: "tts",
-      });
-      if (speechApiKey.trim()) params.set("apiKey", speechApiKey.trim());
-      if (speechBaseUrl.trim()) params.set("baseUrl", speechBaseUrl.trim());
-
-      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect TTS models (${res.status})`);
-      }
-      const data = await res.json();
-      if (data.models && data.models.length > 0) {
-        setDetectedSpeechModels(data.models);
-        if (!speechModel || !data.models.includes(speechModel)) {
-          setSpeechModel(data.models[0]);
+      const models = await fetchSpeechModels(speechProvider, speechApiKey, speechBaseUrl, "tts");
+      if (models.length > 0) {
+        setDetectedSpeechModels(models);
+        if (!speechModel || !models.includes(speechModel)) {
+          setSpeechModel(models[0]);
         }
-        showToast(`Found ${data.models.length} TTS models`, "success");
+        showToast(`Found ${models.length} TTS models`, "success");
       } else {
         setDetectedSpeechModels([]);
         showToast("No TTS models found for this provider", "error");
@@ -756,25 +754,13 @@ export default function SettingsPage() {
 
     setDetectingTranscribeModels(true);
     try {
-      const params = new URLSearchParams({
-        provider: transcribeProvider,
-        mode: "stt",
-      });
-      if (transcribeApiKey.trim()) params.set("apiKey", transcribeApiKey.trim());
-      if (transcribeBaseUrl.trim()) params.set("baseUrl", transcribeBaseUrl.trim());
-
-      const res = await fetch(`/api/ai/speech-models?${params.toString()}`);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to detect STT models (${res.status})`);
-      }
-      const data = await res.json();
-      if (data.models && data.models.length > 0) {
-        setDetectedTranscribeModels(data.models);
-        if (!transcribeModel || !data.models.includes(transcribeModel)) {
-          setTranscribeModel(data.models[0]);
+      const models = await fetchSpeechModels(transcribeProvider, transcribeApiKey, transcribeBaseUrl, "stt");
+      if (models.length > 0) {
+        setDetectedTranscribeModels(models);
+        if (!transcribeModel || !models.includes(transcribeModel)) {
+          setTranscribeModel(models[0]);
         }
-        showToast(`Found ${data.models.length} speech recognition models`, "success");
+        showToast(`Found ${models.length} speech recognition models`, "success");
       } else {
         setDetectedTranscribeModels([]);
         showToast("No speech recognition models found for this provider", "error");
@@ -1247,39 +1233,11 @@ export default function SettingsPage() {
                     const newProvider = e.target.value as SpeechProvider;
                     setSpeechProvider(newProvider);
                     setDetectedSpeechModels([]);
-                    if (newProvider === "openai") {
-                      setSpeechModel("tts-1");
-                      setSpeechVoice("nova");
-                    } else if (newProvider === "gemini") {
-                      setSpeechModel("gemini-3.8-flash-tts");
-                      setSpeechVoice("Puck");
-                    } else if (newProvider === "elevenlabs") {
-                      setSpeechModel("eleven_multilingual_v2");
-                      setSpeechVoice("21m00Tcm4TlvDq8ikWAM");
-                    } else if (newProvider === "cartesia") {
-                      setSpeechModel("sonic-3.6");
-                      setSpeechVoice("a0e99841-438c-4a64-b679-ae501e7d6091");
-                    } else if (newProvider === "deepgram") {
-                      setSpeechModel("aura-2-thalia-en");
-                      setSpeechVoice("aura-2-thalia-en");
-                    } else if (newProvider === "fishaudio") {
-                      setSpeechModel("s2.1-pro");
-                      setSpeechVoice("");
-                    } else if (newProvider === "custom") {
-                      setSpeechModel("tts-1");
-                      setSpeechVoice("alloy");
-                    }
+                    const cfg = getTTSProvider(newProvider);
+                    setSpeechModel(cfg.defaultModel);
+                    setSpeechVoice(cfg.defaultVoice);
                   }}
-                  options={[
-                    { value: "browser", label: "Browser Web Speech (Free / Universal Cloud Audio / No API Key required)" },
-                    { value: "gemini", label: "Google Gemini TTS (Ultra-Realistic Neural Audio)" },
-                    { value: "openai", label: "OpenAI TTS (tts-1 / tts-1-hd)" },
-                    { value: "elevenlabs", label: "ElevenLabs (Generative Voice Synthesis)" },
-                    { value: "cartesia", label: "Cartesia (Sonic ultra-fast & expressive TTS)" },
-                    { value: "deepgram", label: "Deepgram (Aura / Aura-2 low-latency voice)" },
-                    { value: "fishaudio", label: "Fish Audio (Leading multilingual voice clone & synthesis)" },
-                    { value: "custom", label: "Custom (OpenAI-Compatible Local / Self-Hosted Server)" },
-                  ]}
+                  options={TTS_PROVIDERS.map((p) => ({ value: p.id, label: p.label }))}
                   hint="Select which engine Flashguage should use for pronouncing words and conversation audio."
                 />
               </div>
@@ -1390,70 +1348,22 @@ export default function SettingsPage() {
                       </p>
                     </div>
 
-                    {(speechProvider === "openai" || speechProvider === "elevenlabs" || speechProvider === "gemini" || speechProvider === "cartesia" || speechProvider === "deepgram" || speechProvider === "fishaudio") && (
-                      <div>
-                        <Select
-                          id="speech-voice"
-                          label="Voice Persona"
-                          value={speechVoice}
-                          onChange={(e) => setSpeechVoice(e.target.value)}
-                          options={
-                            speechProvider === "gemini"
-                              ? [
-                                  { value: "Puck", label: "Puck (Neutral • Natural & conversational — Recommended)" },
-                                  { value: "Aoede", label: "Aoede (Female • Clear & expressive)" },
-                                  { value: "Charon", label: "Charon (Male • Deep & calm)" },
-                                  { value: "Kore", label: "Kore (Female • Warm & friendly)" },
-                                  { value: "Fenrir", label: "Fenrir (Male • Authoritative & confident)" },
-                                ]
-                              : speechProvider === "openai"
-                              ? [
-                                  { value: "nova", label: "Nova (Female • Energetic & natural — Recommended)" },
-                                  { value: "alloy", label: "Alloy (Neutral • Balanced & versatile)" },
-                                  { value: "echo", label: "Echo (Male • Warm, calm & confident)" },
-                                  { value: "fable", label: "Fable (British Accent • Expressive)" },
-                                  { value: "onyx", label: "Onyx (Male • Deep & authoritative)" },
-                                  { value: "shimmer", label: "Shimmer (Female • Clear & resonant)" },
-                                ]
-                              : speechProvider === "cartesia"
-                              ? [
-                                  { value: "a0e99841-438c-4a64-b679-ae501e7d6091", label: "Barbershop Man (Male • Warm & rich — Recommended)" },
-                                  { value: "79a125e8-cd45-4c13-8a67-188112f4dd22", label: "British Lady (Female • Clear & articulate)" },
-                                  { value: "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4", label: "Sarah (Female • Natural & conversational)" },
-                                  { value: "694f12bc-926e-473d-9d41-382a513c9a63", label: "Doctor (Male • Calm & informative)" },
-                                  { value: "248be419-c632-4f23-adf1-5324ed7dbf10", label: "Classy Lady (Female • Expressive)" },
-                                ]
-                              : speechProvider === "deepgram"
-                              ? [
-                                  { value: "aura-2-thalia-en", label: "Thalia (Aura-2 • Female • Conversational — Recommended)" },
-                                  { value: "aura-2-andromeda-en", label: "Andromeda (Aura-2 • Female • Casual & expressive)" },
-                                  { value: "aura-2-helena-en", label: "Helena (Aura-2 • Female • Bright & professional)" },
-                                  { value: "aura-asteria-en", label: "Asteria (Aura-1 • Female • Clear & natural)" },
-                                  { value: "aura-luna-en", label: "Luna (Aura-1 • Female • Calm & soothing)" },
-                                  { value: "aura-stella-en", label: "Stella (Aura-1 • Female • Warm & friendly)" },
-                                  { value: "aura-orion-en", label: "Orion (Aura-1 • Male • Deep & resonant)" },
-                                  { value: "aura-arcas-en", label: "Arcas (Aura-1 • Male • Crisp & clear)" },
-                                  { value: "aura-perseus-en", label: "Perseus (Aura-1 • Male • Warm & conversational)" },
-                                ]
-                              : speechProvider === "fishaudio"
-                              ? [
-                                  { value: "", label: "Default / Account Voice" },
-                                  { value: "80244799014545089f2a96a1a49f7b1b", label: "Energy Male (Dynamic & clear)" },
-                                  { value: "e58d095908f948f0a00e21f78c9d4b8f", label: "Gentle Female (Soft & clear)" },
-                                ]
-                              : [
-                                  { value: "21m00Tcm4TlvDq8ikWAM", label: "Rachel (Female • Calm & natural)" },
-                                  { value: "AZnzlk1XvdvUeBnXmlld", label: "Domi (Female • Strong & engaging)" },
-                                  { value: "EXAVITQu4vr4xnSDxMaL", label: "Bella (Female • Soft & pleasant)" },
-                                  { value: "ErXwobaYiN019PkySvjV", label: "Antoni (Male • Warm & friendly)" },
-                                  { value: "MF3mGyEYCl7XYWbV9V6O", label: "Elli (Female • Clear & youthful)" },
-                                  { value: "TxGEqnHWrfWFTfGW9XjX", label: "Josh (Male • Conversational)" },
-                                ]
-                          }
-                          hint="Voice timbre and speaker persona for audio playback."
-                        />
-                      </div>
-                    )}
+                    {(() => {
+                      const cfg = getTTSProvider(speechProvider);
+                      if (!cfg.voices || cfg.voices.length === 0) return null;
+                      return (
+                        <div>
+                          <Select
+                            id="speech-voice"
+                            label="Voice Persona"
+                            value={speechVoice}
+                            onChange={(e) => setSpeechVoice(e.target.value)}
+                            options={cfg.voices}
+                            hint="Voice timbre and speaker persona for audio playback."
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1541,17 +1451,10 @@ export default function SettingsPage() {
                     const newP = e.target.value as TranscribeProvider;
                     setTranscribeProvider(newP);
                     setDetectedTranscribeModels([]);
-                    if (newP === "gemini") setTranscribeModel("gemini-3.5-flash");
-                    else if (newP === "groq") setTranscribeModel("whisper-large-v3-turbo");
-                    else if (newP === "openai") setTranscribeModel("whisper-1");
-                    else if (newP === "custom") setTranscribeModel("whisper-1");
+                    const cfg = getSTTProvider(newP);
+                    setTranscribeModel(cfg.defaultModel);
                   }}
-                  options={[
-                    { value: "gemini", label: "Google Gemini (Multimodal Audio Transcription)" },
-                    { value: "groq", label: "Groq (Ultra-Fast Whisper STT)" },
-                    { value: "openai", label: "OpenAI (Whisper Speech-to-Text)" },
-                    { value: "custom", label: "Custom (OpenAI-compatible Whisper / Local Server)" },
-                  ]}
+                  options={STT_PROVIDERS.map((p) => ({ value: p.id, label: p.label }))}
                   hint="Choose which provider transcribes your microphone when practicing pronunciation or dictating answers."
                 />
               </div>
