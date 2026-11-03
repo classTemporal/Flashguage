@@ -110,25 +110,7 @@ export function QuickAddCardModal({
   const [manualDefinitions, setManualDefinitions] = useState<DefinitionOption[]>([]);
   const [isManualLookup, setIsManualLookup] = useState(false);
 
-  // Initialize from initialPrompt and initialTab when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      if (initialTab) {
-        setTab(initialTab);
-      }
-      if (initialPrompt && initialPrompt.trim()) {
-        const clean = initialPrompt.trim();
-        if (initialTab === "manual") {
-          setFront(clean);
-        } else {
-          setAiPrompt(clean);
-          handleSearchDefinitions(undefined, false, clean);
-        }
-      }
-    }
-  }, [isOpen, initialPrompt, initialTab]);
 
-  if (!isOpen || !mounted) return null;
 
   // Speak word using Web Speech API with deck target language
   const handleSpeak = (text: string) => {
@@ -544,6 +526,24 @@ export function QuickAddCardModal({
     }
   };
 
+  // Initialize from initialPrompt and initialTab when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTab) {
+        setTab(initialTab);
+      }
+      if (initialPrompt && initialPrompt.trim()) {
+        const clean = initialPrompt.trim();
+        if (initialTab === "manual") {
+          setFront(clean);
+        } else {
+          setAiPrompt(clean);
+          handleSearchDefinitions(undefined, false, clean);
+        }
+      }
+    }
+  }, [isOpen, initialPrompt, initialTab]);
+
   const handleClose = () => {
     setAiPrompt("");
     setDefinitionOptions([]);
@@ -560,6 +560,8 @@ export function QuickAddCardModal({
     setManualDefinitions([]);
     onClose();
   };
+
+  if (!isOpen || !mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
