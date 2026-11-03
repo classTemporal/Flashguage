@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface WordActionPopoverProps {
   word: string;
@@ -22,6 +23,11 @@ export function WordActionPopover({
   onPlayAudio,
 }: WordActionPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -41,16 +47,16 @@ export function WordActionPopover({
     };
   }, [onClose]);
 
-  if (!position || !word.trim()) return null;
+  if (!mounted || !position || !word.trim()) return null;
 
-  return (
+  return createPortal(
     <div
       ref={popoverRef}
       style={{
         position: "fixed",
         left: `${position.x}px`,
         top: `${position.y}px`,
-        zIndex: 9999,
+        zIndex: 99999,
       }}
       className="w-56 rounded-2xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 text-foreground"
     >
@@ -60,7 +66,7 @@ export function WordActionPopover({
           <button
             type="button"
             onClick={() => onPlayAudio?.(word)}
-            className="flex items-center gap-1 text-xs font-black text-primary hover:text-primary/80 transition-colors truncate"
+            className="flex items-center gap-1 text-xs font-black text-primary hover:text-primary/80 transition-colors truncate cursor-pointer"
             title={`Replay pronunciation for "${word}"`}
           >
             <span>🔊</span>
@@ -70,7 +76,7 @@ export function WordActionPopover({
         <button
           type="button"
           onClick={onClose}
-          className="w-5 h-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted text-xs transition-colors shrink-0"
+          className="w-5 h-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted text-xs transition-colors shrink-0 cursor-pointer"
           aria-label="Close"
         >
           ✕
@@ -85,7 +91,7 @@ export function WordActionPopover({
             onAddAI(word);
             onClose();
           }}
-          className="w-full rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-start gap-2"
+          className="w-full rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-start gap-2 cursor-pointer"
         >
           <span>✨</span>
           <span>Add to Deck with AI</span>
@@ -97,7 +103,7 @@ export function WordActionPopover({
             onAddManual(word);
             onClose();
           }}
-          className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted active:scale-[0.98] transition-all flex items-center justify-start gap-2"
+          className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted active:scale-[0.98] transition-all flex items-center justify-start gap-2 cursor-pointer"
         >
           <span>✏️</span>
           <span>Create Custom (Manual)</span>
@@ -107,6 +113,7 @@ export function WordActionPopover({
       <div className="pt-2 text-[10px] text-muted-foreground/80 text-center font-medium">
         Click to study or add word
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

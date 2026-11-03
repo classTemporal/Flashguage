@@ -55,14 +55,16 @@ export function ExampleCarousel({
   const next = () => setIdx((i) => (i + 1) % examples.length);
 
   const sentence = examples[idx] || "";
+  const cleanFullSentence = sentence.replace(/_{2,}/g, vocab);
 
   const handleListen = (s: string) => {
     setListenedIndices((prevMap) => ({ ...prevMap, [idx]: true }));
-    onSpeakSentence?.(s);
+    const speechText = s.replace(/_{2,}/g, vocab);
+    onSpeakSentence?.(speechText);
   };
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-border/80 bg-card/60 backdrop-blur shadow-sm p-4 space-y-2.5">
+    <div className="relative rounded-2xl border border-border/80 bg-card/60 backdrop-blur shadow-sm p-4 space-y-2.5">
       <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
         <span className="flex items-center gap-1.5">
           <span>📖</span> Context Example {examples.length > 1 ? `(${idx + 1}/${examples.length})` : ""}
@@ -70,7 +72,7 @@ export function ExampleCarousel({
         <div className="flex items-center gap-2">
           {revealed && onSpeakSentence && sentence && (
             <button
-              onClick={() => handleListen(sentence)}
+              onClick={() => handleListen(cleanFullSentence)}
               className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded-full cursor-pointer"
               title="Listen to full sentence"
             >
@@ -103,7 +105,7 @@ export function ExampleCarousel({
         {revealed ? (
           listenedIndices[idx] ? (
             <PhoneticSentence
-              text={sentence.includes("___") ? sentence.replace(/_{3,}/g, vocab) : sentence}
+              text={cleanFullSentence}
               isRevealed={true}
               deckId={deckId}
               lang={lang}
@@ -111,18 +113,23 @@ export function ExampleCarousel({
             />
           ) : (
             <InteractiveSentence
-              text={sentence.includes("___") ? sentence.replace(/_{3,}/g, vocab) : sentence}
+              text={cleanFullSentence}
               highlightWord={vocab}
               deckId={deckId}
               lang={lang}
               className="text-sm text-foreground leading-relaxed"
             />
           )
-        ) : sentence.includes("___") ? (
-          <span>
-            {sentence.split(/_{3,}/).map((part, i, arr) => (
+        ) : sentence.includes("___") || /_{2,}/.test(sentence) ? (
+          <div>
+            {sentence.split(/_{2,}/).map((part, i, arr) => (
               <span key={i}>
-                {part}
+                <InteractiveSentence
+                  inline
+                  text={part}
+                  deckId={deckId}
+                  lang={lang}
+                />
                 {i < arr.length - 1 && (
                   <span className="font-mono text-primary font-bold tracking-wider bg-primary/10 px-2 py-0.5 rounded mx-1">
                     ______
@@ -130,9 +137,9 @@ export function ExampleCarousel({
                 )}
               </span>
             ))}
-          </span>
+          </div>
         ) : (
-          blankOutVocab(sentence, vocab)
+          <div>{blankOutVocab(sentence, vocab)}</div>
         )}
       </div>
 

@@ -12,6 +12,7 @@ interface InteractiveSentenceProps {
   className?: string;
   wordClassName?: string;
   highlightWord?: string;
+  inline?: boolean;
   onAddWord?: (word: string, mode: "ai" | "manual") => void;
   onWordSpoken?: (word: string) => void;
 }
@@ -23,6 +24,7 @@ export function InteractiveSentence({
   className = "",
   wordClassName = "",
   highlightWord,
+  inline = false,
   onAddWord,
   onWordSpoken,
 }: InteractiveSentenceProps) {
@@ -54,11 +56,16 @@ export function InteractiveSentence({
       // 2. Open popover anchored near the clicked word
       const rect = e.currentTarget.getBoundingClientRect();
       const popoverWidth = 230;
+      const popoverHeight = 150;
       const x = Math.min(
         window.innerWidth - popoverWidth - 12,
         Math.max(12, rect.left + rect.width / 2 - popoverWidth / 2)
       );
-      const y = rect.bottom + 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const y =
+        spaceBelow < popoverHeight + 16
+          ? Math.max(10, rect.top - popoverHeight - 8)
+          : rect.bottom + 8;
 
       setPopover({
         word: cleanWord,
@@ -112,9 +119,11 @@ export function InteractiveSentence({
   const tokens = text.split(/([\p{L}\p{N}'’\-]+)/u);
   const cleanHighlight = highlightWord?.trim().toLowerCase();
 
+  const Tag = inline ? "span" : "div";
+
   return (
     <>
-      <span className={className}>
+      <Tag className={className}>
         {tokens.map((token, idx) => {
           const cleanWord = token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").trim();
           const isWord = cleanWord.length > 0 && /[\p{L}\p{N}]/u.test(cleanWord);
@@ -142,7 +151,7 @@ export function InteractiveSentence({
             </span>
           );
         })}
-      </span>
+      </Tag>
 
       {/* Popover */}
       {popover && (

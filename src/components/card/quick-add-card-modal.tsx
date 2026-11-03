@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -48,7 +49,12 @@ export function QuickAddCardModal({
   onCardAdded,
 }: QuickAddCardModalProps) {
   const { showToast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<ModalTab>(initialTab || "ai");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // User decks for target deck selection (needed when deckId is undefined or "all")
   const { data: userDecks } = useSWR<DeckOption[]>(
@@ -122,7 +128,7 @@ export function QuickAddCardModal({
     }
   }, [isOpen, initialPrompt, initialTab]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Speak word using Web Speech API with deck target language
   const handleSpeak = (text: string) => {
@@ -555,7 +561,7 @@ export function QuickAddCardModal({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-xl rounded-3xl border border-border bg-card shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
         {/* Header */}
@@ -1076,6 +1082,7 @@ export function QuickAddCardModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

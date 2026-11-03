@@ -824,13 +824,15 @@ export default function StudySessionPage({
             </div>
 
             {/* Definition */}
-            <PhoneticSentence
-              text={card.back}
-              lang={deckLang}
-              isRevealed={hasListenedDefinition}
-              deckId={deckId as string}
-              className="text-lg sm:text-xl font-medium text-foreground leading-snug"
-            />
+            <div className="pt-2 sm:pt-3 pb-1">
+              <PhoneticSentence
+                text={card.back}
+                lang={deckLang}
+                isRevealed={hasListenedDefinition}
+                deckId={deckId as string}
+                className="text-lg sm:text-xl font-medium text-foreground leading-snug"
+              />
+            </div>
 
             {/* Audio button for question phase: reads definition, NEVER the target word! */}
             <div className="flex items-center gap-3 pt-1">

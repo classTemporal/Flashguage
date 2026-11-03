@@ -60,11 +60,16 @@ export function PhoneticSentence({
 
       const rect = e.currentTarget.getBoundingClientRect();
       const popoverWidth = 230;
+      const popoverHeight = 150;
       const x = Math.min(
         window.innerWidth - popoverWidth - 12,
         Math.max(12, rect.left + rect.width / 2 - popoverWidth / 2)
       );
-      const y = rect.bottom + 8;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const y =
+        spaceBelow < popoverHeight + 16
+          ? Math.max(10, rect.top - popoverHeight - 8)
+          : rect.bottom + 8;
 
       setPopover({
         word: cleanWord,
