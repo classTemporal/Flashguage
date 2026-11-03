@@ -10,7 +10,12 @@ interface PronunciationCheckerProps {
 }
 
 function cleanString(str: string): string {
-  return str.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
+  // Strip punctuation and symbols, collapse whitespace, and trim.
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, "") // remove non-alphanumeric characters
+    .replace(/\s+/g, " ") // collapse spaces
+    .trim();
 }
 
 function levenshteinDistance(s1: string, s2: string): number {

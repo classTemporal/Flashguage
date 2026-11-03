@@ -65,6 +65,16 @@ function speakText(text: string, langCode: string = "en") {
   speakInLanguage(text, langCode);
 }
 
+/** Fisher-Yates shuffle – returns a new shuffled array */
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // ─── getServerSideProps ───────────────────────────────────────────────────────
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -205,6 +215,9 @@ export default function StudySessionPage({
   const [queue, setQueue] = useState<Review[]>([]);
   const [queueInitialized, setQueueInitialized] = useState(false);
 
+  // ── Session seed for randomizing exercise types per session ──
+  const sessionSeedRef = useRef(Math.random());
+
   // ── Session stats ──
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -236,7 +249,8 @@ export default function StudySessionPage({
   // Initialise local queue when SWR returns or restore from offline storage
   useEffect(() => {
     if (Array.isArray(reviews) && !queueInitialized) {
-      setQueue([...reviews]);
+      // Shuffle exercise order each session for better learning
+      setQueue(shuffleArray(reviews));
       setQueueInitialized(true);
       try {
         if (effectiveDeckId && reviews.length > 0) {
@@ -524,12 +538,16 @@ export default function StudySessionPage({
     if (practiceFlavor === "recall") return false;
     if (practiceFlavor === "spelling") return true;
     if (!card) return false;
+    // Mix card id hash with session-unique seed so the exercise type
+    // varies between sessions (not always the same cards as spelling)
     let hash = 0;
     for (let i = 0; i < card.id.length; i++) {
       hash = (hash << 5) - hash + card.id.charCodeAt(i);
       hash |= 0;
     }
-    return Math.abs(hash) % 2 === 1;
+    const seed = sessionSeedRef.current;
+    const mixed = Math.abs(hash) * 2654435761 + Math.floor(seed * 1000000);
+    return (mixed >>> 0) % 3 !== 0; // ~67% spelling, ~33% recall per session
   }, [practiceFlavor, card]);
 
   // Reveal answer handler (explicit user action: Show Answer / Reveal / Spacebar)
@@ -546,8 +564,10 @@ export default function StudySessionPage({
 
   const handleCheckSpelling = useCallback(() => {
     if (!card) return;
-    const cleanTyped = typedAnswer.trim().toLowerCase();
-    const cleanFront = card.front.trim().toLowerCase();
+    // Strip punctuation and symbols for robust matching (e.g. "Pluck." === "pluck")
+    const stripPunctuation = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, "").replace(/\s+/g, " ").trim();
+    const cleanTyped = stripPunctuation(typedAnswer);
+    const cleanFront = stripPunctuation(card.front);
 
     if (cleanTyped === cleanFront) {
       setTypingResult("correct");
