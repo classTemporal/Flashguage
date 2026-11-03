@@ -279,15 +279,17 @@ export async function playCardSpeech(
 export interface CaptureSpeechOptions {
   languageCode?: string;
   maxDurationSeconds?: number;
+  targetWord?: string;
   onListeningStart?: () => void;
   onProcessingStart?: () => void;
   onListeningEnd?: () => void;
 }
 
 /**
- * Universal speech recognizer that works in ALL browsers:
- * - Uses native Web Speech API if supported (Chrome, Safari, Edge).
- * - Falls back seamlessly to MediaRecorder + Whisper API for Firefox and other browsers.
+ * Universal speech recognizer:
+ * 1. Primary: Uses MediaRecorder + user-configured AI STT backend (Groq Whisper, Gemini, Deepgram, OpenAI)
+ *    conditioned on targetWord for high-precision vocabulary recognition.
+ * 2. Fallback: Browser native SpeechRecognition (Chrome, Safari) if getUserMedia is not supported or offline.
  */
 export class UniversalSpeechRecognizer {
   private mediaRecorder: MediaRecorder | null = null;
@@ -300,11 +302,119 @@ export class UniversalSpeechRecognizer {
     onResult: (text: string) => void,
     onError: (err: string) => void
   ): Promise<() => void> {
+    // Strategy 1: MediaRecorder + Backend AI Speech-to-Text (Groq Whisper / Gemini / Deepgram / OpenAI)
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false, // Don't mute short or low volume single-word vocalizations
+            autoGainControl: true,
+          },
+        });
+        this.stream = stream;
+
+        const mimeType =
+          typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+            ? "audio/webm;codecs=opus"
+            : typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+            ? "audio/ogg;codecs=opus"
+            : "audio/webm";
+
+        const recorder = new MediaRecorder(stream);
+        this.mediaRecorder = recorder;
+        const chunks: Blob[] = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstart = () => {
+          options.onListeningStart?.();
+        };
+
+        recorder.onstop = async () => {
+          options.onProcessingStart?.();
+          try {
+            stream.getTracks().forEach((track) => track.stop());
+          } catch {}
+
+          if (chunks.length === 0) {
+            options.onListeningEnd?.();
+            onError("No audio recorded.");
+            return;
+          }
+
+          const blob = new Blob(chunks, { type: mimeType });
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Audio = reader.result as string;
+            try {
+              const res = await fetch("/api/audio/transcribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  audio: base64Audio,
+                  mimeType,
+                  language: options.languageCode || "en",
+                  targetWord: options.targetWord,
+                }),
+              });
+
+              const data = await res.json();
+              if (!res.ok || data.error) {
+                options.onListeningEnd?.();
+                onError(data.error || "Failed to transcribe audio.");
+                return;
+              }
+              onResult(data.text || "");
+              options.onListeningEnd?.();
+            } catch (fetchErr: any) {
+              options.onListeningEnd?.();
+              if (typeof navigator !== "undefined" && !navigator.onLine) {
+                onError("Offline. Connect to the internet to transcribe speech.");
+              } else {
+                onError(fetchErr?.message || "Transcription network error.");
+              }
+            }
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        recorder.start(100);
+
+        const maxDuration = (options.maxDurationSeconds || 8) * 1000;
+        this.timer = setTimeout(() => {
+          if (recorder.state === "recording") {
+            try {
+              recorder.stop();
+            } catch {}
+          }
+        }, maxDuration);
+
+        return () => {
+          if (this.timer) clearTimeout(this.timer);
+          if (recorder.state === "recording") {
+            try {
+              recorder.stop();
+            } catch {}
+          }
+        };
+      } catch (mediaErr: any) {
+        if (mediaErr.name === "NotAllowedError" || mediaErr.name === "PermissionDeniedError") {
+          options.onListeningEnd?.();
+          onError("Microphone permission was denied. Please allow microphone access in your browser (check the permissions icon in the address bar).");
+          return () => {};
+        }
+        // If device not found or getUserMedia failed, attempt Web Speech API fallback below
+      }
+    }
+
+    // Strategy 2: Fallback to Native Web Speech API (if getUserMedia is not supported)
     const isNativeSupported =
       typeof window !== "undefined" &&
       ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
-    // Option A: Browser has native Web Speech API (Chrome, Safari, Edge)
     if (isNativeSupported) {
       try {
         const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -361,126 +471,13 @@ export class UniversalSpeechRecognizer {
           }
         };
       } catch (err: any) {
-        // Fall back to MediaRecorder below
-      }
-    }
-
-    // Option B: Firefox / Browser without native Web Speech API -> MediaRecorder + Whisper
-    if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: false, // Don't mute short or low volume vocalizations
-            autoGainControl: true,
-          },
-        });
-        this.stream = stream;
-
-        const mimeType =
-          typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-            ? "audio/webm;codecs=opus"
-            : typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-            ? "audio/ogg;codecs=opus"
-            : "audio/webm";
-
-        const recorder = new MediaRecorder(stream);
-        this.mediaRecorder = recorder;
-        const chunks: Blob[] = [];
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
-        };
-
-        recorder.onstart = () => {
-          options.onListeningStart?.();
-        };
-
-        recorder.onstop = async () => {
-          options.onProcessingStart?.();
-          try {
-            stream.getTracks().forEach((track) => track.stop());
-          } catch {}
-
-          if (chunks.length === 0) {
-            options.onListeningEnd?.();
-            onError("No audio recorded.");
-            return;
-          }
-
-          const blob = new Blob(chunks, { type: mimeType });
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const base64Audio = reader.result as string;
-            try {
-              const res = await fetch("/api/audio/transcribe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  audio: base64Audio,
-                  mimeType,
-                  language: options.languageCode || "en",
-                }),
-              });
-
-              const data = await res.json();
-              if (!res.ok || data.error) {
-                options.onListeningEnd?.();
-                onError(data.error || "Failed to transcribe audio.");
-                return;
-              }
-              onResult(data.text || "");
-              options.onListeningEnd?.();
-            } catch (fetchErr: any) {
-              options.onListeningEnd?.();
-              if (typeof navigator !== "undefined" && !navigator.onLine) {
-                onError("Offline. Connect to the internet to transcribe speech.");
-              } else {
-                onError(fetchErr?.message || "Transcription network error.");
-              }
-            }
-          };
-          reader.readAsDataURL(blob);
-        };
-
-        recorder.start(100);
-
-        const maxDuration = (options.maxDurationSeconds || 8) * 1000;
-        this.timer = setTimeout(() => {
-          if (recorder.state === "recording") {
-            try {
-              recorder.stop();
-            } catch {}
-          }
-        }, maxDuration);
-
-        return () => {
-          if (this.timer) clearTimeout(this.timer);
-          if (recorder.state === "recording") {
-            try {
-              recorder.stop();
-            } catch {}
-          }
-        };
-      } catch (mediaErr: any) {
         options.onListeningEnd?.();
-        if (mediaErr.name === "NotAllowedError" || mediaErr.name === "PermissionDeniedError") {
-          onError("Microphone permission was denied. Please allow microphone access in your browser (check the permissions icon in the address bar).");
-        } else if (
-          mediaErr.name === "NotFoundError" ||
-          mediaErr.name === "DevicesNotFoundError" ||
-          mediaErr.message?.toLowerCase().includes("not be found")
-        ) {
-          onError("No microphone detected. Please verify your microphone is plugged in, enabled in your system settings, and selected in your browser.");
-        } else if (mediaErr.name === "NotReadableError" || mediaErr.name === "TrackStartError") {
-          onError("Microphone is currently in use by another application or blocked by your system privacy settings.");
-        } else {
-          onError(`Microphone error: ${mediaErr?.message || "Unable to access microphone"}`);
-        }
+        onError("Failed to start voice recognition.");
         return () => {};
       }
     }
 
+    options.onListeningEnd?.();
     onError("Microphone is not supported in this browser.");
     return () => {};
   }

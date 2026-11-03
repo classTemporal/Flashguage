@@ -23,11 +23,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { audio, mimeType = "audio/webm", language = "en" } = req.body;
+    const { audio, mimeType = "audio/webm", language = "en", targetWord, prompt: customPrompt } = req.body;
 
     if (!audio || typeof audio !== "string") {
       return res.status(400).json({ message: "Audio data (base64) is required" });
     }
+
+    const cleanTargetWord = typeof targetWord === "string" ? targetWord.trim() : "";
+    const contextPrompt = cleanTargetWord
+      ? `Vocabulary pronunciation practice for the English word: "${cleanTargetWord}".`
+      : typeof customPrompt === "string" && customPrompt.trim()
+      ? customPrompt.trim()
+      : "English vocabulary practice, single word or sentence dictation.";
 
     // Retrieve user settings
     const user = await prisma.user.findUnique({
@@ -156,7 +163,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   },
                 },
                 {
-                  text: `Transcribe the speech in this audio clip (language: ${language}). If there is no clear speech or only silence/noise, respond with EMPTY. Output ONLY the exact transcribed spoken words, in lowercase, without quotes, punctuation, or any conversational text.`,
+                  text: cleanTargetWord
+                    ? `Transcribe the speech in this audio clip. The user is practicing the English vocabulary word "${cleanTargetWord}". Transcribe what was spoken accurately, paying attention to the target word "${cleanTargetWord}". If only silence, background noise, or no clear words, respond with EMPTY. Output ONLY the exact transcribed words in lowercase, without quotes, punctuation, or any conversational text.`
+                    : `Transcribe the speech in this audio clip (language: ${language}). If there is no clear speech or only silence/noise, respond with EMPTY. Output ONLY the exact transcribed spoken words, in lowercase, without quotes, punctuation, or any conversational text.`,
                 },
               ],
             },
@@ -200,7 +209,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       formData.append("file", file);
       formData.append("model", model);
       formData.append("temperature", "0");
-      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
+      formData.append("prompt", contextPrompt);
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
@@ -238,7 +247,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       formData.append("file", file);
       formData.append("model", model);
       formData.append("temperature", "0");
-      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
+      formData.append("prompt", contextPrompt);
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
@@ -274,7 +283,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const model = speechModel || "nova-3";
       const audioBuffer = Buffer.from(cleanBase64, "base64");
       const langParam = language ? `&language=${encodeURIComponent(language.slice(0, 2).toLowerCase())}` : "";
-      const deepgramUrl = `https://api.deepgram.com/v1/listen?model=${encodeURIComponent(model)}&smart_format=true${langParam}`;
+      const keywordParam = cleanTargetWord ? `&keywords=${encodeURIComponent(cleanTargetWord)}:3` : "";
+      const deepgramUrl = `https://api.deepgram.com/v1/listen?model=${encodeURIComponent(model)}&smart_format=true${langParam}${keywordParam}`;
 
       const dgRes = await fetch(deepgramUrl, {
         method: "POST",
@@ -319,7 +329,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       formData.append("file", file);
       formData.append("model", model);
       formData.append("temperature", "0");
-      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
+      formData.append("prompt", contextPrompt);
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }

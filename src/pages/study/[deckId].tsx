@@ -582,6 +582,7 @@ export default function StudySessionPage({
       const cleanup = await recognizer.start(
         {
           languageCode: getSpeechVoice(deckLang) || "en-US",
+          targetWord: card?.front,
           maxDurationSeconds: 10,
           onListeningStart: () => {
             setIsDictating(true);
@@ -889,36 +890,38 @@ export default function StudySessionPage({
                 <label className="block text-xs font-bold text-primary uppercase tracking-wider">
                   ⌨️ Spell the word from memory:
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={typedAnswer}
-                    onChange={(e) => setTypedAnswer(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && typingResult !== "correct" && typedAnswer.trim()) {
-                        handleCheckSpelling();
-                      }
-                    }}
-                    disabled={phase === "answer" && typingResult === "correct"}
-                    placeholder="Type the correct spelling..."
-                    className={`flex-1 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all focus:outline-none focus:ring-2 ${
-                      typingResult === "correct"
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30"
-                        : typingResult === "incorrect"
-                        ? "border-rose-500 bg-rose-500/10 text-foreground ring-rose-500/30"
-                        : "border-border bg-background text-foreground focus:ring-primary"
-                    }`}
-                    autoFocus
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck="false"
-                  />
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={typedAnswer}
+                      onChange={(e) => setTypedAnswer(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && typingResult !== "correct" && typedAnswer.trim()) {
+                          handleCheckSpelling();
+                        }
+                      }}
+                      disabled={phase === "answer" && typingResult === "correct"}
+                      placeholder="Type the correct spelling..."
+                      className={`w-full rounded-xl border px-3 sm:px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all focus:outline-none focus:ring-2 min-w-0 ${
+                        typingResult === "correct"
+                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30"
+                          : typingResult === "incorrect"
+                          ? "border-rose-500 bg-rose-500/10 text-foreground ring-rose-500/30"
+                          : "border-border bg-background text-foreground focus:ring-primary"
+                      }`}
+                      autoFocus
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck="false"
+                    />
+                  </div>
                   {typingResult !== "correct" && (
-                    <>
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={handleDictateAnswer}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                        className={`rounded-xl border px-2.5 sm:px-3 py-2.5 text-xs font-bold transition-all cursor-pointer shrink-0 ${
                           isDictateProcessing
                             ? "bg-amber-500 text-white animate-pulse border-amber-500 shadow-md"
                             : isDictating
@@ -933,21 +936,33 @@ export default function StudySessionPage({
                             : "Click once to speak, click again to finish"
                         }
                       >
-                        {isDictateProcessing
-                          ? "⏳ Processing..."
-                          : isDictating
-                          ? "⏹️ Stop & Done"
-                          : "🎙️ Speak"}
+                        {isDictateProcessing ? (
+                          <span className="flex items-center gap-1">
+                            <span>⏳</span>
+                            <span className="hidden sm:inline">Processing...</span>
+                          </span>
+                        ) : isDictating ? (
+                          <span className="flex items-center gap-1">
+                            <span>⏹️</span>
+                            <span className="hidden sm:inline">Stop & Done</span>
+                            <span className="sm:hidden">Stop</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <span>🎙️</span>
+                            <span className="hidden sm:inline">Speak</span>
+                          </span>
+                        )}
                       </button>
                       <button
                         type="button"
                         onClick={handleCheckSpelling}
                         disabled={!typedAnswer.trim()}
-                        className="rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:opacity-90 disabled:opacity-50"
+                        className="rounded-xl bg-primary px-3 sm:px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-xs hover:opacity-90 disabled:opacity-50 shrink-0 whitespace-nowrap"
                       >
                         Check
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
 

@@ -215,6 +215,7 @@ export function ContextChatModal({
       const cleanup = await recognizer.start(
         {
           languageCode: targetLanguage === "Spanish" ? "es-ES" : "en-US",
+          targetWord: word,
           maxDurationSeconds: 15,
           onListeningStart: () => {
             setIsDictating(true);

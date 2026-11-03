@@ -36,16 +36,20 @@ function levenshteinDistance(s1: string, s2: string): number {
 export function computePronunciationScore(spoken: string, target: string): number {
   const c1 = cleanString(spoken);
   const c2 = cleanString(target);
-  if (c1 === c2) return 1.0;
   if (!c1 || !c2) return 0;
-  
+  if (c1 === c2) return 1.0;
+
+  // Exact word found in spoken phrase (e.g. user said "the pluck" or "say pluck")
+  const words = c1.split(/\s+/);
+  if (words.includes(c2)) return 1.0;
+
   // Substring match check (e.g. user said "the ubiquitous" for "ubiquitous")
   if (c1.includes(c2) || c2.includes(c1)) {
     const longer = Math.max(c1.length, c2.length);
     const shorter = Math.min(c1.length, c2.length);
-    return Math.max(0.8, shorter / longer);
+    return Math.max(0.85, shorter / longer);
   }
-  
+
   const maxLen = Math.max(c1.length, c2.length);
   const distance = levenshteinDistance(c1, c2);
   return Math.max(0, 1 - distance / maxLen);
@@ -100,7 +104,8 @@ export function PronunciationChecker({
     const cleanup = await recognizer.start(
       {
         languageCode: getSpeechVoice(langCode) || "en-US",
-        maxDurationSeconds: 8,
+        targetWord: targetWord,
+        maxDurationSeconds: 7,
         onListeningStart: () => {
           setIsListening(true);
           setIsEvaluating(false);
