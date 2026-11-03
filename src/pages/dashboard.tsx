@@ -113,36 +113,64 @@ function StatCard({
 
 function WeeklyChart({ data }: { data: Stats["weeklyActivity"] }) {
   const max = Math.max(...data.map((d) => d.count), 1);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Weekly Practice</h3>
           <p className="text-sm font-semibold text-foreground mt-0.5">Cards reviewed over 7 days</p>
         </div>
-        <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-          Activity
-        </span>
+        {selectedDay !== null && data[selectedDay] ? (
+          <span className="text-xs font-bold text-primary bg-primary/15 border border-primary/30 px-3 py-1 rounded-full animate-in fade-in">
+            {data[selectedDay].day}: {data[selectedDay].count} {data[selectedDay].count === 1 ? "card" : "cards"}
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+            Activity
+          </span>
+        )}
       </div>
-      <div className="flex items-end justify-between gap-2 h-28 pt-4" role="img" aria-label="Weekly activity chart">
+
+      <div className="flex items-end justify-between gap-2 h-32 pt-4 select-none" role="img" aria-label="Weekly activity chart">
         {data.map((d, i) => {
           const heightPct = Math.round((d.count / max) * 100);
+          const isSelected = selectedDay === i;
           return (
-            <div key={i} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group" title={`${d.day}: ${d.count} cards`}>
+            <button
+              key={i}
+              type="button"
+              onClick={() => setSelectedDay(isSelected ? null : i)}
+              className="flex flex-col items-center gap-2 flex-1 h-full justify-end group cursor-pointer relative focus:outline-none"
+              title={`${d.day}: ${d.count} cards`}
+            >
+              {/* Badge tooltip shown on tap / select (works on mobile touch) */}
+              {isSelected && (
+                <div className="absolute -top-3 z-10 whitespace-nowrap rounded-md bg-foreground text-background px-1.5 py-0.5 text-[10px] font-bold shadow-md animate-in fade-in zoom-in-95">
+                  {d.count}
+                </div>
+              )}
+
               <div className="w-full flex justify-center items-end flex-1">
                 <div
-                  className="w-full max-w-[32px] rounded-t-md bg-gradient-to-t from-primary/70 to-primary group-hover:brightness-110 transition-all duration-300"
+                  className={`w-full max-w-[32px] rounded-t-md transition-all duration-200 ${
+                    isSelected
+                      ? "bg-primary ring-2 ring-primary/40 brightness-110"
+                      : "bg-gradient-to-t from-primary/70 to-primary group-hover:brightness-110"
+                  }`}
                   style={{
                     height: `${Math.max(heightPct, 10)}%`,
-                    opacity: d.count > 0 ? 1 : 0.2,
+                    opacity: d.count > 0 ? 1 : 0.25,
                   }}
                 />
               </div>
-              <span className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+              <span className={`text-[11px] font-semibold transition-colors ${
+                isSelected ? "text-primary font-bold" : "text-muted-foreground group-hover:text-foreground"
+              }`}>
                 {d.day}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -396,7 +424,7 @@ function GoalProgress({
               as="link"
               variant="secondary"
               size="sm"
-              className="h-6 text-[11px] px-2.5 py-0 font-semibold shadow-xs"
+              className="h-8 text-xs px-3.5 py-1.5 font-bold shadow-xs whitespace-nowrap"
             >
               Free Practice →
             </Button>
@@ -790,13 +818,13 @@ export default function Dashboard() {
                     : `Dedicated decks for ${currentLang.name} vocabulary and practice`}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   as="link"
                   href="/decks?tab=starter-kits"
                   variant="secondary"
                   size="sm"
-                  className="font-bold text-xs gap-1 border-border/80"
+                  className="h-8 text-xs px-3 py-1.5 font-bold gap-1.5 border-border shadow-xs whitespace-nowrap"
                 >
                   <span>✨</span> Starter Kits
                 </Button>
@@ -805,6 +833,7 @@ export default function Dashboard() {
                   variant="secondary"
                   size="sm"
                   onClick={() => setIsCreateDeckOpen(true)}
+                  className="h-8 text-xs px-3 py-1.5 font-bold border-border shadow-xs whitespace-nowrap"
                 >
                   + Add Deck
                 </Button>
