@@ -329,21 +329,9 @@ export function ContextChatModal({
             {/* Scenario Box */}
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
-                    Real Scenario
-                  </span>
-                  {scenarioData.isAIPowered ? (
-                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>✨ AI ({scenarioData.provider?.toUpperCase() || "GEMINI"})</span>
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      Basic
-                    </span>
-                  )}
-                </div>
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                  Real Scenario
+                </span>
                 <button
                   type="button"
                   onClick={handlePlayQuestionAudio}
