@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PhoneticSentence } from "@/components/study/phonetic-sentence";
+import { InteractiveSentence } from "@/components/study/interactive-sentence";
 
 export function blankOutVocab(sentence: string, vocab: string): React.ReactNode[] {
   if (!vocab.trim()) return [sentence];
@@ -32,6 +33,8 @@ interface ExampleCarouselProps {
   examples: string[];
   vocab: string;
   revealed: boolean;
+  deckId?: string;
+  lang?: string;
   onSpeakSentence?: (text: string) => void;
 }
 
@@ -39,6 +42,8 @@ export function ExampleCarousel({
   examples,
   vocab,
   revealed,
+  deckId,
+  lang = "en",
   onSpeakSentence,
 }: ExampleCarouselProps) {
   const [idx, setIdx] = useState(0);
@@ -100,35 +105,18 @@ export function ExampleCarousel({
             <PhoneticSentence
               text={sentence.includes("___") ? sentence.replace(/_{3,}/g, vocab) : sentence}
               isRevealed={true}
+              deckId={deckId}
+              lang={lang}
               className="text-sm text-foreground leading-relaxed"
             />
           ) : (
-            <span>
-              {sentence.includes("___") ? (
-                sentence.split(/_{3,}/).map((part, i, arr) => (
-                  <span key={i}>
-                    {part}
-                    {i < arr.length - 1 && (
-                      <strong className="font-extrabold text-primary underline underline-offset-2 mx-1">
-                        {vocab}
-                      </strong>
-                    )}
-                  </span>
-                ))
-              ) : (
-                sentence
-                  .split(new RegExp(`(${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"))
-                  .map((part, i) =>
-                    new RegExp(`^${vocab.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "gi").test(part) ? (
-                      <strong key={i} className="font-extrabold text-primary underline underline-offset-2">
-                        {part}
-                      </strong>
-                    ) : (
-                      <span key={i}>{part}</span>
-                    )
-                  )
-              )}
-            </span>
+            <InteractiveSentence
+              text={sentence.includes("___") ? sentence.replace(/_{3,}/g, vocab) : sentence}
+              highlightWord={vocab}
+              deckId={deckId}
+              lang={lang}
+              className="text-sm text-foreground leading-relaxed"
+            />
           )
         ) : sentence.includes("___") ? (
           <span>

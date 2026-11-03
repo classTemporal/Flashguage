@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { ImagePicker } from "@/components/card/image-picker";
@@ -8,11 +9,22 @@ import { useToast } from "@/components/ui/toast";
 import { invalidateAppCache } from "@/lib/cache";
 import { speakInLanguage, getLanguage } from "@/lib/languages";
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+interface DeckOption {
+  id: string;
+  name: string;
+  targetLanguage?: string;
+  _count?: { cards: number };
+}
+
 interface QuickAddCardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  deckId: string;
+  deckId?: string;
   targetLanguage?: string;
+  initialPrompt?: string;
+  initialTab?: ModalTab;
   onCardAdded?: () => void;
 }
 
@@ -31,10 +43,29 @@ export function QuickAddCardModal({
   onClose,
   deckId,
   targetLanguage = "en",
+  initialPrompt,
+  initialTab,
   onCardAdded,
 }: QuickAddCardModalProps) {
   const { showToast } = useToast();
-  const [tab, setTab] = useState<ModalTab>("ai");
+  const [tab, setTab] = useState<ModalTab>(initialTab || "ai");
+
+  // User decks for target deck selection (needed when deckId is undefined or "all")
+  const { data: userDecks } = useSWR<DeckOption[]>(
+    isOpen ? `/api/decks?lang=${encodeURIComponent(targetLanguage)}` : null,
+    fetcher
+  );
+  const [selectedDeckId, setSelectedDeckId] = useState<string>(
+    deckId && deckId !== "all" ? deckId : ""
+  );
+
+  useEffect(() => {
+    if (deckId && deckId !== "all") {
+      setSelectedDeckId(deckId);
+    } else if (userDecks && userDecks.length > 0 && !selectedDeckId) {
+      setSelectedDeckId(userDecks[0].id);
+    }
+  }, [deckId, userDecks, selectedDeckId]);
 
   // AI Tab State
   const [aiPrompt, setAiPrompt] = useState("");
@@ -73,6 +104,24 @@ export function QuickAddCardModal({
   const [manualDefinitions, setManualDefinitions] = useState<DefinitionOption[]>([]);
   const [isManualLookup, setIsManualLookup] = useState(false);
 
+  // Initialize from initialPrompt and initialTab when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (initialTab) {
+        setTab(initialTab);
+      }
+      if (initialPrompt && initialPrompt.trim()) {
+        const clean = initialPrompt.trim();
+        if (initialTab === "manual") {
+          setFront(clean);
+        } else {
+          setAiPrompt(clean);
+          handleSearchDefinitions(undefined, false, clean);
+        }
+      }
+    }
+  }, [isOpen, initialPrompt, initialTab]);
+
   if (!isOpen) return null;
 
   // Speak word using Web Speech API with deck target language
@@ -81,9 +130,16 @@ export function QuickAddCardModal({
   };
 
   // Step 1: Search definitions for the word or idiom
-  const handleSearchDefinitions = async (e?: React.FormEvent, forceAi: boolean = false) => {
+  const handleSearchDefinitions = async (
+    e?: React.FormEvent,
+    forceAi: boolean = false,
+    termToSearch?: string
+  ) => {
     if (e) e.preventDefault();
-    const prompt = aiPrompt.trim();
+    const prompt = (termToSearch !== undefined ? termToSearch : aiPrompt).trim();
+    if (termToSearch !== undefined) {
+      setAiPrompt(termToSearch);
+    }
     if (!prompt) {
       showToast("Please enter a word, phrase or idiom to search", "error");
       return;
@@ -333,6 +389,18 @@ export function QuickAddCardModal({
     if (!selectedDefinition) return;
     const term = wordHeader || aiPrompt.trim();
 
+    const activeDeckId =
+      selectedDeckId && selectedDeckId !== "all"
+        ? selectedDeckId
+        : deckId && deckId !== "all"
+        ? deckId
+        : userDecks?.[0]?.id;
+
+    if (!activeDeckId || activeDeckId === "all") {
+      showToast("Please select a target deck first", "error");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const tagsList = [selectedDefinition.partOfSpeech, "vocabulary"].filter(Boolean);
@@ -341,7 +409,7 @@ export function QuickAddCardModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          deckId,
+          deckId: activeDeckId,
           front: term,
           back: selectedDefinition.definition,
           tags: tagsList,
@@ -410,6 +478,18 @@ export function QuickAddCardModal({
       return;
     }
 
+    const activeDeckId =
+      selectedDeckId && selectedDeckId !== "all"
+        ? selectedDeckId
+        : deckId && deckId !== "all"
+        ? deckId
+        : userDecks?.[0]?.id;
+
+    if (!activeDeckId || activeDeckId === "all") {
+      showToast("Please select a target deck first", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const tagsArray = tags
@@ -421,7 +501,7 @@ export function QuickAddCardModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          deckId,
+          deckId: activeDeckId,
           front: trimmedFront,
           back: trimmedBack,
           tags: tagsArray,
@@ -496,6 +576,34 @@ export function QuickAddCardModal({
             ✕
           </button>
         </div>
+
+        {/* Target Deck Selector */}
+        {userDecks && userDecks.length > 0 && (
+          <div className="flex items-center justify-between gap-2.5 bg-muted/40 px-3.5 py-2 rounded-2xl border border-border/70 text-xs">
+            <label htmlFor="quick-add-deck-select" className="flex items-center gap-1.5 text-muted-foreground font-bold shrink-0">
+              <span>📁</span>
+              <span>Deck:</span>
+            </label>
+            <select
+              id="quick-add-deck-select"
+              value={
+                selectedDeckId && selectedDeckId !== "all"
+                  ? selectedDeckId
+                  : deckId && deckId !== "all"
+                  ? deckId
+                  : userDecks[0]?.id || ""
+              }
+              onChange={(e) => setSelectedDeckId(e.target.value)}
+              className="flex-1 max-w-[260px] bg-background text-foreground border border-border rounded-xl px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary truncate cursor-pointer"
+            >
+              {userDecks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} {d._count?.cards !== undefined ? `(${d._count.cards} cards)` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Tab Switcher */}
         <div className="flex rounded-xl bg-muted/50 p-1 border border-border">

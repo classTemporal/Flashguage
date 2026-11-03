@@ -828,6 +828,7 @@ export default function StudySessionPage({
               text={card.back}
               lang={deckLang}
               isRevealed={hasListenedDefinition}
+              deckId={deckId as string}
               className="text-lg sm:text-xl font-medium text-foreground leading-snug"
             />
 
@@ -1017,6 +1018,8 @@ export default function StudySessionPage({
               examples={examples}
               vocab={card.front}
               revealed={phase === "answer"}
+              deckId={deckId as string}
+              lang={deckLang}
               onSpeakSentence={handleSpeak}
             />
           </div>
@@ -1126,6 +1129,7 @@ export default function StudySessionPage({
           word={card.front}
           definition={card.back}
           targetLanguage={deckLang === "es" ? "Spanish" : "English"}
+          deckId={deckId as string}
         />
       )}
     </div>

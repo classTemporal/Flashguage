@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PhoneticSentence } from "@/components/study/phonetic-sentence";
+import { InteractiveSentence } from "@/components/study/interactive-sentence";
 import { playCardSpeech, UniversalSpeechRecognizer } from "@/lib/speech";
 
 interface ContextChatModalProps {
@@ -9,6 +10,7 @@ interface ContextChatModalProps {
   word: string;
   definition: string;
   targetLanguage?: string;
+  deckId?: string;
 }
 
 interface ScenarioData {
@@ -39,6 +41,7 @@ export function ContextChatModal({
   word,
   definition,
   targetLanguage = "English",
+  deckId,
 }: ContextChatModalProps) {
   const [scenarioData, setScenarioData] = useState<ScenarioData | null>(null);
   const [loadingScenario, setLoadingScenario] = useState(false);
@@ -343,23 +346,33 @@ export function ContextChatModal({
                 </button>
               </div>
 
-              <p className="text-xs text-muted-foreground italic">
-                {scenarioData.scenario}
-              </p>
+              <div className="text-xs text-muted-foreground italic">
+                <InteractiveSentence
+                  text={scenarioData.scenario}
+                  lang="en"
+                  deckId={deckId}
+                />
+              </div>
 
               <div className="pt-1">
                 <PhoneticSentence
                   text={scenarioData.question}
                   lang="en"
                   isRevealed={isQuestionListened}
+                  deckId={deckId}
                   className="text-sm sm:text-base font-semibold text-foreground"
                 />
               </div>
 
               {scenarioData.tip && (
-                <p className="text-[11px] text-muted-foreground/90 border-t border-primary/10 pt-2">
-                  💡 {scenarioData.tip}
-                </p>
+                <div className="text-[11px] text-muted-foreground/90 border-t border-primary/10 pt-2 flex items-start gap-1">
+                  <span className="shrink-0">💡</span>
+                  <InteractiveSentence
+                    text={scenarioData.tip}
+                    lang="en"
+                    deckId={deckId}
+                  />
+                </div>
               )}
             </div>
 
@@ -435,9 +448,13 @@ export function ContextChatModal({
                         : "Keep Practicing!"}
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed text-foreground/90 font-medium">
-                    {evaluation.feedback}
-                  </p>
+                  <div className="text-xs leading-relaxed text-foreground/90 font-medium">
+                    <InteractiveSentence
+                      text={evaluation.feedback}
+                      lang="en"
+                      deckId={deckId}
+                    />
+                  </div>
                 </div>
 
                 {/* What user said */}
@@ -465,6 +482,7 @@ export function ContextChatModal({
                       <PhoneticSentence
                         text={evaluation.correctedSentence}
                         lang="en"
+                        deckId={deckId}
                         isRevealed={isAlternativeListened}
                         className="font-semibold text-foreground text-xs"
                       />
@@ -493,6 +511,7 @@ export function ContextChatModal({
                       <PhoneticSentence
                         text={evaluation.aiReply}
                         lang="en"
+                        deckId={deckId}
                         isRevealed={isPartnerListened}
                         className="text-sm font-medium text-foreground leading-relaxed"
                       />
