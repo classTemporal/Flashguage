@@ -348,6 +348,25 @@ export default function StudySessionPage({
       setIsSubmitting(true);
       const currentReview = queue[currentIndex];
 
+      // In Free Practice (cram) mode, do NOT submit reviews to the server.
+      // Only update local session stats and advance to the next card.
+      if (isCramMode) {
+        setTotalReviewed((n) => n + 1);
+        if (quality === 1) {
+          setAgainCount((n) => n + 1);
+          setStreak(0);
+        } else {
+          setStreak((s) => {
+            const next = s + 1;
+            setBestStreak((b) => Math.max(b, next));
+            return next;
+          });
+        }
+        setIsSubmitting(false);
+        goToNextCard();
+        return;
+      }
+
       // Handle offline rating directly without failing
       if (!isOnline) {
         try {
@@ -413,7 +432,7 @@ export default function StudySessionPage({
         setIsSubmitting(false);
       }
     },
-    [queue, currentIndex, isSubmitting, isOnline, enqueue, goToNextCard, showToast]
+    [queue, currentIndex, isSubmitting, isCramMode, isOnline, enqueue, goToNextCard, showToast]
   );
 
   const currentReview = queue[currentIndex] || null;
@@ -1137,7 +1156,7 @@ export default function StudySessionPage({
         ) : (
           <div className="mx-auto max-w-xl px-4 py-3 space-y-2">
             <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-              <span>Memory Recall Strength:</span>
+              <span>{isCramMode ? "How well did you know it?" : "Memory Recall Strength:"}</span>
               <span className="hidden sm:inline font-mono text-[10px]">Shortcuts: 1, 2, 3</span>
             </div>
 
@@ -1152,12 +1171,14 @@ export default function StudySessionPage({
                   <span className="text-xs font-black text-rose-600 dark:text-rose-400">
                     🔄 Again
                   </span>
+                  {!isCramMode && (
                   <span className="text-[10px] font-bold bg-rose-500/20 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded">
                     ~10m
                   </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 w-full line-clamp-1">
-                  Repeat in session
+                  {isCramMode ? "Didn\'t know" : "Repeat in session"}
                 </span>
               </button>
 
@@ -1171,12 +1192,14 @@ export default function StudySessionPage({
                   <span className="text-xs font-black text-amber-600 dark:text-amber-400">
                     ⚡ Hard
                   </span>
+                  {!isCramMode && (
                   <span className="text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
                     {hardIntervalPreview}
                   </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 w-full line-clamp-1">
-                  Hesitant recall
+                  {isCramMode ? "Somewhat knew" : "Hesitant recall"}
                 </span>
               </button>
 
@@ -1190,12 +1213,14 @@ export default function StudySessionPage({
                   <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                     ✨ Mastered
                   </span>
+                  {!isCramMode && (
                   <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">
                     {masteredIntervalPreview}
                   </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-muted-foreground mt-1 w-full line-clamp-1">
-                  Clear recall
+                  {isCramMode ? "Knew it well" : "Clear recall"}
                 </span>
               </button>
             </div>
