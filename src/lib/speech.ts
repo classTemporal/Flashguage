@@ -21,8 +21,11 @@ export function stopCurrentSpeech() {
   if (typeof window === "undefined") return;
   if (activeAudio) {
     try {
+      activeAudio.onended = null;
+      activeAudio.onerror = null;
       activeAudio.pause();
       activeAudio.currentTime = 0;
+      activeAudio.src = "";
     } catch {}
     activeAudio = null;
   }
@@ -203,15 +206,32 @@ export async function playCardSpeech(
 
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => {
-          activeAudio = null;
+          if (activeAudio === audio) activeAudio = null;
           options?.onEnd?.();
           resolve();
         };
         audio.onerror = () => {
+          if (activeAudio !== audio) {
+            // Audio was aborted or replaced by newer playback, do not reject
+            return;
+          }
           activeAudio = null;
           reject(new Error("Failed to play audio stream from provider"));
         };
-        audio.play().catch(reject);
+        audio.play().catch((playErr) => {
+          if (activeAudio !== audio) return;
+          activeAudio = null;
+          if (playErr?.name === "NotAllowedError") {
+            console.warn("Autoplay was prevented by browser policy:", playErr);
+            resolve();
+            return;
+          }
+          if (playErr?.name === "AbortError") {
+            // Audio play interrupted by subsequent play, safe to ignore
+            return;
+          }
+          reject(new Error(playErr?.message || "Failed to play audio stream from provider"));
+        });
       });
       return;
     }

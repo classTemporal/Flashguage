@@ -453,10 +453,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      const voice = (overrideVoice || userSettings.speechVoice || "a0e99841-438c-4a64-b679-ae501e7d6091").trim();
-      const model = (overrideModel || userSettings.speechModel || "sonic-3.6").trim();
+      // Sanitize text: Cartesia requires at least one alphanumeric character
+      // Replace cloze underscores or excessive punctuation
+      let sanitizedText = cleanText.replace(/_+/g, " ").trim();
+      if (!/[\p{L}\p{N}]/u.test(sanitizedText)) {
+        return res.status(400).json({
+          success: false,
+          provider: "cartesia",
+          message: "Text must contain at least one letter or number to pronounce.",
+        });
+      }
 
-      const cacheKey = `cartesia:${model}:${voice}:${cleanText.toLowerCase()}`;
+      // Validate Cartesia voice: must be a valid UUID, otherwise fallback to Barbershop Man
+      const rawVoice = (overrideVoice || userSettings.speechVoice || "").trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVoice);
+      const voice = isUuid ? rawVoice : "a0e99841-438c-4a64-b679-ae501e7d6091";
+
+      // Validate Cartesia model: avoid OpenAI/Gemini model names contaminating Cartesia
+      const rawModel = (overrideModel || userSettings.speechModel || "").trim();
+      const model =
+        rawModel && !rawModel.includes("gpt") && !rawModel.includes("tts-1") && !rawModel.includes("gemini")
+          ? rawModel
+          : "sonic-3.6";
+
+      // Cartesia language code: ISO 639-1 (e.g. "en", "es", "fr", "de")
+      const langCode = language ? language.slice(0, 2).toLowerCase() : "en";
+
+      const cacheKey = `cartesia:${model}:${voice}:${langCode}:${sanitizedText.toLowerCase()}`;
       const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
       const fileName = `${hash}.wav`;
       const filePath = path.join(cacheDir, fileName);
@@ -484,7 +507,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           },
           body: JSON.stringify({
             model_id: model,
-            transcript: cleanText,
+            transcript: sanitizedText,
+            language: langCode,
             voice: {
               mode: "id",
               id: voice,
@@ -510,13 +534,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
 
-        const errJson = await cartesiaRes.json().catch(() => null);
-        const errMsg = errJson?.error?.message || errJson?.message || `HTTP ${cartesiaRes.status}`;
-        console.error("[Cartesia TTS Error]:", cartesiaRes.status, errMsg);
+        const rawErr = await cartesiaRes.text().catch(() => "");
+        let errMsg = rawErr;
+        try {
+          const errJson = JSON.parse(rawErr);
+          errMsg = errJson?.error?.message || errJson?.error || errJson?.message || errJson?.detail || rawErr;
+        } catch {}
+
+        console.error("[Cartesia TTS Error]:", cartesiaRes.status, errMsg, { model, voice, sanitizedText });
         return res.status(cartesiaRes.status >= 400 && cartesiaRes.status < 600 ? cartesiaRes.status : 500).json({
           success: false,
           provider: "cartesia",
-          message: `Cartesia speech error (${cartesiaRes.status}): ${errMsg}`,
+          message: `Cartesia speech error (${cartesiaRes.status}): ${errMsg || "Invalid request"}`,
         });
       } catch (cartesiaErr: any) {
         console.error("[Cartesia TTS Fetch Error]:", cartesiaErr);
