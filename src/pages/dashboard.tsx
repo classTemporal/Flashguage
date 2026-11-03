@@ -1089,21 +1089,8 @@ export default function Dashboard() {
           {/* Left: Switch Track */}
           <BackButton href="/tracks" label="Switch Track" className="text-xs sm:text-sm font-semibold" />
 
-          {/* Right: Customize & Active Language Badge in a single clean row */}
+          {/* Right: Active Language Badge & Customize Button (docked closest to edge) */}
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setIsCustomizeOpen(true)}
-              className="font-semibold gap-1.5 shadow-xs text-xs h-8"
-              aria-label="Customize dashboard sections"
-            >
-              <span>⚙️</span>
-              <span className="hidden sm:inline">Customize Layout</span>
-              <span className="sm:hidden">Customize</span>
-            </Button>
-
             {/* Language Badge */}
             <div className="h-8 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-2.5 sm:px-3 rounded-xl border border-border shadow-xs shrink-0">
               <span role="img" aria-label={currentLang.name} className="text-sm shrink-0">{currentLang.flag}</span>
@@ -1120,6 +1107,20 @@ export default function Dashboard() {
               )}
               <span className="sm:hidden inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Active Track" />
             </div>
+
+            {/* Customize button placed rightmost for easy thumb reach */}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsCustomizeOpen(true)}
+              className="font-semibold gap-1.5 shadow-xs text-xs h-8 shrink-0"
+              aria-label="Customize dashboard sections"
+            >
+              <span>⚙️</span>
+              <span className="hidden sm:inline">Customize Layout</span>
+              <span className="sm:hidden">Customize</span>
+            </Button>
           </div>
         </div>
 
