@@ -305,24 +305,41 @@ export class UniversalSpeechRecognizer {
     // Strategy 1: MediaRecorder + Backend AI Speech-to-Text (Groq Whisper / Gemini / Deepgram / OpenAI)
     if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: false, // Don't mute short or low volume single-word vocalizations
-            autoGainControl: true,
-          },
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: false, // Don't mute short or low volume single-word vocalizations
+              autoGainControl: true,
+            },
+          });
+        } catch (constraintErr) {
+          // Firefox Android / hardware HAL fallback if advanced constraints are rejected
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
         this.stream = stream;
 
-        const mimeType =
-          typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-            ? "audio/webm;codecs=opus"
-            : typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-            ? "audio/ogg;codecs=opus"
-            : "audio/webm";
+        let selectedMime = "";
+        if (typeof MediaRecorder !== "undefined") {
+          if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+            selectedMime = "audio/webm;codecs=opus";
+          } else if (MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
+            selectedMime = "audio/ogg;codecs=opus";
+          } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+            selectedMime = "audio/webm";
+          } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+            selectedMime = "audio/ogg";
+          } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            selectedMime = "audio/mp4";
+          }
+        }
 
-        const recorder = new MediaRecorder(stream);
+        const recorder = selectedMime
+          ? new MediaRecorder(stream, { mimeType: selectedMime })
+          : new MediaRecorder(stream);
         this.mediaRecorder = recorder;
+        const effectiveMime = recorder.mimeType || selectedMime || "audio/webm";
         const chunks: Blob[] = [];
 
         recorder.ondataavailable = (e) => {
@@ -345,7 +362,7 @@ export class UniversalSpeechRecognizer {
             return;
           }
 
-          const blob = new Blob(chunks, { type: mimeType });
+          const blob = new Blob(chunks, { type: effectiveMime });
           const reader = new FileReader();
           reader.onloadend = async () => {
             const base64Audio = reader.result as string;
@@ -355,7 +372,7 @@ export class UniversalSpeechRecognizer {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   audio: base64Audio,
-                  mimeType,
+                  mimeType: effectiveMime,
                   language: options.languageCode || "en",
                   targetWord: options.targetWord,
                 }),
@@ -381,7 +398,7 @@ export class UniversalSpeechRecognizer {
           reader.readAsDataURL(blob);
         };
 
-        recorder.start(100);
+        recorder.start(250);
 
         const maxDuration = (options.maxDurationSeconds || 8) * 1000;
         this.timer = setTimeout(() => {
