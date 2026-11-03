@@ -280,6 +280,7 @@ export interface CaptureSpeechOptions {
   languageCode?: string;
   maxDurationSeconds?: number;
   onListeningStart?: () => void;
+  onProcessingStart?: () => void;
   onListeningEnd?: () => void;
 }
 
@@ -341,11 +342,23 @@ export class UniversalSpeechRecognizer {
 
         rec.start();
 
-        return () => {
+        const maxDuration = (options.maxDurationSeconds || 8) * 1000;
+        this.timer = setTimeout(() => {
           try {
-            rec.abort();
+            rec.stop();
           } catch {}
-          options.onListeningEnd?.();
+        }, maxDuration);
+
+        return () => {
+          if (this.timer) clearTimeout(this.timer);
+          options.onProcessingStart?.();
+          try {
+            rec.stop();
+          } catch {
+            try {
+              rec.abort();
+            } catch {}
+          }
         };
       } catch (err: any) {
         // Fall back to MediaRecorder below
@@ -355,7 +368,13 @@ export class UniversalSpeechRecognizer {
     // Option B: Firefox / Browser without native Web Speech API -> MediaRecorder + Whisper
     if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false, // Don't mute short or low volume vocalizations
+            autoGainControl: true,
+          },
+        });
         this.stream = stream;
 
         const mimeType =
@@ -378,10 +397,13 @@ export class UniversalSpeechRecognizer {
         };
 
         recorder.onstop = async () => {
-          options.onListeningEnd?.();
-          stream.getTracks().forEach((track) => track.stop());
+          options.onProcessingStart?.();
+          try {
+            stream.getTracks().forEach((track) => track.stop());
+          } catch {}
 
           if (chunks.length === 0) {
+            options.onListeningEnd?.();
             onError("No audio recorded.");
             return;
           }
@@ -403,11 +425,14 @@ export class UniversalSpeechRecognizer {
 
               const data = await res.json();
               if (!res.ok || data.error) {
+                options.onListeningEnd?.();
                 onError(data.error || "Failed to transcribe audio.");
                 return;
               }
               onResult(data.text || "");
+              options.onListeningEnd?.();
             } catch (fetchErr: any) {
+              options.onListeningEnd?.();
               if (typeof navigator !== "undefined" && !navigator.onLine) {
                 onError("Offline. Connect to the internet to transcribe speech.");
               } else {
@@ -418,12 +443,14 @@ export class UniversalSpeechRecognizer {
           reader.readAsDataURL(blob);
         };
 
-        recorder.start();
+        recorder.start(100);
 
-        const maxDuration = (options.maxDurationSeconds || 3.5) * 1000;
+        const maxDuration = (options.maxDurationSeconds || 8) * 1000;
         this.timer = setTimeout(() => {
           if (recorder.state === "recording") {
-            recorder.stop();
+            try {
+              recorder.stop();
+            } catch {}
           }
         }, maxDuration);
 
@@ -434,7 +461,6 @@ export class UniversalSpeechRecognizer {
               recorder.stop();
             } catch {}
           }
-          stream.getTracks().forEach((track) => track.stop());
         };
       } catch (mediaErr: any) {
         options.onListeningEnd?.();

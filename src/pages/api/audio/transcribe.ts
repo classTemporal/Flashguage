@@ -156,13 +156,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   },
                 },
                 {
-                  text: `Transcribe the speech in this audio clip (language: ${language}). Output ONLY the exact transcribed spoken words, in lowercase, without quotes, punctuation, or any conversational text.`,
+                  text: `Transcribe the speech in this audio clip (language: ${language}). If there is no clear speech or only silence/noise, respond with EMPTY. Output ONLY the exact transcribed spoken words, in lowercase, without quotes, punctuation, or any conversational text.`,
                 },
               ],
             },
           ],
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0,
             maxOutputTokens: 60,
           },
         }),
@@ -188,7 +188,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const data = await geminiRes.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const text = rawText.trim().replace(/^["']|["']$/g, "").trim();
-      return res.status(200).json({ text, provider: "gemini" });
+      return handleTranscriptionResponse(res, text, "gemini");
     }
 
     // 2. Groq Whisper Speech Provider
@@ -199,6 +199,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
+      formData.append("temperature", "0");
+      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
@@ -224,7 +226,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const result = await groqRes.json();
-      return res.status(200).json({ text: result.text || "", provider: "groq" });
+      return handleTranscriptionResponse(res, result.text || "", "groq");
     }
 
     // 3. OpenAI Whisper Speech Provider
@@ -235,6 +237,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
+      formData.append("temperature", "0");
+      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
@@ -262,7 +266,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const result = await whisperRes.json();
-      return res.status(200).json({ text: result.text || "", provider: "openai" });
+      return handleTranscriptionResponse(res, result.text || "", "openai");
     }
 
     // 4. Deepgram Nova Speech-to-Text Integration
@@ -298,7 +302,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const result = await dgRes.json();
       const transcript =
         result.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
-      return res.status(200).json({ text: transcript.trim(), provider: "deepgram" });
+      return handleTranscriptionResponse(res, transcript, "deepgram");
     }
 
     // 5. Custom OpenAI-compatible Speech Server (LocalAI, Faster-Whisper, LiteLLM, etc.)
@@ -314,6 +318,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const formData = new FormData();
       formData.append("file", file);
       formData.append("model", model);
+      formData.append("temperature", "0");
+      formData.append("prompt", "English vocabulary practice, single word or sentence dictation.");
       if (language) {
         formData.append("language", language.slice(0, 2).toLowerCase());
       }
@@ -351,7 +357,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const result = await customRes.json();
-      return res.status(200).json({ text: result.text || "", provider: "custom" });
+      return handleTranscriptionResponse(res, result.text || "", "custom");
     }
 
     return res.status(400).json({
@@ -363,4 +369,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: error?.message || "Internal server error during speech transcription.",
     });
   }
+}
+
+const SILENCE_HALLUCINATIONS = new Set([
+  "",
+  "empty",
+  "thank you",
+  "thank you so much",
+  "thank you very much",
+  "thanks for watching",
+  "thanks for watching and ill see you next time",
+  "thanks for listening",
+  "subscribe to my channel",
+  "subtitles by",
+  "subtitles by the amaraorg community",
+  "amaraorg",
+  "you",
+  "bye",
+  "bye bye",
+  "goodbye",
+  "the end",
+  "silence",
+  "music",
+  "applause",
+  "laughter",
+]);
+
+function handleTranscriptionResponse(
+  res: NextApiResponse,
+  rawText: string,
+  provider: string
+) {
+  const cleaned = (rawText || "")
+    .trim()
+    .replace(/^["'«»“”]+|["'«»“”]+$/g, "")
+    .trim();
+
+  const normalized = cleaned
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned || SILENCE_HALLUCINATIONS.has(normalized)) {
+    return res.status(400).json({
+      error:
+        "No clear speech detected. Please speak closer to your microphone or check your microphone input volume.",
+    });
+  }
+
+  return res.status(200).json({ text: cleaned, provider });
 }

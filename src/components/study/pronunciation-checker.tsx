@@ -58,6 +58,7 @@ export function PronunciationChecker({
 }: PronunciationCheckerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [spokenTranscript, setSpokenTranscript] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export function PronunciationChecker({
       cleanupRef.current = null;
     }
     setIsListening(false);
+    setIsEvaluating(false);
   }, [targetWord]);
 
   const startListening = async () => {
@@ -98,24 +100,48 @@ export function PronunciationChecker({
     const cleanup = await recognizer.start(
       {
         languageCode: getSpeechVoice(langCode) || "en-US",
-        onListeningStart: () => setIsListening(true),
-        onListeningEnd: () => setIsListening(false),
+        maxDurationSeconds: 8,
+        onListeningStart: () => {
+          setIsListening(true);
+          setIsEvaluating(false);
+        },
+        onProcessingStart: () => {
+          setIsEvaluating(true);
+        },
+        onListeningEnd: () => {
+          setIsListening(false);
+          setIsEvaluating(false);
+          cleanupRef.current = null;
+        },
       },
       (transcript) => {
         setSpokenTranscript(transcript);
         const calculatedScore = computePronunciationScore(transcript, targetWord);
         setScore(calculatedScore);
         setIsListening(false);
+        setIsEvaluating(false);
+        cleanupRef.current = null;
       },
       (err) => {
         setIsListening(false);
+        setIsEvaluating(false);
+        cleanupRef.current = null;
         setErrorMsg(err);
       }
     );
     cleanupRef.current = cleanup;
   };
 
-  const stopListening = () => {
+  const finishListeningAndEvaluate = () => {
+    if (cleanupRef.current) {
+      try {
+        cleanupRef.current();
+      } catch {}
+      cleanupRef.current = null;
+    }
+  };
+
+  const cancelListening = () => {
     if (cleanupRef.current) {
       try {
         cleanupRef.current();
@@ -123,6 +149,7 @@ export function PronunciationChecker({
       cleanupRef.current = null;
     }
     setIsListening(false);
+    setIsEvaluating(false);
   };
 
   if (!isOpen) {
@@ -158,7 +185,7 @@ export function PronunciationChecker({
         </div>
         <button
           onClick={() => {
-            stopListening();
+            cancelListening();
             setIsOpen(false);
           }}
           className="text-muted-foreground hover:text-foreground text-xs p-1"
@@ -176,29 +203,61 @@ export function PronunciationChecker({
         </p>
       </div>
 
-      {/* Listening State */}
-      {isListening && (
-        <div className="flex flex-col items-center justify-center gap-2.5 py-3">
-          <div className="relative flex items-center justify-center">
-            <span className="absolute h-14 w-14 rounded-full bg-red-500/20 animate-ping" />
-            <div className="relative h-12 w-12 rounded-full bg-red-600 flex items-center justify-center text-white shadow-md">
-              <span className="text-lg animate-pulse">🎙️</span>
-            </div>
-          </div>
-          <p className="text-xs font-medium text-foreground animate-pulse">
-            Listening... Say &ldquo;{targetWord}&rdquo; out loud
+      {/* Evaluating State */}
+      {isEvaluating && (
+        <div className="flex flex-col items-center justify-center gap-2.5 py-4 animate-in fade-in">
+          <div className="h-8 w-8 rounded-full border-3 border-violet-500 border-t-transparent animate-spin" />
+          <p className="text-xs font-semibold text-foreground">
+            Analyzing your pronunciation...
           </p>
+        </div>
+      )}
+
+      {/* Listening State */}
+      {isListening && !isEvaluating && (
+        <div className="flex flex-col items-center justify-center gap-2.5 py-3">
           <button
-            onClick={stopListening}
-            className="text-[11px] text-muted-foreground underline hover:text-foreground"
+            type="button"
+            onClick={finishListeningAndEvaluate}
+            className="relative flex items-center justify-center group cursor-pointer focus:outline-none"
+            title="Click to stop listening and evaluate"
           >
-            Cancel
+            <span className="absolute h-14 w-14 rounded-full bg-rose-500/30 animate-ping" />
+            <div className="relative h-12 w-12 rounded-full bg-rose-600 group-hover:bg-rose-700 flex items-center justify-center text-white shadow-md transition-all">
+              <span className="text-lg">⏹️</span>
+            </div>
           </button>
+          <div className="text-center space-y-0.5">
+            <p className="text-xs font-bold text-foreground animate-pulse">
+              Listening... Say &ldquo;{targetWord}&rdquo; out loud
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Click the square icon or button below when done
+            </p>
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={finishListeningAndEvaluate}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1 px-3.5 shadow-xs text-xs cursor-pointer"
+            >
+              <span>⏹️</span>
+              <span>Stop & Evaluate</span>
+            </Button>
+            <button
+              type="button"
+              onClick={cancelListening}
+              className="text-[11px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
       {/* Result State */}
-      {!isListening && score !== null && (
+      {!isListening && !isEvaluating && score !== null && (
         <div className="space-y-2.5 text-center animate-in fade-in duration-200">
           <div
             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold ${
@@ -252,7 +311,7 @@ export function PronunciationChecker({
       )}
 
       {/* Error state */}
-      {!isListening && errorMsg && (
+      {!isListening && !isEvaluating && errorMsg && (
         <div className="text-center py-2 space-y-2.5">
           <p className="text-xs text-rose-500 font-medium px-2">{errorMsg}</p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -286,7 +345,7 @@ export function PronunciationChecker({
       )}
 
       {/* Idle start state (when opened without active recognition) */}
-      {!isListening && score === null && !errorMsg && (
+      {!isListening && !isEvaluating && score === null && !errorMsg && (
         <div className="text-center py-2">
           <Button
             variant="primary"

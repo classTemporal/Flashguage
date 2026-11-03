@@ -193,6 +193,8 @@ export default function StudySessionPage({
   const [typedAnswer, setTypedAnswer] = useState("");
   const [typingResult, setTypingResult] = useState<"unanswered" | "correct" | "incorrect">("unanswered");
   const [isDictating, setIsDictating] = useState(false);
+  const [isDictateProcessing, setIsDictateProcessing] = useState(false);
+  const dictateCleanupRef = useRef<(() => void) | null>(null);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [mediaPreloadProgress, setMediaPreloadProgress] = useState<PreloadProgress | null>(null);
 
@@ -562,14 +564,37 @@ export default function StudySessionPage({
 
   const handleDictateAnswer = useCallback(async () => {
     if (typeof window === "undefined") return;
+
+    // Toggle stop: If already listening, stop immediately and process speech recorded so far
+    if (isDictating) {
+      if (dictateCleanupRef.current) {
+        try {
+          dictateCleanupRef.current();
+        } catch {}
+        dictateCleanupRef.current = null;
+      }
+      return;
+    }
+
     try {
       const recognizer = new UniversalSpeechRecognizer();
-      showToast("Listening... speak the word now", "info");
-      await recognizer.start(
+      showToast("Listening... speak now, or click Stop when done", "info");
+      const cleanup = await recognizer.start(
         {
           languageCode: getSpeechVoice(deckLang) || "en-US",
-          onListeningStart: () => setIsDictating(true),
-          onListeningEnd: () => setIsDictating(false),
+          maxDurationSeconds: 10,
+          onListeningStart: () => {
+            setIsDictating(true);
+            setIsDictateProcessing(false);
+          },
+          onProcessingStart: () => {
+            setIsDictateProcessing(true);
+          },
+          onListeningEnd: () => {
+            setIsDictating(false);
+            setIsDictateProcessing(false);
+            dictateCleanupRef.current = null;
+          },
         },
         (text) => {
           if (text) {
@@ -577,16 +602,23 @@ export default function StudySessionPage({
             showToast(`Captured: "${text}"`, "info");
           }
           setIsDictating(false);
+          setIsDictateProcessing(false);
+          dictateCleanupRef.current = null;
         },
         (err) => {
           setIsDictating(false);
+          setIsDictateProcessing(false);
+          dictateCleanupRef.current = null;
           showToast(err, "error");
         }
       );
+      dictateCleanupRef.current = cleanup;
     } catch {
       setIsDictating(false);
+      setIsDictateProcessing(false);
+      dictateCleanupRef.current = null;
     }
-  }, [deckLang, showToast]);
+  }, [deckLang, isDictating, showToast]);
 
   // Keyboard shortcuts (Space = reveal, 1 = Again, 2 = Hard, 3 = Mastered)
   useEffect(() => {
@@ -886,14 +918,26 @@ export default function StudySessionPage({
                       <button
                         type="button"
                         onClick={handleDictateAnswer}
-                        className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition-all ${
-                          isDictating
-                            ? "bg-rose-500 text-white animate-pulse border-rose-500 shadow-md"
+                        className={`rounded-xl border px-3 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                          isDictateProcessing
+                            ? "bg-amber-500 text-white animate-pulse border-amber-500 shadow-md"
+                            : isDictating
+                            ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse border-rose-500 shadow-md ring-2 ring-rose-400/40"
                             : "bg-muted/80 hover:bg-muted text-foreground border-border/80"
                         }`}
-                        title="Dictate with voice"
+                        title={
+                          isDictateProcessing
+                            ? "Transcribing your speech..."
+                            : isDictating
+                            ? "Click to stop listening and submit"
+                            : "Click once to speak, click again to finish"
+                        }
                       >
-                        🎙️ {isDictating ? "..." : "Speak"}
+                        {isDictateProcessing
+                          ? "⏳ Processing..."
+                          : isDictating
+                          ? "⏹️ Stop & Done"
+                          : "🎙️ Speak"}
                       </button>
                       <button
                         type="button"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { PhoneticSentence } from "@/components/study/phonetic-sentence";
 import { InteractiveSentence } from "@/components/study/interactive-sentence";
@@ -48,6 +48,9 @@ export function ContextChatModal({
   const [userMessage, setUserMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
+  const [isDictateProcessing, setIsDictateProcessing] = useState(false);
+  const dictateCleanupRef = useRef<(() => void) | null>(null);
+  const [dictateError, setDictateError] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isQuestionListened, setIsQuestionListened] = useState(false);
@@ -194,26 +197,59 @@ export function ContextChatModal({
 
   const handleDictate = async () => {
     if (typeof window === "undefined") return;
+
+    // Toggle stop: If already listening, stop immediately and transcribe speech recorded so far
+    if (isDictating) {
+      if (dictateCleanupRef.current) {
+        try {
+          dictateCleanupRef.current();
+        } catch {}
+        dictateCleanupRef.current = null;
+      }
+      return;
+    }
+
+    setDictateError(null);
     try {
       const recognizer = new UniversalSpeechRecognizer();
-      await recognizer.start(
+      const cleanup = await recognizer.start(
         {
           languageCode: targetLanguage === "Spanish" ? "es-ES" : "en-US",
-          onListeningStart: () => setIsDictating(true),
-          onListeningEnd: () => setIsDictating(false),
+          maxDurationSeconds: 15,
+          onListeningStart: () => {
+            setIsDictating(true);
+            setIsDictateProcessing(false);
+            setDictateError(null);
+          },
+          onProcessingStart: () => {
+            setIsDictateProcessing(true);
+          },
+          onListeningEnd: () => {
+            setIsDictating(false);
+            setIsDictateProcessing(false);
+            dictateCleanupRef.current = null;
+          },
         },
         (text) => {
           if (text) {
             setUserMessage((prev) => (prev ? `${prev} ${text}` : text));
           }
           setIsDictating(false);
+          setIsDictateProcessing(false);
+          dictateCleanupRef.current = null;
         },
-        () => {
+        (err) => {
           setIsDictating(false);
+          setIsDictateProcessing(false);
+          dictateCleanupRef.current = null;
+          setDictateError(err);
         }
       );
+      dictateCleanupRef.current = cleanup;
     } catch {
       setIsDictating(false);
+      setIsDictateProcessing(false);
+      dictateCleanupRef.current = null;
     }
   };
 
@@ -399,15 +435,29 @@ export function ContextChatModal({
                     <button
                       type="button"
                       onClick={handleDictate}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                        isDictating
-                          ? "bg-rose-500 text-white animate-pulse border-rose-500 shadow-sm"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        isDictateProcessing
+                          ? "bg-amber-500 text-white animate-pulse border-amber-500 shadow-sm"
+                          : isDictating
+                          ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse border-rose-500 shadow-sm ring-2 ring-rose-400/40"
                           : "bg-muted/80 hover:bg-muted text-foreground border-border"
                       }`}
-                      title="Dictate with microphone"
+                      title={
+                        isDictateProcessing
+                          ? "Transcribing your speech..."
+                          : isDictating
+                          ? "Click to stop listening and submit"
+                          : "Click to dictate with voice, click again to stop"
+                      }
                     >
-                      <span>🎙️</span>
-                      <span>{isDictating ? "Listening..." : "Dictate Voice"}</span>
+                      <span>{isDictateProcessing ? "⏳" : isDictating ? "⏹️" : "🎙️"}</span>
+                      <span>
+                        {isDictateProcessing
+                          ? "Processing..."
+                          : isDictating
+                          ? "Stop & Done"
+                          : "Dictate Voice"}
+                      </span>
                     </button>
 
                     <Button
@@ -419,6 +469,11 @@ export function ContextChatModal({
                       {isSubmitting ? "Evaluating..." : "Send Reply ➤"}
                     </Button>
                   </div>
+                  {dictateError && (
+                    <p className="mt-2 text-xs text-rose-500 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-1.5 animate-in fade-in">
+                      ⚠️ {dictateError}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
