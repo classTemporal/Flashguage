@@ -38,11 +38,22 @@ export function NoDueCards({
       </h1>
       <p className="text-muted-foreground mb-4 max-w-sm text-sm">
         {remainingGoal > 0
-          ? `You have studied ${dailyGoalCurrent} cards today. Study ${remainingGoal} more card${remainingGoal === 1 ? "" : "s"} to complete your daily goal of ${dailyGoalTarget}.`
+          ? `You have reviewed all cards scheduled for today (${dailyGoalCurrent}/${dailyGoalTarget} cards towards your goal). Your learned cards are resting in their memory retention intervals.`
           : deckId === "all"
           ? `According to your spaced repetition schedule, all cards in your ${currentLang.name} track are currently up to date.`
           : `According to your spaced repetition memory schedule, all vocabulary in ${deckName} is currently reviewed.`}
       </p>
+
+      {remainingGoal > 0 && (
+        <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3 max-w-sm text-xs text-amber-700 dark:text-amber-300 text-left space-y-1">
+          <p className="font-bold flex items-center gap-1.5">
+            <span>💡</span> How to reach your daily goal:
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Add new words to your deck to continue studying today, or review earlier cards anytime with <strong>Free Practice</strong> without affecting their repetition intervals.
+          </p>
+        </div>
+      )}
 
       {remainingGoal > 0 ? (
         <div className="mb-6 rounded-2xl bg-primary/10 border border-primary/20 px-4 py-3 max-w-sm text-xs text-foreground font-medium flex items-center justify-between gap-3">
@@ -62,7 +73,14 @@ export function NoDueCards({
           href={deckId === "all" ? `/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all` : `/study/${deckId}?mode=all`}
           className="w-full rounded-2xl bg-primary hover:opacity-90 py-3.5 text-primary-foreground font-bold text-center transition-opacity shadow-md flex items-center justify-center gap-2"
         >
-          <span>🎯</span> {remainingGoal > 0 ? `Study Remaining to Reach Goal (${remainingGoal} left)` : "Free Practice Mode"}
+          <span>🎯</span> Free Practice Mode
+        </Link>
+
+        <Link
+          href={deckId === "all" ? `/card/new?lang=${encodeURIComponent(activeLanguage)}` : `/card/new?deckId=${deckId}&lang=${encodeURIComponent(activeLanguage)}`}
+          className="w-full rounded-2xl border border-primary/40 bg-primary/10 py-3 text-primary font-bold text-center hover:bg-primary/20 transition-colors text-sm flex items-center justify-center gap-2 shadow-xs"
+        >
+          <span>✨</span> Add New Words to Reach Goal
         </Link>
 
         <Link
