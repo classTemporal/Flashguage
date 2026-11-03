@@ -1084,23 +1084,24 @@ export default function Dashboard() {
       <Header />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
-        {/* Top Navigation: Switch Language & Active Indicator */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 -mb-2">
-          <BackButton href="/tracks" label="Switch Language Track" />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setIsCustomizeOpen(true)}
-              className="font-semibold gap-1.5 shadow-xs"
-              aria-label="Customize dashboard sections"
-            >
-              <span>⚙️</span>
-              <span className="hidden sm:inline">Customize Layout</span>
-              <span className="sm:hidden">Customize</span>
-            </Button>
-            <div className="h-8 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-3 rounded-xl border border-border shadow-xs">
+        {/* Top Navigation: Switch Language & Actions Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 -mb-2">
+          {/* Left: Switch / Back to Tracks */}
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <BackButton href="/tracks" label="Switch Track" className="text-xs sm:text-sm font-semibold" />
+            
+            {/* Mobile-only badge indicator shown cleanly on top-right */}
+            <div className="sm:hidden h-7 inline-flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/60 px-2.5 rounded-xl border border-border shadow-xs">
+              <span role="img" aria-label={currentLang.name} className="text-xs shrink-0">{currentLang.flag}</span>
+              <span>{currentLang.name}</span>
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+            </div>
+          </div>
+
+          {/* Right: Actions and Desktop Indicator */}
+          <div className="flex items-center justify-end gap-2">
+            {/* Desktop-only full indicator badge */}
+            <div className="hidden sm:inline-flex h-8 items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-3 rounded-xl border border-border shadow-xs">
               <span role="img" aria-label={currentLang.name} className="text-sm shrink-0">{currentLang.flag}</span>
               <span className="font-bold text-foreground">{currentLang.name} Track</span>
               <span className="text-muted-foreground/40">•</span>
@@ -1114,14 +1115,29 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsCustomizeOpen(true)}
+              className="font-semibold gap-1.5 shadow-xs text-xs h-8"
+              aria-label="Customize dashboard sections"
+            >
+              <span>⚙️</span>
+              <span className="hidden sm:inline">Customize Layout</span>
+              <span className="sm:hidden">Customize</span>
+            </Button>
+
             <Button
               href="/tracks"
               as="link"
               variant="ghost"
               size="sm"
-              className="font-semibold text-primary"
+              className="font-semibold text-primary text-xs h-8 px-2.5"
             >
-              All Tracks →
+              <span className="hidden sm:inline">All Tracks →</span>
+              <span className="sm:hidden">Tracks →</span>
             </Button>
           </div>
         </div>
