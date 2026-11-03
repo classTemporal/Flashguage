@@ -388,17 +388,17 @@ function GoalProgress({
           </div>
         ) : dueCount === 0 ? (
           <div className="flex items-center gap-2">
-            <span className={current >= goal ? "text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm" : "text-amber-600 dark:text-amber-400 font-semibold text-xs sm:text-sm"}>
-              {current >= goal ? "0 cards due today (Goal complete! 🎉)" : `${goal - current} left to reach daily goal`}
+            <span className={current >= goal ? "text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm" : "text-emerald-600 dark:text-emerald-400 font-semibold text-xs sm:text-sm"}>
+              {current >= goal ? "0 cards due today (Goal complete! 🎉)" : "All cards caught up today! 🌟"}
             </span>
             <Button
               href={`/study/all?lang=${encodeURIComponent(activeLanguage)}&mode=all`}
               as="link"
-              variant={current >= goal ? "secondary" : "primary"}
+              variant="secondary"
               size="sm"
               className="h-6 text-[11px] px-2.5 py-0 font-semibold shadow-xs"
             >
-              {current < goal ? `Study to Goal (${goal - current} left) →` : "Practice Any →"}
+              Free Practice →
             </Button>
           </div>
         ) : (
@@ -747,7 +747,7 @@ export default function Dashboard() {
                   title="Daily Streak"
                   value={`${stats.streak}d`}
                   icon="🔥"
-                  subtitle="Consecutive study days"
+                  subtitle={stats.dailyGoal.current > 0 ? "Active today (≥1 card)" : "Consecutive study days"}
                 />
                 <StatCard
                   title="Cards Learned"
