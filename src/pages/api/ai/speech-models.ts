@@ -140,6 +140,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         break;
       }
 
+      case "cartesia": {
+        try {
+          const r = await fetch("https://api.cartesia.ai/voices", {
+            headers: {
+              "X-API-Key": key,
+              "Cartesia-Version": "2024-06-10",
+            },
+          });
+          if (r.ok) {
+            models = ["sonic-3.6", "sonic-multilingual", "sonic-english", "sonic"];
+          }
+        } catch {}
+        if (models.length === 0) {
+          models = ["sonic-3.6", "sonic-multilingual", "sonic-english", "sonic"];
+        }
+        break;
+      }
+
+      case "deepgram": {
+        models = [
+          "aura-2-thalia-en",
+          "aura-2-andromeda-en",
+          "aura-2-helena-en",
+          "aura-asteria-en",
+          "aura-luna-en",
+          "aura-stella-en",
+          "aura-athena-en",
+          "aura-hera-en",
+          "aura-orion-en",
+          "aura-arcas-en",
+          "aura-perseus-en",
+          "aura-angus-en",
+          "aura-orpheus-en",
+          "aura-helios-en",
+          "aura-zeus-en",
+        ];
+        break;
+      }
+
+      case "fishaudio": {
+        try {
+          const r = await fetch("https://api.fish.audio/model?page_size=20", {
+            headers: { Authorization: `Bearer ${key}` },
+          });
+          if (r.ok) {
+            const data = await r.json();
+            const items = (data.items || []).map((m: any) => m._id || m.title).filter(Boolean);
+            if (items.length > 0) {
+              models = ["s2.1-pro", "s2.1-pro-free", "speech-1.5", ...items.slice(0, 5)];
+            }
+          }
+        } catch {}
+        if (models.length === 0) {
+          models = ["s2.1-pro", "s2.1-pro-free", "speech-1.5"];
+        }
+        break;
+      }
+
       case "custom": {
         const url = urlBase.replace(/\/$/, "");
         const endpoint = url.endsWith("/v1") ? `${url}/models` : `${url}/v1/models`;

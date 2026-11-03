@@ -395,6 +395,9 @@ export default function OnboardingPage() {
       if (speechApiKey.trim()) {
         settingsPayload.speechApiKey = speechApiKey.trim();
       }
+      if (speechVoice?.trim()) {
+        settingsPayload.speechVoice = speechVoice.trim();
+      }
       if (speechProvider === "custom" && speechBaseUrl.trim()) {
         settingsPayload.speechBaseUrl = speechBaseUrl.trim();
       }
@@ -845,12 +848,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { id: "browser", name: "Browser (Free)" },
                       { id: "gemini", name: "Gemini" },
                       { id: "openai", name: "OpenAI" },
                       { id: "elevenlabs", name: "ElevenLabs" },
+                      { id: "cartesia", name: "Cartesia" },
+                      { id: "deepgram", name: "Deepgram" },
+                      { id: "fishaudio", name: "Fish Audio" },
                       { id: "custom", name: "Custom" },
                     ].map((p) => (
                       <button
@@ -859,10 +865,28 @@ export default function OnboardingPage() {
                         onClick={() => {
                           setSpeechProvider(p.id);
                           setDetectedSpeechModels([]);
-                          if (p.id === "gemini") setSpeechModel("gemini-3.8-flash-tts");
-                          else if (p.id === "openai") setSpeechModel("tts-1");
-                          else if (p.id === "elevenlabs") setSpeechModel("eleven_multilingual_v2");
-                          else if (p.id === "custom") setSpeechModel("tts-1");
+                          if (p.id === "gemini") {
+                            setSpeechModel("gemini-3.8-flash-tts");
+                            setSpeechVoice("Puck");
+                          } else if (p.id === "openai") {
+                            setSpeechModel("tts-1");
+                            setSpeechVoice("nova");
+                          } else if (p.id === "elevenlabs") {
+                            setSpeechModel("eleven_multilingual_v2");
+                            setSpeechVoice("21m00Tcm4TlvDq8ikWAM");
+                          } else if (p.id === "cartesia") {
+                            setSpeechModel("sonic-3.6");
+                            setSpeechVoice("a0e99841-438c-4a64-b679-ae501e7d6091");
+                          } else if (p.id === "deepgram") {
+                            setSpeechModel("aura-2-thalia-en");
+                            setSpeechVoice("aura-2-thalia-en");
+                          } else if (p.id === "fishaudio") {
+                            setSpeechModel("s2.1-pro");
+                            setSpeechVoice("");
+                          } else if (p.id === "custom") {
+                            setSpeechModel("tts-1");
+                            setSpeechVoice("alloy");
+                          }
                         }}
                         className={`h-10 px-2 rounded-xl border text-center font-bold text-xs transition-all flex items-center justify-center ${
                           speechProvider === p.id

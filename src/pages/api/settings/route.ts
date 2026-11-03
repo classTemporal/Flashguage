@@ -40,7 +40,7 @@ export const settingsSchema = z.object({
   onboarded: z.boolean().optional(),
   initialLanguage: z.string().optional(),
   // Speech & Pronunciation settings
-  speechProvider: z.enum(["browser", "openai", "gemini", "groq", "elevenlabs", "custom"]).optional(),
+  speechProvider: z.enum(["browser", "openai", "gemini", "groq", "elevenlabs", "cartesia", "deepgram", "fishaudio", "custom"]).optional(),
   speechApiKey: z.string().optional(),
   speechBaseUrl: z.string().optional(),
   speechVoice: z.string().optional(),
@@ -132,7 +132,7 @@ export const pickSettings = (
     onboarded: typeof data.onboarded === "boolean" ? data.onboarded : false,
     initialLanguage: ((data.initialLanguage as string) || "en").trim(),
     // Speech & Pronunciation Settings (TTS)
-    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "gemini" | "openai" | "elevenlabs" | "custom",
+    speechProvider: ((data.speechProvider as string) ?? "browser") as "browser" | "gemini" | "openai" | "elevenlabs" | "cartesia" | "deepgram" | "fishaudio" | "custom",
     speechApiKey: ((data.speechApiKey as string) ?? "").trim(),
     speechBaseUrl: ((data.speechBaseUrl as string) ?? "").trim(),
     speechVoice: ((data.speechVoice as string) ?? "nova").trim(),

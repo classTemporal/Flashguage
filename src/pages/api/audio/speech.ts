@@ -435,7 +435,276 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 4. Custom TTS Integration
+    // 4. Cartesia TTS Integration (Does not use OpenAI endpoint format)
+    if (provider === "cartesia") {
+      const apiKey = (
+        overrideApiKey ||
+        userSettings.speechApiKey ||
+        userSettings.cartesiaKey ||
+        process.env.CARTESIA_API_KEY ||
+        ""
+      ).trim();
+
+      if (!apiKey) {
+        return res.status(400).json({
+          success: false,
+          provider: "cartesia",
+          message: "Cartesia API key is required. Please configure it in Settings.",
+        });
+      }
+
+      const voice = (overrideVoice || userSettings.speechVoice || "a0e99841-438c-4a64-b679-ae501e7d6091").trim();
+      const model = (overrideModel || userSettings.speechModel || "sonic-3.6").trim();
+
+      const cacheKey = `cartesia:${model}:${voice}:${cleanText.toLowerCase()}`;
+      const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+      const fileName = `${hash}.wav`;
+      const filePath = path.join(cacheDir, fileName);
+      const publicUrl = `/api/audio/play/${fileName}`;
+
+      if (!skipCache && fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: true,
+            provider: "cartesia",
+          });
+        }
+      }
+
+      try {
+        const cartesiaRes = await fetch("https://api.cartesia.ai/tts/bytes", {
+          method: "POST",
+          headers: {
+            "X-API-Key": apiKey,
+            "Cartesia-Version": "2024-06-10",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model_id: model,
+            transcript: cleanText,
+            voice: {
+              mode: "id",
+              id: voice,
+            },
+            output_format: {
+              container: "wav",
+              encoding: "pcm_s16le",
+              sample_rate: 44100,
+            },
+          }),
+        });
+
+        if (cartesiaRes.ok) {
+          const arrayBuffer = await cartesiaRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
+
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "cartesia",
+          });
+        }
+
+        const errJson = await cartesiaRes.json().catch(() => null);
+        const errMsg = errJson?.error?.message || errJson?.message || `HTTP ${cartesiaRes.status}`;
+        console.error("[Cartesia TTS Error]:", cartesiaRes.status, errMsg);
+        return res.status(cartesiaRes.status >= 400 && cartesiaRes.status < 600 ? cartesiaRes.status : 500).json({
+          success: false,
+          provider: "cartesia",
+          message: `Cartesia speech error (${cartesiaRes.status}): ${errMsg}`,
+        });
+      } catch (cartesiaErr: any) {
+        console.error("[Cartesia TTS Fetch Error]:", cartesiaErr);
+        return res.status(500).json({
+          success: false,
+          provider: "cartesia",
+          message: `Failed to connect to Cartesia: ${cartesiaErr?.message || "Network error"}`,
+        });
+      }
+    }
+
+    // 5. Deepgram TTS Integration
+    if (provider === "deepgram") {
+      const apiKey = (
+        overrideApiKey ||
+        userSettings.speechApiKey ||
+        userSettings.deepgramKey ||
+        process.env.DEEPGRAM_API_KEY ||
+        ""
+      ).trim();
+
+      if (!apiKey) {
+        return res.status(400).json({
+          success: false,
+          provider: "deepgram",
+          message: "Deepgram API key is required. Please configure it in Settings.",
+        });
+      }
+
+      const voice = (overrideVoice || userSettings.speechVoice || "").trim();
+      const model = (overrideModel || userSettings.speechModel || voice || "aura-2-thalia-en").trim();
+
+      const cacheKey = `deepgram:${model}:${cleanText.toLowerCase()}`;
+      const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+      const fileName = `${hash}.mp3`;
+      const filePath = path.join(cacheDir, fileName);
+      const publicUrl = `/api/audio/play/${fileName}`;
+
+      if (!skipCache && fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: true,
+            provider: "deepgram",
+          });
+        }
+      }
+
+      try {
+        const deepgramRes = await fetch(
+          `https://api.deepgram.com/v1/speak?model=${encodeURIComponent(model)}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Token ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text: cleanText }),
+          }
+        );
+
+        if (deepgramRes.ok) {
+          const arrayBuffer = await deepgramRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
+
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "deepgram",
+          });
+        }
+
+        const errJson = await deepgramRes.json().catch(() => null);
+        const errMsg = errJson?.err_msg || errJson?.error || `HTTP ${deepgramRes.status}`;
+        console.error("[Deepgram TTS Error]:", deepgramRes.status, errMsg);
+        return res.status(deepgramRes.status >= 400 && deepgramRes.status < 600 ? deepgramRes.status : 500).json({
+          success: false,
+          provider: "deepgram",
+          message: `Deepgram speech error (${deepgramRes.status}): ${errMsg}`,
+        });
+      } catch (deepgramErr: any) {
+        console.error("[Deepgram TTS Fetch Error]:", deepgramErr);
+        return res.status(500).json({
+          success: false,
+          provider: "deepgram",
+          message: `Failed to connect to Deepgram: ${deepgramErr?.message || "Network error"}`,
+        });
+      }
+    }
+
+    // 6. Fish Audio TTS Integration
+    if (provider === "fishaudio") {
+      const apiKey = (
+        overrideApiKey ||
+        userSettings.speechApiKey ||
+        userSettings.fishAudioKey ||
+        process.env.FISH_AUDIO_API_KEY ||
+        ""
+      ).trim();
+
+      if (!apiKey) {
+        return res.status(400).json({
+          success: false,
+          provider: "fishaudio",
+          message: "Fish Audio API key is required. Please configure it in Settings.",
+        });
+      }
+
+      const voice = (overrideVoice || userSettings.speechVoice || "").trim();
+      const model = (overrideModel || userSettings.speechModel || "s2.1-pro").trim();
+
+      const cacheKey = `fishaudio:${model}:${voice}:${cleanText.toLowerCase()}`;
+      const hash = crypto.createHash("sha256").update(cacheKey).digest("hex");
+      const fileName = `${hash}.mp3`;
+      const filePath = path.join(cacheDir, fileName);
+      const publicUrl = `/api/audio/play/${fileName}`;
+
+      if (!skipCache && fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 0) {
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: true,
+            provider: "fishaudio",
+          });
+        }
+      }
+
+      try {
+        const bodyPayload: Record<string, any> = {
+          text: cleanText,
+          format: "mp3",
+        };
+        if (voice) {
+          bodyPayload.reference_id = voice;
+        }
+
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        };
+        if (model) {
+          headers["model"] = model;
+        }
+
+        const fishRes = await fetch("https://api.fish.audio/v1/tts", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(bodyPayload),
+        });
+
+        if (fishRes.ok) {
+          const arrayBuffer = await fishRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          await fs.promises.writeFile(filePath, buffer);
+
+          return res.status(200).json({
+            success: true,
+            audioUrl: publicUrl,
+            cached: false,
+            provider: "fishaudio",
+          });
+        }
+
+        const errJson = await fishRes.json().catch(() => null);
+        const errMsg = errJson?.message || errJson?.detail || `HTTP ${fishRes.status}`;
+        console.error("[Fish Audio TTS Error]:", fishRes.status, errMsg);
+        return res.status(fishRes.status >= 400 && fishRes.status < 600 ? fishRes.status : 500).json({
+          success: false,
+          provider: "fishaudio",
+          message: `Fish Audio speech error (${fishRes.status}): ${errMsg}`,
+        });
+      } catch (fishErr: any) {
+        console.error("[Fish Audio TTS Fetch Error]:", fishErr);
+        return res.status(500).json({
+          success: false,
+          provider: "fishaudio",
+          message: `Failed to connect to Fish Audio: ${fishErr?.message || "Network error"}`,
+        });
+      }
+    }
+
+    // 7. Custom TTS Integration
     if (provider === "custom") {
       const baseUrl = (overrideBaseUrl || req.body.baseUrl || userSettings.speechBaseUrl || userSettings.customBaseUrl || "").trim();
       if (!baseUrl) {
