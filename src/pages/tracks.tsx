@@ -212,11 +212,6 @@ export default function TracksPage() {
                               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                                 Active Track
                               </span>
-                              {isPinned && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                                  📌 Pinned
-                                </span>
-                              )}
                             </div>
                             <p className="text-xs text-muted-foreground font-medium">
                               {lang.nativeName}

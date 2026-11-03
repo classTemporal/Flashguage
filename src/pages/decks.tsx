@@ -475,11 +475,6 @@ export default function DecksPage() {
                             >
                               {deck.name}
                             </Link>
-                            {isPinned && (
-                              <span className="shrink-0 text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-500 px-1.5 py-0.5 rounded-full">
-                                📌
-                              </span>
-                            )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <button
