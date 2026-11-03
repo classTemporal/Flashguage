@@ -1085,37 +1085,12 @@ export default function Dashboard() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Top Navigation: Switch Language & Actions Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 -mb-2">
-          {/* Left: Switch / Back to Tracks */}
-          <div className="flex items-center justify-between sm:justify-start gap-2">
-            <BackButton href="/tracks" label="Switch Track" className="text-xs sm:text-sm font-semibold" />
-            
-            {/* Mobile-only badge indicator shown cleanly on top-right */}
-            <div className="sm:hidden h-7 inline-flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/60 px-2.5 rounded-xl border border-border shadow-xs">
-              <span role="img" aria-label={currentLang.name} className="text-xs shrink-0">{currentLang.flag}</span>
-              <span>{currentLang.name}</span>
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-            </div>
-          </div>
+        <div className="flex items-center justify-between gap-3 -mb-2">
+          {/* Left: Switch Track */}
+          <BackButton href="/tracks" label="Switch Track" className="text-xs sm:text-sm font-semibold" />
 
-          {/* Right: Actions and Desktop Indicator */}
-          <div className="flex items-center justify-end gap-2">
-            {/* Desktop-only full indicator badge */}
-            <div className="hidden sm:inline-flex h-8 items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-3 rounded-xl border border-border shadow-xs">
-              <span role="img" aria-label={currentLang.name} className="text-sm shrink-0">{currentLang.flag}</span>
-              <span className="font-bold text-foreground">{currentLang.name} Track</span>
-              <span className="text-muted-foreground/40">•</span>
-              {(decks?.length || 0) === 0 ? (
-                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 shrink-0">
-                  Inactive • 0 Decks
-                </span>
-              ) : (
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
-                  Active Track
-                </span>
-              )}
-            </div>
-
+          {/* Right: Customize & Active Language Badge in a single clean row */}
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -1129,16 +1104,22 @@ export default function Dashboard() {
               <span className="sm:hidden">Customize</span>
             </Button>
 
-            <Button
-              href="/tracks"
-              as="link"
-              variant="ghost"
-              size="sm"
-              className="font-semibold text-primary text-xs h-8 px-2.5"
-            >
-              <span className="hidden sm:inline">All Tracks →</span>
-              <span className="sm:hidden">Tracks →</span>
-            </Button>
+            {/* Language Badge */}
+            <div className="h-8 inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/60 px-2.5 sm:px-3 rounded-xl border border-border shadow-xs shrink-0">
+              <span role="img" aria-label={currentLang.name} className="text-sm shrink-0">{currentLang.flag}</span>
+              <span className="font-bold text-foreground text-xs">{currentLang.name}</span>
+              <span className="hidden sm:inline text-muted-foreground/40">•</span>
+              {(decks?.length || 0) === 0 ? (
+                <span className="hidden sm:inline-block text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 shrink-0">
+                  Inactive • 0 Decks
+                </span>
+              ) : (
+                <span className="hidden sm:inline-block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
+                  Active Track
+                </span>
+              )}
+              <span className="sm:hidden inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Active Track" />
+            </div>
           </div>
         </div>
 
