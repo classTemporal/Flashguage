@@ -419,7 +419,15 @@ export class UniversalSpeechRecognizer {
       } catch (mediaErr: any) {
         options.onListeningEnd?.();
         if (mediaErr.name === "NotAllowedError" || mediaErr.name === "PermissionDeniedError") {
-          onError("Microphone permission was denied. Please allow microphone access in Firefox.");
+          onError("Microphone permission was denied. Please allow microphone access in your browser (check the permissions icon in the address bar).");
+        } else if (
+          mediaErr.name === "NotFoundError" ||
+          mediaErr.name === "DevicesNotFoundError" ||
+          mediaErr.message?.toLowerCase().includes("not be found")
+        ) {
+          onError("No microphone detected. Please verify your microphone is plugged in, enabled in your system settings, and selected in your browser.");
+        } else if (mediaErr.name === "NotReadableError" || mediaErr.name === "TrackStartError") {
+          onError("Microphone is currently in use by another application or blocked by your system privacy settings.");
         } else {
           onError(`Microphone error: ${mediaErr?.message || "Unable to access microphone"}`);
         }
